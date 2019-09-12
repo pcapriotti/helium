@@ -39,7 +39,7 @@ _stage0:
 
   /* enable protected mode */
   cli
-  lgdt gdtp
+  lgdt kernel_gdtp
   mov %cr0, %eax
   or $1, %eax
   mov %eax, %cr0
@@ -64,31 +64,5 @@ hang:
   hlt
 1:
   jmp 1b
-
-.p2align 3
-/* prefilled gdt */
-gdt:
-  /* null descriptor */
-  .short 0, 0
-  .byte 0, 0, 0, 0
-
-  /* code descriptor */
-  .short 0xffff /* limit low */
-  .short 0      /* base low */
-  .byte 0       /* base middle */
-  .byte 0x9a    /* code segment, ring 0 */
-  .byte 0xcf    /* limit middle */
-  .byte 0       /* base high */
-
-  /* data descriptor */
-  .short 0xffff
-  .short 0
-  .byte 0
-  .byte 0x92    /* data segment, ring 0 */
-  .byte 0xcf
-  .byte 0
-gdtp:
-  .short 8 * 3 - 1
-  .long gdt
 
 _stage0_end:
