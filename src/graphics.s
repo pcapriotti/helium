@@ -58,7 +58,6 @@ graphics_init_done:
   pop %ds
   ret
 
-.section .data
 vbe_info:
     signature: .ascii "VBE2"
 	version: .short 0
