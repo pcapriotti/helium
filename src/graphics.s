@@ -1,6 +1,6 @@
 .code16
 .globl graphics_init
-.set vbe_mode, 0x0101
+.set vbe_mode, 0x0105
 .section .text
 
 graphics_init:
@@ -64,7 +64,7 @@ vbe_info:
 	version: .short 0
     oem: .long 0
     caps: .long 0
-    modes: .long 0
+    vesa_modes: .long 0
     mem: .short 0 /* mem in 64K blocks */
     sw_rev: .short 0
     vendor: .long 0
@@ -96,6 +96,7 @@ mode_info:
   vesa_framebuffer: .long 0
   .skip 212
 
+.globl vesa_modes
 .globl vesa_framebuffer
 .globl vesa_pitch
 .globl vesa_width
