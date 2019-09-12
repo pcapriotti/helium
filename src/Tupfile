@@ -1,0 +1,13 @@
+include_rules
+AS=$HOME/.local/opt/cross/bin/$(TARGET)-as
+CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
+
+CFLAGS += -std=gnu99 -ffreestanding
+CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -fomit-frame-pointer
+CFLAGS += -fdiagnostics-color=always
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-unused-variable
+
+: foreach *.s |> $(AS) %f -o %o |> %B.o
+: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o

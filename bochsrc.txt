@@ -1,0 +1,11 @@
+megs: 128
+# romimage: file=/usr/share/bochs/BIOS-bochs-latest
+# vgaromimage: file=/usr/share/bochs/VGABIOS-elpin-2.40
+vga: extension=vbe
+floppya: 1_44=build/fda, status=inserted
+# ata0-master: type=cdrom, path=build/kernel.iso, status=inserted
+boot: floppy
+log: .bochsout.txt
+mouse: enabled=0
+clock: sync=realtime
+# cpu: ips=1000000

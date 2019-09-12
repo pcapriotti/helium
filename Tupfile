@@ -1,0 +1,6 @@
+include_rules
+LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
+
+: src/*.o |> $(LD) -T boot.ld %f -o %o |> demo.elf
+: demo.elf |> objcopy -O binary -j .text -j .data %f %o |> %B.bin
+: demo.bin |> dd if=%f of=%o bs=512 && dd if=/dev/null of=%o bs=1 count=1 seek=9216 |> fda
