@@ -1,7 +1,7 @@
 .code16
 .globl graphics_init
 .set vbe_mode, 0x0105
-.section .text
+.section .text1
 
 graphics_init:
   push %ds

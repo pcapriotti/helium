@@ -1,4 +1,4 @@
-/* Interrupt handlers */
+.section .text1
 
 .macro isr_preamble
   cli

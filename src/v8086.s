@@ -1,3 +1,5 @@
+.section .text1
+
 /* virtual 8086 mode */
 .code16
 v8086_entry:
