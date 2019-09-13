@@ -19,27 +19,26 @@
   iret
 .endm
 
+isr_generic:
+  isr_preamble
+  push %esp
+  call interrupt_handler
+  add $4, %esp
+  isr_epilogue 8
+
 .macro isr0 number
   .globl isr\number
 isr\number:
   pushl $0xff /* fake error code */
   pushl $\number
-  isr_preamble
-  push %esp
-  call interrupt_handler
-  add $0x4, %esp /* clean the stack */
-  isr_epilogue 8
+  jmp isr_generic
 .endm
 
 .macro isr1 number
   .globl isr\number
 isr\number:
   pushl $\number
-  isr_preamble
-  push %esp
-  call interrupt_handler
-  add $0x4, %esp /* clean the stack */
-  isr_epilogue 8
+  jmp isr_generic
 .endm
 
 .macro irq number
