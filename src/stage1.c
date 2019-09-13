@@ -1,4 +1,5 @@
 #include "stdint.h"
+#include "v8086.h"
 
 extern volatile uint8_t *vesa_framebuffer;
 extern unsigned short vesa_pitch;
@@ -67,6 +68,17 @@ void set_gdt_entry(gdt_entry_t *entry,
   entry->flags = flags;
 }
 
+void exit(int error)
+{
+  for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 10; i++) {
+      vesa_framebuffer[i + j * vesa_pitch] = error ? 4 : 2;
+    }
+  }
+  __asm__ volatile("hlt");
+  while (1);
+}
+
 void _stage1()
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
@@ -74,11 +86,8 @@ void _stage1()
                 sizeof(kernel_tss),
                 0x89, 0);
 
-  for (int j = 0; j < 10; j++) {
-    for (int i = 0; i < 10; i++) {
-      vesa_framebuffer[i + j * vesa_pitch] = 2;
-    }
-  }
-  __asm__ volatile("hlt");
-  while (1);
+  if (!vme_supported()) exit(1);
+  enter_v8086_mode();
+
+  exit(0);
 }
