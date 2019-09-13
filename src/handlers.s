@@ -30,8 +30,7 @@ isr_generic:
 .macro isr0 number
   .globl isr\number
 isr\number:
-  pushl $0xff /* fake error code */
-  add $0, %esp
+  sub $4, %esp
   pushl $\number
   mov $isr_generic, %eax
   jmp *%eax
@@ -41,8 +40,7 @@ isr\number:
   .globl isr\number
 isr\number:
   /* fake push so that all isrs have the same code size */
-  pushl $0xff
-  add $4, %esp
+  sub $0, %esp
   pushl $\number
   mov $isr_generic, %eax
   jmp *%eax
