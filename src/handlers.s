@@ -33,7 +33,8 @@ isr\number:
   pushl $0xff /* fake error code */
   add $0, %esp
   pushl $\number
-  jmp isr_generic
+  mov $isr_generic, %eax
+  jmp *%eax
 .endm
 
 .macro isr1 number
@@ -43,7 +44,8 @@ isr\number:
   pushl $0xff
   add $4, %esp
   pushl $\number
-  jmp isr_generic
+  mov $isr_generic, %eax
+  jmp *%eax
 .endm
 
 .macro irq number
@@ -76,20 +78,3 @@ isr0 16
 isr1 17
 isr0 18
 isr0 19
-
-irq 0
-irq 1
-irq 2
-irq 3
-irq 4
-irq 5
-irq 6
-irq 7
-irq 8
-irq 9
-irq 10
-irq 11
-irq 12
-irq 13
-irq 14
-irq 15
