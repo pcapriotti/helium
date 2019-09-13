@@ -35,10 +35,10 @@ vme_supported:
 
 .globl enter_v8086_mode
 enter_v8086_mode:
-  /* enable VME */
-  mov %cr4, %eax
-  or $1, %eax
-  mov %eax, %cr4
+  /* iopl = 3 */
+  pushf
+  orl $(0x3 << 12), (%esp)
+  popf
 
   /* prepare for iret */
   push $0

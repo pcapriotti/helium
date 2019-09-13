@@ -124,7 +124,7 @@ void _stage1()
   }
 
   __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
-  __asm__ volatile("div %0" : : "r"(0));
+  enter_v8086_mode();
 
   show_error_code(2);
 }
