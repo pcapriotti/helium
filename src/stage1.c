@@ -116,16 +116,16 @@ void _stage1()
                 sizeof(kernel_tss),
                 0x89, 0);
 
-  set_idt_entry(&kernel_idt[13],
-                (uint32_t)isr13,
-                GDT_CODE * sizeof(gdt_entry_t),
-                1, 0);
-  set_idt_entry(&kernel_idt[0],
-                (uint32_t)isr0,
-                GDT_CODE * sizeof(gdt_entry_t),
-                1, 0);
+  for (int i = 0; i < 20; i++) {
+    uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
+    uint32_t addr = (uint32_t)isr0 + size * i;
+    set_idt_entry(&kernel_idt[i], addr,
+                  GDT_CODE * sizeof(gdt_entry_t),
+                  1, 0);
+  }
 
   __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
+  __asm__ volatile("div %0" : : "r"(0));
 
   show_error_code(2);
 }

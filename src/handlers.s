@@ -26,10 +26,14 @@ isr_generic:
   add $4, %esp
   isr_epilogue 8
 
+/* Make sure that all isr stubs have the same size.
+  This way I can set them all in the IDT with a simple loop */
+
 .macro isr0 number
   .globl isr\number
 isr\number:
   pushl $0xff /* fake error code */
+  add $0, %esp
   pushl $\number
   jmp isr_generic
 .endm
@@ -37,6 +41,9 @@ isr\number:
 .macro isr1 number
   .globl isr\number
 isr\number:
+  /* fake push so that all isrs have the same code size */
+  pushl $0xff
+  add $4, %esp
   pushl $\number
   jmp isr_generic
 .endm
@@ -71,7 +78,6 @@ isr0 16
 isr1 17
 isr0 18
 isr0 19
-isr0 128
 
 irq 0
 irq 1
