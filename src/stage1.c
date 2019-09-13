@@ -46,13 +46,6 @@ void set_gdt_entry(gdt_entry_t *entry,
   entry->flags = flags;
 }
 
-typedef struct {
-  uint32_t gs, fs, es, ds;
-  uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
-  uint32_t int_num, error;
-  uint32_t eip, cs, eflags, esp, ss;
-} __attribute__((packed)) isr_stack_t;
-
 void set_idt_entry(idt_entry_t *entry,
                    uint32_t offset,
                    uint16_t segment,
@@ -105,27 +98,29 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x00);
 }
 
+static int num_irq = 0;
+
 void irq_handler(uint16_t num)
 {
-  if (num > 0) {
-    show_error_code(num, 1);
-  }
+  num_irq++;
   pic_eoi(num);
 }
 
 void interrupt_handler(isr_stack_t stack)
 {
+  if (stack.eflags & EFLAGS_VM) {
+    v8086_restore_segments();
+  }
+
   switch (stack.int_num) {
   case IDT_GP:
-    show_error_code(stack.eip, 1);
-    break;
-  case IDT_PF:
-    show_error_code(stack.cs, 5);
-    break;
-  default:
-    show_error_code(0xdead0000 | stack.int_num, 4);
+    if (stack.eflags & EFLAGS_VM) {
+      v8086_exit(kernel_tss.tss.eip);
+    }
     break;
   }
+
+  show_error_code(0xdead0000 | stack.int_num, 4);
 }
 
 gdtp_t kernel_idtp = {
@@ -135,6 +130,7 @@ gdtp_t kernel_idtp = {
 
 void set_kernel_idt()
 {
+  /* isr */
   for (int i = 0; i < NUM_ISR; i++) {
     uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
     uint32_t addr = (uint32_t)isr0 + size * i;
@@ -143,10 +139,11 @@ void set_kernel_idt()
                   1, 0);
   }
 
+  /* irq */
   for (int i = 0; i < NUM_IRQ; i++) {
     uint32_t size = (uint8_t *)irq1 - (uint8_t *)irq0;
     uint32_t addr = (uint32_t)irq0 + size * i;
-    set_idt_entry(&kernel_idt[i + IRQ_OFFSET], addr,
+    set_idt_entry(&kernel_idt[i + IDT_IRQ], addr,
                   GDT_CODE * sizeof(gdt_entry_t),
                   1, 0);
   }
@@ -167,7 +164,8 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  __asm__ volatile("sti");
+
+  v8086_enter(&kernel_tss.tss.esp0, &kernel_tss.tss.eip);
 
   show_error_code(0, 2);
 }

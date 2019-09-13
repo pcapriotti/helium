@@ -1,7 +1,9 @@
 #ifndef V8086_H
 #define V8086_H
 
-void enter_v8086_mode(void *tss_esp0);
+void v8086_enter(uint32_t *tss_esp0, uint32_t *tss_eip);
+void v8086_exit();
+void v8086_restore_segments();
 int vme_supported();
 
 #endif /* V8086_H */

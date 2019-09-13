@@ -40,4 +40,8 @@ typedef struct {
   uint16_t iomap_base;
 } __attribute__((packed)) tss_t;
 
+enum {
+  EFLAGS_VM = 1 << 17,
+};
+
 #endif /* GDT_H */

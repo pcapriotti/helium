@@ -2,14 +2,13 @@
 #define INTERRUPTS_H
 
 enum {
-  IDT_GP = 13,
-  IDT_PF = 14,
+  IDT_GP = 0xd,
+  IDT_IRQ = 0x20,
   IDT_NUM_ENTRIES = 0x100,
 };
 
 enum {
   NUM_ISR = 0x14,
-  IRQ_OFFSET = 0x20,
   NUM_IRQ = 0x10,
 };
 
@@ -22,5 +21,11 @@ typedef struct {
 
 extern tss_with_iomap_t kernel_tss;
 
+typedef struct {
+  uint32_t gs, fs, es, ds;
+  uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
+  uint32_t int_num, error;
+  uint32_t eip, cs, eflags, esp, ss;
+} __attribute__((packed)) isr_stack_t;
 
 #endif /* INTERRUPTS_H */

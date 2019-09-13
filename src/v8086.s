@@ -6,6 +6,7 @@
 /* virtual 8086 mode */
 .code16
 v8086_entry:
+
   /* int $0x13 */
   xor %ax, %ax
   mov %ax, %ds
@@ -19,18 +20,14 @@ v8086_entry:
   push %cs
   push $1f
 
-  /* copy first sector into a buffer */
-  mov $0x0201, %ax
-  mov $0, %dx
-  mov $1, %cx
-  mov $0x2100, %bx
+  /* reset floppy */
+  xor %ax, %ax
+  mov $0, %dl
 
   mov $(0x13 * 4), %si
   ljmp *(%si)
 1:
-  mov $0xbadb12e8, %ecx
-2:
-  jmp 2b
+  int $0xd
 
 .code32
 
@@ -43,11 +40,15 @@ vme_supported:
   mov %edx, %eax
   ret
 
-.globl enter_v8086_mode
-enter_v8086_mode: /* (ptr tss.esp0) */
+.globl v8086_enter
+v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
   /* set tss esp */
   mov 4(%esp), %eax
   mov %esp, (%eax)
+
+  mov 8(%esp), %eax
+  mov (%esp), %ebx
+  movl %ebx, (%eax)
 
   /* iopl = 3 */
   pushf
@@ -62,3 +63,17 @@ enter_v8086_mode: /* (ptr tss.esp0) */
   push $0
   push $v8086_entry
   iret
+
+.globl v8086_exit
+v8086_exit: /* (tss.eip) */
+  mov 4(%esp), %eax
+  jmp *%eax
+
+.globl v8086_restore_segments
+v8086_restore_segments:
+  mov $0x10, %ax
+  mov %ax, %ds
+  mov %ax, %es
+  mov %ax, %fs
+  mov %ax, %gs
+  ret
