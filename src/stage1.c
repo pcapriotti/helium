@@ -98,38 +98,43 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x00);
 }
 
-static int num_irq = 0;
-
 void interrupt_handler(isr_stack_t stack)
 {
   int v8086 = stack.eflags & EFLAGS_VM;
   if (v8086) v8086_restore_segments();
 
+  if (v8086) {
+    switch (stack.int_num) {
+    case IDT_GP:
+      if (v8086) v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
+      break;
+    default:
+      {
+        int irq = stack.int_num;
+        if (irq >= IDT_IRQ) irq -= IDT_IRQ;
+
+        /* let the BIOS handle this interrupt */
+        stack.esp -= 6;
+        uint16_t *st = (uint16_t *)stack.esp;
+        st[0] = stack.eip;
+        st[1] = stack.cs;
+        st[2] = irq;
+        stack.cs = 0;
+        stack.eip = (uint32_t)v8086_int;
+      }
+    }
+
+    return;
+  }
+
   if (stack.int_num >= IDT_IRQ) {
     int irq = stack.int_num - IDT_IRQ;
-
-    /* let the BIOS handle this IRQ */
-    if (v8086) {
-      stack.esp -= 6;
-      uint16_t *st = (uint16_t *)stack.esp;
-      st[0] = stack.eip;
-      st[1] = stack.cs;
-      st[2] = irq;
-      stack.eip = (uint32_t)v8086_int;
-      return;
-    }
 
     pic_eoi(irq);
     return;
   }
 
-  switch (stack.int_num) {
-  case IDT_GP:
-    if (v8086) v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
-    break;
-  }
-
-  show_error_code(0xdead0000 | stack.int_num, 4);
+  show_error_code(stack.eflags, 4);
 }
 
 gdtp_t kernel_idtp = {
@@ -139,6 +144,14 @@ gdtp_t kernel_idtp = {
 
 void set_kernel_idt()
 {
+  for (int i = 0; i < IDT_NUM_ENTRIES; i++) {
+    idt_entry_t *entry = &kernel_idt[i];
+    entry->offset_low = 0;
+    entry->offset_high = 0;
+    entry->segment = 0;
+    entry->flags = 0;
+  }
+
   uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
 
   /* isr */
@@ -168,6 +181,9 @@ void _stage1()
                 0x89, 0);
   kernel_tss.tss.ss0 = GDT_SEL(GDT_DATA);
   kernel_tss.tss.iomap_base = sizeof(tss_t);
+  for (unsigned int i = 0; i < sizeof(kernel_tss.iomap); i++) {
+    kernel_tss.iomap[i] = 0;
+  }
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   set_kernel_idt();

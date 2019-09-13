@@ -92,4 +92,3 @@ v8086_restore_segments:
   mov %ax, %fs
   mov %ax, %gs
   ret
-
