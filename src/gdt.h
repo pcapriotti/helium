@@ -3,6 +3,8 @@
 
 #include "stdint.h"
 
+#define GDT_SEL(i) ((uint16_t)((i) * sizeof(gdt_entry_t)))
+
 typedef struct {
   uint16_t limit_low;
   uint16_t base_low;

@@ -1,11 +1,14 @@
 .section .text1
 
+.set v8086_stack_base, 0x2000
+
 /* virtual 8086 mode */
 .code16
 v8086_entry:
   /* int $0x13 */
   xor %ax, %ax
   mov %ax, %ds
+  mov %ax, %es
 
   /* prepare for iret */
   mov %sp, %ax
@@ -34,7 +37,11 @@ vme_supported:
   ret
 
 .globl enter_v8086_mode
-enter_v8086_mode:
+enter_v8086_mode: /* (ptr tss.esp0) */
+  /* set tss esp */
+  mov 4(%esp), %eax
+  mov %esp, (%eax)
+
   /* iopl = 3 */
   pushf
   orl $(0x3 << 12), (%esp)
@@ -42,8 +49,7 @@ enter_v8086_mode:
 
   /* prepare for iret */
   push $0
-  lea -0x40(%esp), %eax
-  push %eax
+  push $v8086_stack_base
   pushf
   orl $(1 << 17), (%esp)
   push $0

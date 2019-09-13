@@ -114,6 +114,8 @@ void _stage1()
                 (uint32_t)&kernel_tss,
                 sizeof(kernel_tss),
                 0x89, 0);
+  kernel_tss.ss0 = GDT_SEL(GDT_DATA);
+  __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   for (int i = 0; i < 20; i++) {
     uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
@@ -124,7 +126,7 @@ void _stage1()
   }
 
   __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
-  enter_v8086_mode();
+  enter_v8086_mode(&kernel_tss.esp0);
 
   show_error_code(2);
 }
