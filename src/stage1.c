@@ -103,9 +103,8 @@ void show_error_code(int colour)
   while (1);
 }
 
-void interrupt_handler(isr_stack_t *stack)
+void interrupt_handler(isr_stack_t stack)
 {
-  __asm__ volatile("" : : "c"(0x8ae87777));
   show_error_code(1);
 }
 

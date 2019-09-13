@@ -21,9 +21,7 @@
 
 isr_generic:
   isr_preamble
-  push %esp
   call interrupt_handler
-  add $4, %esp
   isr_epilogue 8
 
 /* Make sure that all isr stubs have the same size.
