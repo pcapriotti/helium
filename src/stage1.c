@@ -1,3 +1,6 @@
+#include "gdt.h"
+#include "handlers.h"
+#include "interrupts.h"
 #include "stdint.h"
 #include "v8086.h"
 
@@ -18,14 +21,7 @@ typedef struct {
 
 static tss_t kernel_tss;
 
-typedef struct {
-  uint16_t limit_low;
-  uint16_t base_low;
-  uint8_t base_mid;
-  uint8_t flags;
-  uint8_t granularity;
-  uint8_t base_high;
-} __attribute__((packed)) gdt_entry_t;
+/* GDT */
 
 enum {
   GDT_NULL = 0,
@@ -43,11 +39,6 @@ static __attribute__((aligned(8))) gdt_entry_t kernel_gdt[] = {
   { 0, 0, 0, 0, 0, 0 }, /* placeholder for task descriptor */
 };
 
-typedef struct {
-  uint16_t size;
-  gdt_entry_t *gdt;
-} __attribute__((packed)) gdtp_t;
-
 gdtp_t kernel_gdtp = {
   sizeof(kernel_gdt) - 1,
   kernel_gdt
@@ -63,20 +54,59 @@ void set_gdt_entry(gdt_entry_t *entry,
   entry->granularity = ((granularity << 4) & 0xf0) |
     ((limit >> 16) & 0x0f);
   entry->base_low = base & 0xffff;
-  entry->base_mid = ((base >> 16) & 0xff);
-  entry->base_high = ((base >> 24) & 0xff);
+  entry->base_mid = (base >> 16) & 0xff;
+  entry->base_high = (base >> 24) & 0xff;
   entry->flags = flags;
 }
 
-void exit(int error)
+/* IDT */
+
+gdtp_t kernel_idtp = {
+  sizeof(kernel_idt) - 1,
+  kernel_idt,
+};
+
+typedef struct {
+  uint32_t gs, fs, es, ds;
+  uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
+  uint32_t int_num, error;
+  uint32_t eip, cs, eflags, esp, ss;
+} __attribute__((packed)) isr_stack_t;
+
+void set_idt_entry(idt_entry_t *entry,
+                   uint32_t offset,
+                   uint16_t segment,
+                   uint8_t size32,
+                   uint8_t dpl)
+{
+  entry->offset_low = offset & 0xffff;
+  entry->offset_high = (offset >> 16) & 0xffff;
+  entry->segment = segment;
+  entry->flags = 0x8600 |
+    ((size32 != 0) << 11) |
+    (dpl << 13);
+}
+
+void irq_handler(isr_stack_t *stack)
+{
+}
+
+void show_error_code(int colour)
 {
   for (int j = 0; j < 10; j++) {
     for (int i = 0; i < 10; i++) {
-      vesa_framebuffer[i + j * vesa_pitch] = error ? 4 : 2;
+      vesa_framebuffer[i + j * vesa_pitch] = colour;
     }
   }
+
   __asm__ volatile("hlt");
   while (1);
+}
+
+void interrupt_handler(isr_stack_t *stack)
+{
+  __asm__ volatile("" : : "c"(0x8ae87777));
+  show_error_code(1);
 }
 
 void _stage1()
@@ -86,8 +116,16 @@ void _stage1()
                 sizeof(kernel_tss),
                 0x89, 0);
 
-  if (!vme_supported()) exit(1);
-  enter_v8086_mode();
+  set_idt_entry(&kernel_idt[13],
+                (uint32_t)isr13,
+                GDT_CODE * sizeof(gdt_entry_t),
+                1, 0);
+  set_idt_entry(&kernel_idt[0],
+                (uint32_t)isr0,
+                GDT_CODE * sizeof(gdt_entry_t),
+                1, 0);
 
-  exit(0);
+  __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
+
+  show_error_code(2);
 }

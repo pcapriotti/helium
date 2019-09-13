@@ -9,10 +9,12 @@ SECTIONS
     src/stage1.o
     src/graphics.o
     src/v8086.o
+    src/handlers.o
     ASSERT(. <= 0x2400, "Stage 1 should fit in the first track");
     _stage1_end = .;
     *(.text)
   }
   .data : { *(.data) }
   .bss : { *(.bss) }
+  _kernel_end = .;
 }
