@@ -21,7 +21,6 @@ void isr16();
 void isr17();
 void isr18();
 void isr19();
-void isr128();
 
 void irq0();
 void irq1();

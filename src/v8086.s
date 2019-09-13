@@ -1,4 +1,5 @@
 .section .text1
+.code32
 
 .set v8086_stack_base, 0x2000
 
@@ -17,6 +18,12 @@ v8086_entry:
   pushf
   push %cs
   push $1f
+
+  /* copy first sector into a buffer */
+  mov $0x0201, %ax
+  mov $0, %dx
+  mov $1, %cx
+  mov $0x2100, %bx
 
   mov $(0x13 * 4), %si
   ljmp *(%si)

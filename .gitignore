@@ -1,3 +1,4 @@
 .tup
 build
 .bochsout.txt
+.gdbinit
