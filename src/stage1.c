@@ -100,16 +100,16 @@ void pic_setup() {
 
 static int num_irq = 0;
 
-void irq_handler(uint16_t num)
-{
-  num_irq++;
-  pic_eoi(num);
-}
-
 void interrupt_handler(isr_stack_t stack)
 {
   if (stack.eflags & EFLAGS_VM) {
     v8086_restore_segments();
+  }
+
+  if (stack.int_num >= IDT_IRQ) {
+    int irq = stack.int_num - IDT_IRQ;
+    pic_eoi(irq);
+    return;
   }
 
   switch (stack.int_num) {
@@ -130,9 +130,10 @@ gdtp_t kernel_idtp = {
 
 void set_kernel_idt()
 {
+  uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
+
   /* isr */
   for (int i = 0; i < NUM_ISR; i++) {
-    uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
     uint32_t addr = (uint32_t)isr0 + size * i;
     set_idt_entry(&kernel_idt[i], addr,
                   GDT_CODE * sizeof(gdt_entry_t),
@@ -141,8 +142,7 @@ void set_kernel_idt()
 
   /* irq */
   for (int i = 0; i < NUM_IRQ; i++) {
-    uint32_t size = (uint8_t *)irq1 - (uint8_t *)irq0;
-    uint32_t addr = (uint32_t)irq0 + size * i;
+    uint32_t addr = (uint32_t)isr32 + size * i;
     set_idt_entry(&kernel_idt[i + IDT_IRQ], addr,
                   GDT_CODE * sizeof(gdt_entry_t),
                   1, 0);
@@ -163,7 +163,6 @@ void _stage1()
 
   set_kernel_idt();
   pic_setup();
-
 
   v8086_enter(&kernel_tss.tss.esp0, &kernel_tss.tss.eip);
 

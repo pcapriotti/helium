@@ -46,16 +46,6 @@ isr\number:
   jmp *%eax
 .endm
 
-.macro irq number
-  .globl irq\number
-irq\number:
-  isr_preamble
-  pushw $\number
-  call irq_handler
-  add $0x2, %esp /* clean the stack */
-  isr_epilogue 0
-.endm
-
 isr0 0
 isr0 1
 isr0 2
@@ -77,19 +67,19 @@ isr1 17
 isr0 18
 isr0 19
 
-irq 0
-irq 1
-irq 2
-irq 3
-irq 4
-irq 5
-irq 6
-irq 7
-irq 8
-irq 9
-irq 10
-irq 11
-irq 12
-irq 13
-irq 14
-irq 15
+isr0 32
+isr0 33
+isr0 34
+isr0 35
+isr0 36
+isr0 37
+isr0 38
+isr0 39
+isr0 40
+isr0 41
+isr0 42
+isr0 43
+isr0 44
+isr0 45
+isr0 46
+isr0 47
