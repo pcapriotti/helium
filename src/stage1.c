@@ -102,21 +102,30 @@ static int num_irq = 0;
 
 void interrupt_handler(isr_stack_t stack)
 {
-  if (stack.eflags & EFLAGS_VM) {
-    v8086_restore_segments();
-  }
+  int v8086 = stack.eflags & EFLAGS_VM;
+  if (v8086) v8086_restore_segments();
 
   if (stack.int_num >= IDT_IRQ) {
     int irq = stack.int_num - IDT_IRQ;
+
+    /* let the BIOS handle this IRQ */
+    if (v8086) {
+      stack.esp -= 6;
+      uint16_t *st = (uint16_t *)stack.esp;
+      st[0] = stack.eip;
+      st[1] = stack.cs;
+      st[2] = irq;
+      stack.eip = (uint32_t)v8086_int;
+      return;
+    }
+
     pic_eoi(irq);
     return;
   }
 
   switch (stack.int_num) {
   case IDT_GP:
-    if (stack.eflags & EFLAGS_VM) {
-      v8086_exit(kernel_tss.tss.eip);
-    }
+    if (v8086) v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
     break;
   }
 
@@ -165,6 +174,5 @@ void _stage1()
   pic_setup();
 
   v8086_enter(&kernel_tss.tss.esp0, &kernel_tss.tss.eip);
-
   show_error_code(0, 2);
 }

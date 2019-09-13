@@ -6,8 +6,6 @@
 /* virtual 8086 mode */
 .code16
 v8086_entry:
-
-  /* int $0x13 */
   xor %ax, %ax
   mov %ax, %ds
   mov %ax, %es
@@ -20,25 +18,40 @@ v8086_entry:
   push %cs
   push $1f
 
-  /* reset floppy */
-  xor %ax, %ax
-  mov $0, %dl
+  /* copy first sector into a buffer */
+  mov $0x0201, %ax
+  mov $0, %dx
+  mov $1, %cx
+  mov $0x2100, %bx
 
   mov $(0x13 * 4), %si
   ljmp *(%si)
 1:
   int $0xd
 
-.code32
+/* execute a BIOS interrupt */
+.globl v8086_int
+v8086_int: /* (cs, irq) */
+  xor %si, %si
+  mov %si, %ds
 
-.globl vme_supported
-vme_supported:
-  mov $1, %eax
-  cpuid
-  sar $1, %edx
-  and $1, %edx
-  mov %edx, %eax
-  ret
+  /* prepare for iret */
+  mov %sp, %si
+  push %ss
+  push %si
+  pushf
+  push (%si)
+  push 4(%si)
+
+  mov 8(%si), %ax
+  xor %dx, %dx
+  mov $4, %si
+  mul %si
+  mov %ax, %si
+
+  ljmp *(%si)
+
+.code32
 
 .globl v8086_enter
 v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
@@ -65,8 +78,10 @@ v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
   iret
 
 .globl v8086_exit
-v8086_exit: /* (tss.eip) */
-  mov 4(%esp), %eax
+v8086_exit: /* (tss.esp0, tss.eip) */
+  mov 8(%esp), %eax
+  mov 4(%esp), %esp
+
   jmp *%eax
 
 .globl v8086_restore_segments
@@ -77,3 +92,4 @@ v8086_restore_segments:
   mov %ax, %fs
   mov %ax, %gs
   ret
+
