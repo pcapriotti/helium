@@ -9,8 +9,8 @@ typedef struct {
   uint16_t gs, fs, es, ds;
 } regs16_t;
 
-void v8086_enter(uint32_t interrupt, regs16_t regs);
-void v8086_exit();
+void v8086_enter(uint32_t interrupt, regs16_t *regs);
+void v8086_exit(void *stack);
 int vme_supported();
 #endif
 

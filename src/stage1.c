@@ -136,7 +136,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
 
       /* final iret from v8086 */
       if (stack->esp == V8086_STACK_BASE) {
-        v8086_exit();
+        v8086_exit(stack);
         return;
       }
 
@@ -266,7 +266,10 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  v8086_enter(0x13, (regs16_t){ 0x0201, 0x2100, 1, 0, 0, 0, 0, 0 });
+  regs16_t regs = { 0x0201, 0x2100, 1, 0, 0, 0, 0, 0 };
+  v8086_enter(0x13, &regs);
+
+  show_error_code(regs.ax, 1);
 
   int x0 = 200;
   int y0 = 100;
