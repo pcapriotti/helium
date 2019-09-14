@@ -21,6 +21,10 @@ _stage0:
   xor %ax, %ax
   mov %ax, %es
 
+  xor %ax, %ax
+  mov $0, %dl
+  int $0x13
+
   mov $_stage1_end, %ax
   sub $0x7c01, %ax
   xor %dx, %dx

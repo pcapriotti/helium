@@ -11,9 +11,6 @@ v8086_entry:
   mov %ax, %es
 
   /* prepare for iret */
-  mov %sp, %ax
-  push %ss
-  push %ax
   pushf
   push %cs
   push $1f
@@ -36,8 +33,6 @@ v8086_int: /* (cs, irq) */
   mov %si, %ds
 
   /* prepare for iret */
-  mov %sp, %si
-  push %ss
   push %si
   pushf
   push (%si)
@@ -62,11 +57,6 @@ v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
   mov 8(%esp), %eax
   mov (%esp), %ebx
   movl %ebx, (%eax)
-
-  /* iopl = 3 */
-  pushf
-  orl $(0x3 << 12), (%esp)
-  popf
 
   /* prepare for iret */
   push $0

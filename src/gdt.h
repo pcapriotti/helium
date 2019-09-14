@@ -41,6 +41,7 @@ typedef struct {
 } __attribute__((packed)) tss_t;
 
 enum {
+  EFLAGS_IF = 1 << 9,
   EFLAGS_VM = 1 << 17,
 };
 

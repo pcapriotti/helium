@@ -6,6 +6,8 @@
 #include "v8086.h"
 
 extern volatile uint8_t *vesa_framebuffer;
+extern unsigned short vesa_width;
+extern unsigned short vesa_height;
 extern unsigned short vesa_pitch;
 
 /* GDT */
@@ -60,13 +62,25 @@ void set_idt_entry(idt_entry_t *entry,
     (dpl << 13);
 }
 
+static int sqx = 0, sqy = 0;
+
+void draw_square(int colour)
+{
+  for (int i = 0; i < 100; i++) {
+    int x = sqx + i % 10;
+    int y = sqy + i / 10;
+    vesa_framebuffer[x + y * vesa_pitch] = colour;
+  }
+  sqx += 11;
+  if (sqx >= vesa_width - 10) {
+    sqy += 11;
+    sqx = 0;
+  }
+}
+
 void show_error_code(uint32_t code, int colour)
 {
-  for (int j = 0; j < 10; j++) {
-    for (int i = 0; i < 10; i++) {
-      vesa_framebuffer[i + j * vesa_pitch] = colour;
-    }
-  }
+  draw_square(colour);
 
   __asm__ volatile("" : : "c"(code));
   __asm__ volatile("hlt");
@@ -98,6 +112,53 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x00);
 }
 
+static inline uint32_t seg_off_to_linear(uint16_t seg, uint16_t off)
+{
+  return (seg << 4) + off;
+}
+
+void v8086_gpf_handler(isr_stack_t *stack)
+{
+  uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
+  switch (*addr) {
+  case 0x9c: /* pushf */
+    {
+      draw_square(114);
+      stack->esp -= 2;
+      uint16_t *st = (uint16_t *)stack->esp;
+      st[0] = stack->eflags & 0xffff;
+      stack->eip += 1;
+      return;
+    }
+  case 0xcf: /* iret */
+    {
+      draw_square(44);
+      uint16_t *st = (uint16_t *)stack->esp;
+      stack->esp += 6;
+
+      stack->eip = st[0];
+      stack->cs = st[1];
+      stack->eflags = (stack->eflags & 0xffff0000) | st[2];
+      return;
+    }
+  case 0xfa: /* cli */
+    draw_square(64);
+    stack->eip += 1;
+    stack->eflags &= ~EFLAGS_IF;
+    return;
+  case 0xfb: /* sti */
+    draw_square(80);
+    stack->eip += 1;
+    stack->eflags |= EFLAGS_IF;
+    break;
+  case 0xcd: /* int */
+    v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
+    break;
+  default:
+    show_error_code((uint32_t)addr, 4);
+  }
+}
+
 void interrupt_handler(isr_stack_t stack)
 {
   int v8086 = stack.eflags & EFLAGS_VM;
@@ -106,25 +167,31 @@ void interrupt_handler(isr_stack_t stack)
   if (v8086) {
     switch (stack.int_num) {
     case IDT_GP:
-      if (v8086) v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
-      break;
-    default:
-      {
-        int irq = stack.int_num;
-        if (irq >= IDT_IRQ) irq -= IDT_IRQ;
-
-        /* let the BIOS handle this interrupt */
-        stack.esp -= 6;
-        uint16_t *st = (uint16_t *)stack.esp;
-        st[0] = stack.eip;
-        st[1] = stack.cs;
-        st[2] = irq;
-        stack.cs = 0;
-        stack.eip = (uint32_t)v8086_int;
-      }
+      v8086_gpf_handler(&stack);
+      return;
     }
 
-    return;
+    if (stack.int_num >= IDT_IRQ) {
+      int irq = stack.int_num - IDT_IRQ;
+
+      if (irq == 0) return;
+
+      draw_square(irq - 1);
+
+      /* let the BIOS handle this interrupt */
+      stack.esp -= 6;
+      uint16_t *st = (uint16_t *)stack.esp;
+      st[0] = stack.eip;
+      st[1] = stack.cs;
+      st[2] = stack.eflags;
+
+      int mapped = irq < 8 ? irq + 8 : irq + 0x68;
+      struct { uint16_t off; uint16_t seg; } *iv = 0;
+      stack.eip = iv[mapped].off;
+      stack.cs = iv[mapped].seg;
+
+      return;
+    }
   }
 
   if (stack.int_num >= IDT_IRQ) {
@@ -134,7 +201,7 @@ void interrupt_handler(isr_stack_t stack)
     return;
   }
 
-  show_error_code(stack.eflags, 4);
+  show_error_code((uint32_t)&stack, 4);
 }
 
 gdtp_t kernel_idtp = {
@@ -190,5 +257,15 @@ void _stage1()
   pic_setup();
 
   v8086_enter(&kernel_tss.tss.esp0, &kernel_tss.tss.eip);
+
+  int x0 = 200;
+  int y0 = 100;
+  uint8_t *m = (uint8_t *) 0x2100;
+  for (int i = 0; i < 0x100; i++) {
+    int x = x0 + i % 0x10;
+    int y = y0 + i / 0x10;
+    vesa_framebuffer[x + y * vesa_pitch] = m[i];
+  }
+
   show_error_code(0, 2);
 }
