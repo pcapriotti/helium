@@ -17,13 +17,13 @@ v8086_enter: /* (interrupt, ptr regs) */
 
   /* push segment registers */
   xor %eax, %eax
-  mov 0x8(%ebx), %ax
-  push %eax
-  mov 0xa(%ebx), %ax
+  mov 0xe(%ebx), %ax
   push %eax
   mov 0xc(%ebx), %ax
   push %eax
-  mov 0xe(%ebx), %ax
+  mov 0xa(%ebx), %ax
+  push %eax
+  mov 0x8(%ebx), %ax
   push %eax
 
   /* get interrupt vector */
