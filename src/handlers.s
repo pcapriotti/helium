@@ -24,6 +24,8 @@ isr_generic:
   call interrupt_handler
   isr_epilogue 8
 
+.skip 128 /* so that short jumps are not possible */
+
 /* Make sure that all isr stubs have the same size.
   This way I can set them all in the IDT with a simple loop */
 
@@ -32,8 +34,7 @@ isr_generic:
 isr\number:
   sub $4, %esp
   pushl $\number
-  mov $isr_generic, %eax
-  jmp *%eax
+  jmp isr_generic
 .endm
 
 .macro isr1 number
@@ -42,8 +43,7 @@ isr\number:
   /* fake push so that all isrs have the same code size */
   sub $0, %esp
   pushl $\number
-  mov $isr_generic, %eax
-  jmp *%eax
+  jmp isr_generic
 .endm
 
 isr0 0
