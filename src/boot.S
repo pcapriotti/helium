@@ -39,8 +39,6 @@ _stage0:
   int $0x13
   jc _stage0
 
-  call graphics_init
-
   /* enable protected mode */
   cli
   lgdt kernel_gdtp

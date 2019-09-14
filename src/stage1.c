@@ -5,11 +5,6 @@
 #include "stdint.h"
 #include "v8086.h"
 
-extern volatile uint8_t *vesa_framebuffer;
-extern unsigned short vesa_width;
-extern unsigned short vesa_height;
-extern unsigned short vesa_pitch;
-
 /* GDT */
 
 enum {
@@ -60,31 +55,6 @@ void set_idt_entry(idt_entry_t *entry,
   entry->flags = 0x8600 |
     ((size32 != 0) << 11) |
     (dpl << 13);
-}
-
-static int sqx = 0, sqy = 0;
-
-void draw_square(int colour)
-{
-  for (int i = 0; i < 100; i++) {
-    int x = sqx + i % 10;
-    int y = sqy + i / 10;
-    vesa_framebuffer[x + y * vesa_pitch] = colour;
-  }
-  sqx += 11;
-  if (sqx >= vesa_width - 10) {
-    sqy += 11;
-    sqx = 0;
-  }
-}
-
-void show_error_code(uint32_t code, int colour)
-{
-  draw_square(colour);
-
-  __asm__ volatile("" : : "c"(code));
-  __asm__ volatile("hlt");
-  while (1);
 }
 
 void pic_eoi(unsigned char irq) {
@@ -139,7 +109,6 @@ void v8086_gpf_handler(isr_stack_t *stack)
     }
   case 0xcf: /* iret */
     {
-      draw_square(44);
       uint16_t *st = (uint16_t *)stack->esp;
 
       /* final iret from v8086 */
@@ -156,12 +125,10 @@ void v8086_gpf_handler(isr_stack_t *stack)
       return;
     }
   case 0xfa: /* cli */
-    draw_square(64);
     stack->eip += 1;
     stack->eflags &= ~EFLAGS_IF;
     return;
   case 0xfb: /* sti */
-    draw_square(80);
     stack->eip += 1;
     stack->eflags |= EFLAGS_IF;
     break;
@@ -194,8 +161,6 @@ void interrupt_handler(isr_stack_t stack)
       int irq = stack.int_num - IDT_IRQ;
 
       if (irq == 0) return;
-
-      draw_square(irq - 1);
 
       /* let the BIOS handle this interrupt */
       stack.esp -= 6;
