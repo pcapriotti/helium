@@ -28,6 +28,10 @@ void main()
   int ret = graphics_init(&mode);
   if (ret == -1) panic();
 
+  for (int i = 0; i < 100; i++) {
+    mode.framebuffer[i % 10 + i / 10 * mode.width] = 0x4;
+  }
+
   __asm__ volatile("hlt");
   while(1);
 }

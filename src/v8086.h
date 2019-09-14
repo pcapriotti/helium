@@ -6,7 +6,7 @@
 
 #if !__ASSEMBLER__
 typedef struct {
-  uint16_t ax, bx, cx, dx, si, di;
+  uint16_t ax, bx, cx, dx, si, di, bp;
   uint16_t es, ds, fs, gs;
 } regs16_t;
 

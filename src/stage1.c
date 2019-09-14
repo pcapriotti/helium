@@ -311,9 +311,8 @@ void _stage1()
   pic_setup();
 
   /* set text mode */
-  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   v8086_enter(0x10, &regs);
-
 
   /* hide cursor */
   regs.ax = 0x0100;

@@ -19,13 +19,13 @@ v8086_enter: /* (interrupt, ptr regs) */
 
   /* push segment registers */
   xor %eax, %eax
+  mov 0x14(%ebx), %ax
+  push %eax
   mov 0x12(%ebx), %ax
   push %eax
   mov 0x10(%ebx), %ax
   push %eax
   mov 0xe(%ebx), %ax
-  push %eax
-  mov 0xc(%ebx), %ax
   push %eax
 
   /* get interrupt vector */
@@ -48,6 +48,7 @@ v8086_enter: /* (interrupt, ptr regs) */
   movw 0x6(%ebx), %dx
   movw 0x8(%ebx), %si
   movw 0xa(%ebx), %di
+  movw 0xc(%ebx), %bp
   movw 0x2(%ebx), %bx /* set bx last */
   iret
 
@@ -73,14 +74,16 @@ v8086_exit:
   mov %cx, 0x8(%eax) /* si */
   mov 0x10(%edx), %ecx
   mov %cx, 0xa(%eax) /* di */
+  mov 0x18(%edx), %ecx
+  mov %cx, 0xc(%eax) /* bp */
   mov (%edx), %ecx
-  mov %cx, 0x8(%eax) /* gs */
+  mov %cx, 0xe(%eax) /* es */
   mov 0x4(%edx), %ecx
-  mov %cx, 0xa(%eax) /* fs */
+  mov %cx, 0x10(%eax) /* ds */
   mov 0x8(%edx), %ecx
-  mov %cx, 0xc(%eax) /* es */
+  mov %cx, 0x12(%eax) /* fs */
   mov 0xc(%edx), %ecx
-  mov %cx, 0xe(%eax) /* ds */
+  mov %cx, 0x14(%eax) /* gs */
 
   /* restore registers */
   pop %edi
