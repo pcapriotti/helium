@@ -3,6 +3,25 @@
 
 #include "stdint.h"
 
+extern uint16_t *vga_text;
+
+void panic();
+
+typedef struct {
+  uint16_t offset;
+  uint16_t segment;
+} __attribute__((packed)) ptr16_t;
+
+static inline uint32_t seg_off_to_linear(uint16_t seg, uint16_t off)
+{
+  return (seg << 4) + off;
+}
+
+static inline uint32_t ptr16_to_linear(ptr16_t ptr)
+{
+  return seg_off_to_linear(ptr.segment, ptr.offset);
+}
+
 #define GDT_SEL(i) ((uint16_t)((i) * sizeof(gdt_entry_t)))
 
 typedef struct {

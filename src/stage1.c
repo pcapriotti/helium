@@ -91,11 +91,6 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x00);
 }
 
-static inline uint32_t seg_off_to_linear(uint16_t seg, uint16_t off)
-{
-  return (seg << 4) + off;
-}
-
 void v8086_gpf_handler(isr_stack_t *stack)
 {
   uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
@@ -316,8 +311,9 @@ void _stage1()
   pic_setup();
 
   /* set text mode */
-  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   v8086_enter(0x10, &regs);
+
 
   /* hide cursor */
   regs.ax = 0x0100;
