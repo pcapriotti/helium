@@ -60,16 +60,8 @@ typedef struct vbe_mode_info_t {
 } __attribute__((packed)) vbe_mode_info_t;
 
 /* find the best matching mode among the supported ones */
-int graphics_init(vbe_mode_t *req_mode)
+int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
 {
-  vbe_info_t graphics_info;
-
-  if (get_graphics_info(&graphics_info) == -1)
-    return -1;
-
-  uint16_t *modes = (uint16_t *)
-    ptr16_to_linear(graphics_info.modes);
-
   vbe_mode_info_t info;
 
   regs16_t regs;
@@ -93,7 +85,6 @@ int graphics_init(vbe_mode_t *req_mode)
 
     v8086_enter(0x10, &regs);
     if ((regs.ax & 0xff) != 0x4f) return -1;
-    /* if (info.mem_model != 0x04) continue; */
 
     int score = 0;
     if (req_width > 0) {
@@ -129,4 +120,28 @@ int graphics_init(vbe_mode_t *req_mode)
 
   if (best == -1) return -1;
   return num_modes;
+}
+
+int graphics_init(vbe_mode_t *req_mode)
+{
+  vbe_info_t graphics_info;
+
+  if (get_graphics_info(&graphics_info) == -1)
+    return -1;
+
+  uint16_t *modes = (uint16_t *)
+    ptr16_to_linear(graphics_info.modes);
+
+  if (find_mode(req_mode, modes) == -1)
+    return -1;
+
+  /* enable mode */
+  regs16_t regs;
+  regs.ax = 0x4f02;
+  regs.bx = 0x4000 | req_mode->number;
+  v8086_enter(0x10, &regs);
+
+  if ((regs.ax & 0xff) != 0x4f) return -1;
+
+  return 0;
 }

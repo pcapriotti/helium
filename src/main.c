@@ -21,14 +21,12 @@ void print_num(int num, int base)
 void main()
 {
   vbe_mode_t mode;
-  mode.width = 1024;
-  mode.height = 768;
-  mode.bpp = 16;
+  mode.width = 800;
+  mode.height = 600;
+  mode.bpp = 8;
 
   int ret = graphics_init(&mode);
   if (ret == -1) panic();
-
-  print_num((uint32_t) mode.number, 16);
 
   __asm__ volatile("hlt");
   while(1);
