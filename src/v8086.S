@@ -8,8 +8,10 @@ v8086_enter: /* (interrupt, ptr regs) */
   /* save clobbered */
   push %ebx
   push %ebp
+  push %esi
+  push %edi
 
-  lea 8(%esp), %ebp
+  lea 0x10(%esp), %ebp
   mov 8(%ebp), %ebx
 
   /* set tss esp */
@@ -17,13 +19,13 @@ v8086_enter: /* (interrupt, ptr regs) */
 
   /* push segment registers */
   xor %eax, %eax
+  mov 0x12(%ebx), %ax
+  push %eax
+  mov 0x10(%ebx), %ax
+  push %eax
   mov 0xe(%ebx), %ax
   push %eax
   mov 0xc(%ebx), %ax
-  push %eax
-  mov 0xa(%ebx), %ax
-  push %eax
-  mov 0x8(%ebx), %ax
   push %eax
 
   /* get interrupt vector */
@@ -44,7 +46,9 @@ v8086_enter: /* (interrupt, ptr regs) */
   movw 0x0(%ebx), %ax
   movw 0x4(%ebx), %cx
   movw 0x6(%ebx), %dx
-  movw 0x2(%ebx), %bx
+  movw 0x8(%ebx), %si
+  movw 0xa(%ebx), %di
+  movw 0x2(%ebx), %bx /* set bx last */
   iret
 
 .globl v8086_exit
@@ -56,7 +60,7 @@ v8086_exit:
   mov kernel_tss + 4, %esp
 
   /* copy final state of registers */
-  mov 0x10(%esp), %eax
+  mov 0x18(%esp), %eax
   mov 0x2c(%edx), %ecx
   mov %cx, (%eax) /* ax */
   mov 0x20(%edx), %ecx
@@ -65,6 +69,10 @@ v8086_exit:
   mov %cx, 0x4(%eax) /* cx */
   mov 0x24(%edx), %ecx
   mov %cx, 0x6(%eax) /* dx */
+  mov 0x14(%edx), %ecx
+  mov %cx, 0x8(%eax) /* si */
+  mov 0x10(%edx), %ecx
+  mov %cx, 0xa(%eax) /* di */
   mov (%edx), %ecx
   mov %cx, 0x8(%eax) /* gs */
   mov 0x4(%edx), %ecx
@@ -75,6 +83,8 @@ v8086_exit:
   mov %cx, 0xe(%eax) /* ds */
 
   /* restore registers */
+  pop %edi
+  pop %esi
   pop %ebp
   pop %ebx
 
