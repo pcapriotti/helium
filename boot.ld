@@ -1,7 +1,7 @@
 SECTIONS
 {
   . = 0x7c00;
-  .text :
+  .text0 :
   {
     src/boot.o
     . = 0x1fe;
@@ -10,9 +10,15 @@ SECTIONS
     *(.text1)
     ASSERT(. <= 0x2400, "Stage 1 should fit in the first track");
     _stage1_end = .;
-    *(.text)
   }
+
+  . = 0x100000;
+  .text : AT((_stage1_end + 511) & ~511)
+  {
+    *(.text)
+    _kernel_end = .;
+  }
+
   .data : { *(.data) }
   .bss : { *(.bss) }
-  _kernel_end = .;
 }
