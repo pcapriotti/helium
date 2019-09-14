@@ -266,7 +266,7 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  v8086_enter(0x13, 0, 0, 0, 0);
+  v8086_enter(0x13, (regs16_t){ 0x0201, 0x2100, 1, 0, 0, 0, 0, 0 });
 
   int x0 = 200;
   int y0 = 100;
