@@ -129,6 +129,14 @@ void v8086_gpf_handler(isr_stack_t *stack)
       stack->eip += 1;
       return;
     }
+  case 0x9d: /* popf */
+    {
+      uint16_t *st = (uint16_t *)stack->esp;
+      stack->esp += 2;
+      stack->eflags = st[0] | EFLAGS_VM;
+      stack->eip += 1;
+      return;
+    }
   case 0xcf: /* iret */
     {
       draw_square(44);
@@ -158,7 +166,8 @@ void v8086_gpf_handler(isr_stack_t *stack)
     stack->eflags |= EFLAGS_IF;
     break;
   default:
-    show_error_code((uint32_t)addr, 1);
+    __asm__ volatile("" : : "c"(stack));
+    while(1);
   }
 }
 
@@ -211,7 +220,8 @@ void interrupt_handler(isr_stack_t stack)
     return;
   }
 
-  show_error_code((uint32_t)&stack, 4);
+  __asm__ volatile("" : : "c"(&stack));
+  while(1);
 }
 
 gdtp_t kernel_idtp = {
@@ -266,17 +276,9 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  regs16_t regs = { 0x0201, 0x2100, 1, 0, 0, 0, 0, 0 };
-  v8086_enter(0x13, &regs);
+  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  v8086_enter(0x10, &regs);
 
-  int x0 = 200;
-  int y0 = 100;
-  uint8_t *m = (uint8_t *) 0x2100;
-  for (int i = 0; i < 0x100; i++) {
-    int x = x0 + i % 0x10;
-    int y = y0 + i / 0x10;
-    vesa_framebuffer[x + y * vesa_pitch] = m[i];
-  }
-
-  show_error_code(0, 2);
+  __asm__ volatile("" : : "a"(&regs));
+  while(1);
 }
