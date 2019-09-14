@@ -12,10 +12,8 @@ v8086_enter: /* (interrupt, ptr regs) */
   lea 8(%esp), %ebp
   mov 8(%ebp), %ebx
 
-  /* set tss esp and eip */
+  /* set tss esp */
   mov %esp, kernel_tss + 4
-  mov (%ebp), %eax
-  mov %eax, kernel_tss + 32
 
   /* push segment registers */
   xor %eax, %eax
@@ -79,8 +77,4 @@ v8086_exit:
   /* restore registers */
   pop %ebp
   pop %ebx
-  add $4, %esp
-
-  /* return from v8086 */
-  mov kernel_tss + 32, %ecx
-  jmp *%ecx
+  ret

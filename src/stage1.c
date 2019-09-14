@@ -269,8 +269,6 @@ void _stage1()
   regs16_t regs = { 0x0201, 0x2100, 1, 0, 0, 0, 0, 0 };
   v8086_enter(0x13, &regs);
 
-  show_error_code(regs.ax, 1);
-
   int x0 = 200;
   int y0 = 100;
   uint8_t *m = (uint8_t *) 0x2100;
