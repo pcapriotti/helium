@@ -3,17 +3,17 @@
 .macro isr_preamble
   cli
   pusha
+  push %gs
+  push %fs
   push %ds
   push %es
-  push %fs
-  push %gs
 .endm
 
 .macro isr_epilogue slots
-  pop %gs
-  pop %fs
   pop %es
   pop %ds
+  pop %fs
+  pop %gs
   popa
   add $\slots, %esp
   iret
