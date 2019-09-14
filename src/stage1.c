@@ -123,7 +123,6 @@ void v8086_gpf_handler(isr_stack_t *stack)
   switch (*addr) {
   case 0x9c: /* pushf */
     {
-      draw_square(114);
       stack->esp -= 2;
       uint16_t *st = (uint16_t *)stack->esp;
       st[0] = stack->eflags & 0xffff;
@@ -134,6 +133,13 @@ void v8086_gpf_handler(isr_stack_t *stack)
     {
       draw_square(44);
       uint16_t *st = (uint16_t *)stack->esp;
+
+      /* final iret from v8086 */
+      if (stack->esp == V8086_STACK_BASE) {
+        v8086_exit();
+        return;
+      }
+
       stack->esp += 6;
 
       stack->eip = st[0];
@@ -151,11 +157,8 @@ void v8086_gpf_handler(isr_stack_t *stack)
     stack->eip += 1;
     stack->eflags |= EFLAGS_IF;
     break;
-  case 0xcd: /* int */
-    v8086_exit();
-    break;
   default:
-    show_error_code((uint32_t)addr, 4);
+    show_error_code((uint32_t)addr, 1);
   }
 }
 
@@ -263,7 +266,7 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  v8086_enter();
+  v8086_enter(0x13, 0, 0, 0, 0);
 
   int x0 = 200;
   int y0 = 100;

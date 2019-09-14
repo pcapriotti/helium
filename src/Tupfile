@@ -9,5 +9,5 @@ CFLAGS += -fdiagnostics-color=always
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable
 
-: foreach *.s |> $(AS) %f -o %o |> %B.o
+: foreach *.S |> $(CC) -c %f -o %o |> %B.o
 : foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
