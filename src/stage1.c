@@ -4,6 +4,7 @@
 #include "io.h"
 #include "stdint.h"
 #include "v8086.h"
+#include "main.h"
 
 /* GDT */
 
@@ -225,6 +226,67 @@ void set_kernel_idt()
   __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
 }
 
+typedef uint8_t sector_t[512];
+#define SECTORS_PER_TRACK 18
+#define TRACKS_PER_CYLINDER 2
+
+void sector_to_chs(unsigned int sector,
+                   unsigned int *c,
+                   unsigned int *h,
+                   unsigned int *s)
+{
+  unsigned int track = sector / SECTORS_PER_TRACK;
+  *s = sector % SECTORS_PER_TRACK + 1;
+  *h = track % TRACKS_PER_CYLINDER;
+  *c = track / TRACKS_PER_CYLINDER;
+}
+
+void load_kernel()
+{
+  uint32_t kernel_size = _kernel_end - _kernel_start;
+  uint32_t lba0 = _stage1_end - _stage0_start;
+  uint32_t lba1 = lba0 + kernel_size;
+
+  int sector0 = lba0 / sizeof(sector_t);
+  int sector1 = (lba1 + sizeof(sector_t) - 1) / sizeof(sector_t);
+
+  uint32_t *dest = (uint32_t *)_kernel_start;
+  uint32_t *buffer = (uint32_t *)V8086_HEAP;
+  regs16_t regs;
+
+
+  int sector = sector0;
+  while (sector < sector1) {
+    int track_end = sector + 1 +
+      (sector + SECTORS_PER_TRACK - 1) %
+      SECTORS_PER_TRACK;
+    if (track_end >= sector1) track_end = sector1;
+    int num_sectors = track_end - sector;
+
+    unsigned int c, h, s;
+    sector_to_chs(sector, &c, &h, &s);
+
+    /* read sectors from disk */
+    regs.ax = 0x0200 | num_sectors;
+    regs.bx = (uint32_t) buffer;
+    regs.cx = (s & 0x3f) | (c << 8);
+    regs.dx = h << 8;
+    regs.es = 0;
+    regs.ds = 0xdddd;
+    regs.fs = 0xffff;
+    regs.gs = 0xbbbb;
+    v8086_enter(0x13, &regs);
+    /* TODO handle errors */
+
+    unsigned int num_words = num_sectors * sizeof(sector_t) / 4;
+    for (unsigned int i = 0; i < num_words; i++) {
+      dest[i] = buffer[i];
+    }
+
+    sector = track_end;
+  }
+}
+
 void _stage1()
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
@@ -241,9 +303,11 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
+  /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0 };
   v8086_enter(0x10, &regs);
 
-  __asm__ volatile("" : : "a"(&regs));
+  load_kernel();
+
   while(1);
 }
