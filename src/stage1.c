@@ -6,6 +6,14 @@
 #include "v8086.h"
 #include "main.h"
 
+uint16_t *vga_text = (uint16_t *)0xb8000;
+
+void panic() {
+  vga_text[0] = 0x4000;
+  __asm__ volatile("hlt");
+  while(1);
+}
+
 /* GDT */
 
 enum {
@@ -275,8 +283,12 @@ void load_kernel()
     regs.ds = 0xdddd;
     regs.fs = 0xffff;
     regs.gs = 0xbbbb;
-    v8086_enter(0x13, &regs);
-    /* TODO handle errors */
+
+    int err = v8086_enter(0x13, &regs) & EFLAGS_CF;
+
+    if (err) {
+      panic();
+    }
 
     unsigned int num_words = num_sectors * sizeof(sector_t) / 4;
     for (unsigned int i = 0; i < num_words; i++) {
@@ -307,7 +319,15 @@ void _stage1()
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0 };
   v8086_enter(0x10, &regs);
 
+  /* hide cursor */
+  regs.ax = 0x0100;
+  regs.cx = 0x2000;
+  v8086_enter(0x10, &regs);
+
   load_kernel();
+
+  vga_text[0] = 0x2000;
 
   while(1);
 }
+

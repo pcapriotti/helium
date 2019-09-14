@@ -77,4 +77,7 @@ v8086_exit:
   /* restore registers */
   pop %ebp
   pop %ebx
+
+  /* return flags */
+  mov 0x40(%edx), %eax
   ret
