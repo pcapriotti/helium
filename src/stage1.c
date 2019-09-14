@@ -152,7 +152,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
     stack->eflags |= EFLAGS_IF;
     break;
   case 0xcd: /* int */
-    v8086_exit(kernel_tss.tss.esp0, kernel_tss.tss.eip);
+    v8086_exit();
     break;
   default:
     show_error_code((uint32_t)addr, 4);
@@ -162,7 +162,14 @@ void v8086_gpf_handler(isr_stack_t *stack)
 void interrupt_handler(isr_stack_t stack)
 {
   int v8086 = stack.eflags & EFLAGS_VM;
-  if (v8086) v8086_restore_segments();
+  if (v8086) {
+    __asm__
+      ("mov $0x10, %ax\n"
+       "mov %ax, %ds\n"
+       "mov %ax, %es\n"
+       "mov %ax, %fs\n"
+       "mov %ax, %gs\n");
+  }
 
   if (v8086) {
     switch (stack.int_num) {
@@ -256,7 +263,7 @@ void _stage1()
   set_kernel_idt();
   pic_setup();
 
-  v8086_enter(&kernel_tss.tss.esp0, &kernel_tss.tss.eip);
+  v8086_enter();
 
   int x0 = 200;
   int y0 = 100;

@@ -26,37 +26,14 @@ v8086_entry:
 1:
   int $0xd
 
-/* execute a BIOS interrupt */
-.globl v8086_int
-v8086_int: /* (cs, irq) */
-  xor %si, %si
-  mov %si, %ds
-
-  /* prepare for iret */
-  push %si
-  pushf
-  push (%si)
-  push 4(%si)
-
-  mov 8(%si), %ax
-  xor %dx, %dx
-  mov $4, %si
-  mul %si
-  mov %ax, %si
-
-  ljmp *(%si)
-
 .code32
 
 .globl v8086_enter
-v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
-  /* set tss esp */
-  mov 4(%esp), %eax
-  mov %esp, (%eax)
-
-  mov 8(%esp), %eax
-  mov (%esp), %ebx
-  movl %ebx, (%eax)
+v8086_enter:
+  /* set tss esp and eip */
+  mov %esp, kernel_tss + 4
+  mov (%esp), %eax
+  mov %eax, kernel_tss + 32
 
   /* prepare for iret */
   push $0
@@ -68,17 +45,7 @@ v8086_enter: /* (ptr tss.esp0, ptr tss.eip) */
   iret
 
 .globl v8086_exit
-v8086_exit: /* (tss.esp0, tss.eip) */
-  mov 8(%esp), %eax
-  mov 4(%esp), %esp
-
+v8086_exit:
+  mov kernel_tss + 4, %esp
+  mov kernel_tss + 32, %eax
   jmp *%eax
-
-.globl v8086_restore_segments
-v8086_restore_segments:
-  mov $0x10, %ax
-  mov %ax, %ds
-  mov %ax, %es
-  mov %ax, %fs
-  mov %ax, %gs
-  ret
