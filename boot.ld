@@ -13,14 +13,19 @@ SECTIONS
     ASSERT(_stage1_end <= 0x2400, "Stage 1 should fit in the first track");
   }
 
+  /* put bss in low memory, so that it can be used by stage 1 code */
+  . = _stage1_end;
+  .bss : { *(.bss) }
+
+  /* the kernel goes in high memory */
   . = 0x100000;
   .text : AT(_stage1_end)
   {
     _kernel_start = .;
     *(.text)
-    _kernel_end = .;
   }
 
   .data : { *(.data) }
-  .bss : { *(.bss) }
+  _kernel_end = .;
+
 }
