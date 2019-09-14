@@ -3,7 +3,10 @@
 
 #include "gdt.h"
 
-typedef struct vbe_mode_t {
+typedef uint16_t glyph_t;
+typedef glyph_t font_t[512];
+
+typedef struct {
   uint16_t index;
   uint16_t number;
   uint16_t width;
@@ -11,6 +14,7 @@ typedef struct vbe_mode_t {
   uint16_t bpp;
   uint16_t pitch;
   uint8_t *framebuffer;
+  font_t *font;
 } __attribute__((packed)) vbe_mode_t;
 
 int graphics_init(vbe_mode_t *req_mode);

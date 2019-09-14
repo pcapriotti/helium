@@ -122,6 +122,27 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
   return num_modes;
 }
 
+font_t graphics_font;
+
+int get_font(font_t *font)
+{
+  regs16_t regs;
+
+  regs.ax = 0x1130;
+  regs.bx = 0x6;
+  v8086_enter(0x10, &regs);
+
+  uint32_t *buf = (uint32_t *)
+    seg_off_to_linear(regs.es, regs.bp);
+  uint32_t *dest = (uint32_t *) font;
+
+  for (unsigned int i = 0; i < sizeof(font_t) / 4; i++) {
+    dest[i] = buf[i];
+  }
+
+  return 0;
+}
+
 int graphics_init(vbe_mode_t *req_mode)
 {
   vbe_info_t graphics_info;
@@ -140,8 +161,9 @@ int graphics_init(vbe_mode_t *req_mode)
   regs.ax = 0x4f02;
   regs.bx = 0x4000 | req_mode->number;
   v8086_enter(0x10, &regs);
-
   if ((regs.ax & 0xff) != 0x4f) return -1;
+
+  if (get_font(&graphics_font) == -1) return -1;
 
   return 0;
 }
