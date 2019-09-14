@@ -325,9 +325,5 @@ void _stage1()
   v8086_enter(0x10, &regs);
 
   load_kernel();
-
-  vga_text[0] = 0x2000;
-
-  while(1);
+  main();
 }
-
