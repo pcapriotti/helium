@@ -136,9 +136,23 @@ void v8086_gpf_handler(isr_stack_t *stack)
     stack->eip += 1;
     stack->eflags |= EFLAGS_IF;
     break;
+  case 0xcd: /* int */
+    {
+      ptr16_t *handlers = 0;
+      ptr16_t iv = handlers[addr[1]];
+
+      stack->esp -= 6;
+      uint16_t *st = (uint16_t *)stack->esp;
+      st[0] = stack->eip + 2;
+      st[1] = stack->cs;
+      st[2] = stack->eflags;
+
+      stack->cs = iv.segment;
+      stack->eip = iv.offset;
+      return;
+    }
   default:
-    __asm__ volatile("" : : "c"(stack));
-    while(1);
+    text_panic();
   }
 }
 
