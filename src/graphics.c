@@ -1,5 +1,9 @@
+#include "debug.h"
 #include "graphics.h"
 #include "v8086.h"
+
+font_t graphics_font;
+vbe_mode_t graphics_mode;
 
 typedef struct {
   uint32_t signature;
@@ -45,16 +49,12 @@ typedef struct vbe_mode_info_t {
   uint8_t character_width; uint8_t character_height;
   uint8_t num_planes; uint8_t bpp; uint8_t num_banks; uint8_t mem_model;
   uint8_t bank_size; uint8_t num_pages; uint8_t reserved;
-  uint8_t red_mask; uint8_t red_field;
-  uint8_t green_mask; uint8_t green_field;
-  uint8_t blue_mask; uint8_t blue_field;
+  vbe_colour_info_t colour_info;
   uint16_t reserved1; uint8_t direct_color_info;
   uint8_t *framebuffer; uint8_t *framebuffer2;
   uint16_t offscreen_mem; uint16_t pitch_linear;
   uint8_t num_images_banked; uint8_t num_images_linear;
-  uint8_t red_mask_linear; uint8_t red_field_linear;
-  uint8_t green_mask_linear; uint8_t green_field_linear;
-  uint8_t blue_mask_linear; uint8_t blue_field_linear;
+  vbe_colour_info_t colour_info_linear;
   uint16_t reserved2; uint32_t max_clock;
   uint8_t reserved3[190];
 } __attribute__((packed)) vbe_mode_info_t;
@@ -115,6 +115,7 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
       req_mode->bpp = info.bpp;
       req_mode->pitch = info.pitch;
       req_mode->framebuffer = info.framebuffer;
+      req_mode->colour_info = info.colour_info;
     }
   }
 
@@ -122,14 +123,12 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
   return num_modes;
 }
 
-font_t graphics_font;
-
 int get_font(font_t *font)
 {
   regs16_t regs;
 
   regs.ax = 0x1130;
-  regs.bx = 0x6;
+  regs.bx = 0x0600;
   v8086_enter(0x10, &regs);
 
   uint32_t *buf = (uint32_t *)
@@ -153,6 +152,7 @@ int graphics_init(vbe_mode_t *req_mode)
   uint16_t *modes = (uint16_t *)
     ptr16_to_linear(graphics_info.modes);
 
+  /* find best matching mode */
   if (find_mode(req_mode, modes) == -1)
     return -1;
 
@@ -162,8 +162,11 @@ int graphics_init(vbe_mode_t *req_mode)
   regs.bx = 0x4000 | req_mode->number;
   v8086_enter(0x10, &regs);
   if ((regs.ax & 0xff) != 0x4f) return -1;
+  graphics_mode = *req_mode;
 
+  /* load font */
   if (get_font(&graphics_font) == -1) return -1;
 
   return 0;
 }
+

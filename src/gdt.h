@@ -5,7 +5,7 @@
 
 extern uint16_t *vga_text;
 
-void panic();
+void text_panic();
 
 typedef struct {
   uint16_t offset;

@@ -8,7 +8,7 @@
 
 uint16_t *vga_text = (uint16_t *)0xb8000;
 
-void panic() {
+void text_panic() {
   vga_text[0] = 0x4000;
   __asm__ volatile("hlt");
   while(1);
@@ -282,7 +282,7 @@ void load_kernel()
     int err = v8086_enter(0x13, &regs) & EFLAGS_CF;
 
     if (err) {
-      panic();
+      text_panic();
     }
 
     unsigned int num_words = num_sectors * sizeof(sector_t) / 4;
