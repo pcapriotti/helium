@@ -62,28 +62,28 @@ v8086_exit:
 
   /* copy final state of registers */
   mov 0x18(%esp), %eax
-  mov 0x2c(%edx), %ecx
+  mov 0x1c(%edx), %ecx
   mov %cx, (%eax) /* ax */
-  mov 0x20(%edx), %ecx
-  mov %cx, 0x2(%eax) /* bx */
-  mov 0x28(%edx), %ecx
-  mov %cx, 0x4(%eax) /* cx */
-  mov 0x24(%edx), %ecx
-  mov %cx, 0x6(%eax) /* dx */
-  mov 0x14(%edx), %ecx
-  mov %cx, 0x8(%eax) /* si */
   mov 0x10(%edx), %ecx
-  mov %cx, 0xa(%eax) /* di */
+  mov %cx, 0x2(%eax) /* bx */
   mov 0x18(%edx), %ecx
+  mov %cx, 0x4(%eax) /* cx */
+  mov 0x14(%edx), %ecx
+  mov %cx, 0x6(%eax) /* dx */
+  mov 0x04(%edx), %ecx
+  mov %cx, 0x8(%eax) /* si */
+  mov 0x00(%edx), %ecx
+  mov %cx, 0xa(%eax) /* di */
+  mov 0x08(%edx), %ecx
   mov %cx, 0xc(%eax) /* bp */
-  mov 0x4c(%edx), %ecx
-  mov %cx, 0xe(%eax) /* es_8086 */
-  mov 0x50(%edx), %ecx
-  mov %cx, 0x10(%eax) /* ds_8086 */
-  mov 0x54(%edx), %ecx
-  mov %cx, 0x12(%eax) /* fs_8086 */
-  mov 0x58(%edx), %ecx
-  mov %cx, 0x14(%eax) /* gs_8086 */
+  mov 0x3c(%edx), %ecx
+  mov %cx, 0xe(%eax) /* es */
+  mov 0x40(%edx), %ecx
+  mov %cx, 0x10(%eax) /* ds */
+  mov 0x44(%edx), %ecx
+  mov %cx, 0x12(%eax) /* fs */
+  mov 0x48(%edx), %ecx
+  mov %cx, 0x14(%eax) /* gs */
 
   /* restore registers */
   pop %edi
@@ -92,5 +92,5 @@ v8086_exit:
   pop %ebx
 
   /* return flags */
-  mov 0x40(%edx), %eax
+  mov 0x30(%edx), %eax
   ret

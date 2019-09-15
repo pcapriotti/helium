@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "gdt.h"
 #include "handlers.h"
 #include "interrupts.h"
