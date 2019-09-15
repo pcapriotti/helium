@@ -5,9 +5,10 @@
 #include "stdint.h"
 #include "main.h"
 
-uint16_t *vga_text = (uint16_t *)0xb8000;
+volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
-void text_panic() {
+void text_panic()
+{
   vga_text[0] = 0x4000;
   __asm__ volatile("hlt");
   while(1);
@@ -260,18 +261,45 @@ void set_kernel_idt()
 }
 
 typedef uint8_t sector_t[512];
+typedef struct {
+  unsigned int sectors_per_track;
+  unsigned int tracks_per_cylinder;
+  unsigned int num_cylinders;
+} drive_geometry_t;
+
 #define SECTORS_PER_TRACK 18
 #define TRACKS_PER_CYLINDER 2
 
-void sector_to_chs(unsigned int sector,
+void sector_to_chs(drive_geometry_t *geom,
+                   unsigned int sector,
                    unsigned int *c,
                    unsigned int *h,
                    unsigned int *s)
 {
-  unsigned int track = sector / SECTORS_PER_TRACK;
-  *s = sector % SECTORS_PER_TRACK + 1;
-  *h = track % TRACKS_PER_CYLINDER;
-  *c = track / TRACKS_PER_CYLINDER;
+  unsigned int track = sector / geom->sectors_per_track;
+  *s = sector % geom->sectors_per_track + 1;
+  *h = track % geom->tracks_per_cylinder;
+  *c = track / geom->tracks_per_cylinder;
+}
+
+int get_drive_geometry(int drive, drive_geometry_t *geom)
+{
+  regs16_t regs;
+  regs.ax = 0x0800;
+  regs.dx = drive;
+  regs.es = 0;
+  regs.di = 0;
+
+  int flags = bios_int(0x13, &regs);
+
+  int err = flags & EFLAGS_CF;
+  if (err) return -1;
+
+  geom->num_cylinders = 1 + ((regs.cx >> 8) | ((regs.cx << 2) & 0x300));
+  geom->tracks_per_cylinder = 1 + (regs.dx >> 8);
+  geom->sectors_per_track = 1 + (regs.cx & 0x3f);
+
+  return 0;
 }
 
 void load_kernel(int drive)
@@ -287,6 +315,10 @@ void load_kernel(int drive)
   uint32_t *buffer = (uint32_t *)V8086_HEAP;
   regs16_t regs;
 
+  drive_geometry_t geom;
+  geom.num_cylinders = 80;
+  geom.tracks_per_cylinder = 2;
+  geom.sectors_per_track = 18;
 
   int sector = sector0;
   while (sector < sector1) {
@@ -297,13 +329,13 @@ void load_kernel(int drive)
     int num_sectors = track_end - sector;
 
     unsigned int c, h, s;
-    sector_to_chs(sector, &c, &h, &s);
+    sector_to_chs(&geom, sector, &c, &h, &s);
 
     /* read sectors from disk */
     regs.ax = 0x0200 | num_sectors;
     regs.bx = (uint32_t) buffer;
     regs.cx = (s & 0x3f) | (c << 8);
-    regs.dx = h << 8 | (drive & 0xff);
+    regs.dx = (h << 8) | (drive & 0xff);
     regs.es = 0;
 
     int err = bios_int(0x13, &regs) & EFLAGS_CF;
@@ -429,5 +461,8 @@ void _stage1(uint32_t drive)
   bios_int(0x10, &regs);
 
   load_kernel(drive);
+
+  vga_text[0] = 0x2000;
+  while(1);
   main();
 }

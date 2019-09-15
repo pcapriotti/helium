@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-extern uint16_t *vga_text;
+extern volatile uint16_t *vga_text;
 
 void text_panic();
 
