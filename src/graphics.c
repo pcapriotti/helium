@@ -1,6 +1,6 @@
 #include "debug.h"
+#include "gdt.h"
 #include "graphics.h"
-#include "v8086.h"
 
 font_t graphics_font;
 vbe_mode_t graphics_mode;
