@@ -30,4 +30,11 @@ typedef struct {
   uint32_t es, ds, fs, gs;
 } __attribute__((packed)) isr_stack_t;
 
+typedef struct {
+  uint8_t code[10];
+} isr_t;
+
+extern isr_t kernel_isr[NUM_ISR + NUM_IRQ];
+void isr_generic();
+
 #endif /* INTERRUPTS_H */

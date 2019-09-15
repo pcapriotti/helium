@@ -1,6 +1,5 @@
 #include "debug.h"
 #include "stage1.h"
-#include "handlers.h"
 #include "interrupts.h"
 #include "io.h"
 #include "stdint.h"
@@ -198,8 +197,39 @@ gdtp_t kernel_idtp = {
   kernel_idt,
 };
 
+/* Create code for an isr stub */
+void isr_assemble(isr_t *isr, uint8_t number)
+{
+  int offset = 4;
+  if (number == 8 || number == 10 || number == 11 || number == 12 ||
+      number == 13 || number == 14 || number == 17) {
+    offset = 0;
+  }
+
+  uint8_t *p = isr->code;
+  *p++ = 0x83; /* sub */
+  *p++ = 0xec; /* esp */
+  *p++ = offset;
+
+  *p++ = 0x6a; /* push */
+  *p++ = number;
+
+  *p++ = 0xe9; /* rel jump */
+  *((int32_t *) p) = (int32_t)isr_generic - (int32_t)(p + 4);
+}
+
+__asm__
+("isr_generic:"
+ "cli\n"
+ "pusha\n"
+ "call interrupt_handler\n"
+ "popa\n"
+ "add $8, %esp\n"
+ "iret\n");
+
 void set_kernel_idt()
 {
+  /* set all entries to 0 */
   for (int i = 0; i < IDT_NUM_ENTRIES; i++) {
     idt_entry_t *entry = &kernel_idt[i];
     entry->offset_low = 0;
@@ -208,20 +238,20 @@ void set_kernel_idt()
     entry->flags = 0;
   }
 
-  uint32_t size = (uint8_t *)isr1 - (uint8_t *)isr0;
-
   /* isr */
   for (int i = 0; i < NUM_ISR; i++) {
-    uint32_t addr = (uint32_t)isr0 + size * i;
-    set_idt_entry(&kernel_idt[i], addr,
+    isr_assemble(&kernel_isr[i], i);
+    set_idt_entry(&kernel_idt[i],
+                  (uint32_t)&kernel_isr[i],
                   GDT_CODE * sizeof(gdt_entry_t),
                   1, 0);
   }
 
   /* irq */
   for (int i = 0; i < NUM_IRQ; i++) {
-    uint32_t addr = (uint32_t)isr32 + size * i;
-    set_idt_entry(&kernel_idt[i + IDT_IRQ], addr,
+    isr_assemble(&kernel_isr[NUM_ISR + i], IDT_IRQ + i);
+    set_idt_entry(&kernel_idt[i + IDT_IRQ],
+                  (uint32_t)&kernel_isr[i + NUM_ISR],
                   GDT_CODE * sizeof(gdt_entry_t),
                   1, 0);
   }
