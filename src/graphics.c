@@ -31,7 +31,7 @@ int get_graphics_info(vbe_info_t *info)
   regs.es = 0;
   regs.di = (uint32_t) info;
 
-  v8086_enter(0x10, &regs);
+  bios_int(0x10, &regs);
 
   if ((regs.ax & 0xff) != 0x4f) {
     return -1;
@@ -83,7 +83,7 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     regs.es = 0;
     regs.di = (uint32_t) &info;
 
-    v8086_enter(0x10, &regs);
+    bios_int(0x10, &regs);
     if ((regs.ax & 0xff) != 0x4f) return -1;
 
     int score = 0;
@@ -129,7 +129,7 @@ int get_font(font_t *font)
 
   regs.ax = 0x1130;
   regs.bx = 0x0600;
-  v8086_enter(0x10, &regs);
+  bios_int(0x10, &regs);
 
   uint32_t *buf = (uint32_t *)
     seg_off_to_linear(regs.es, regs.bp);
@@ -160,7 +160,7 @@ int graphics_init(vbe_mode_t *req_mode)
   regs16_t regs;
   regs.ax = 0x4f02;
   regs.bx = 0x4000 | req_mode->number;
-  v8086_enter(0x10, &regs);
+  bios_int(0x10, &regs);
   if ((regs.ax & 0xff) != 0x4f) return -1;
   graphics_mode = *req_mode;
 

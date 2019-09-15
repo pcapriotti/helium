@@ -276,7 +276,7 @@ void load_kernel()
     regs.dx = h << 8;
     regs.es = 0;
 
-    int err = v8086_enter(0x13, &regs) & EFLAGS_CF;
+    int err = bios_int(0x13, &regs) & EFLAGS_CF;
 
     if (err) {
       text_panic();
@@ -296,9 +296,27 @@ typedef struct {
   uint32_t es, ds, fs, gs;
 } __attribute__((packed)) v8086_stack_t;
 
-uint32_t v8086_enter0(regs16_t *regs, v8086_stack_t stack)
+/* The following function enters virtual-8086 mode with the given 16
+bit register configuration. It works by taking a stack parameter,
+populating it with values that would be pushed before an interrupt
+from v8086 to protected mode, and issuing an iret instruction, which
+will jump to the given entry point. The stack parameter can be passed
+by the caller uninitialised, and is just there to make it easy to set
+up the stack. */
+uint32_t v8086_enter(regs16_t *regs, ptr16_t entry, v8086_stack_t stack)
 {
   isr_stack_t *ctx;
+
+  /* set up the stack for iret */
+  stack.es = regs->es;
+  stack.ds = regs->ds;
+  stack.fs = regs->fs;
+  stack.gs = regs->gs;
+  stack.eflags = EFLAGS_VM;
+  stack.ss = 0;
+  stack.sp = V8086_STACK_BASE;
+  stack.eip = entry.offset;
+  stack.cs = entry.segment;
 
   __asm__ volatile
     ( /* save current stack pointer in tss */
@@ -315,6 +333,9 @@ uint32_t v8086_enter0(regs16_t *regs, v8086_stack_t stack)
      /* adjust the stack and jump to v8086 mode */
      "mov %2, %%esp\n"
      "iret\n"
+
+     /* control will return here from the v8086 #GP handler after the
+     v8086 call stack has underflowed */
      "v8086_exit:\n"
 
      /* save context */
@@ -345,24 +366,11 @@ uint32_t v8086_enter0(regs16_t *regs, v8086_stack_t stack)
   return ctx->eflags;
 }
 
-int v8086_enter(uint32_t interrupt, regs16_t *regs)
+int bios_int(uint32_t interrupt, regs16_t *regs)
 {
-  ptr16_t *handlers = 0; /* bios IVT */
-  ptr16_t iv = handlers[interrupt];
-
   v8086_stack_t stack;
-  stack.es = regs->es;
-  stack.ds = regs->ds;
-  stack.fs = regs->fs;
-  stack.gs = regs->gs;
-
-  stack.eflags = EFLAGS_VM;
-  stack.ss = 0;
-  stack.sp = V8086_STACK_BASE;
-  stack.eip = iv.offset;
-  stack.cs = iv.segment;
-
-  return v8086_enter0(regs, stack);
+  ptr16_t *handlers = 0; /* bios IVT */
+  return v8086_enter(regs, handlers[interrupt], stack);
 }
 
 void _stage1()
@@ -383,12 +391,12 @@ void _stage1()
 
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  v8086_enter(0x10, &regs);
+  bios_int(0x10, &regs);
 
   /* hide cursor */
   regs.ax = 0x0100;
   regs.cx = 0x2000;
-  v8086_enter(0x10, &regs);
+  bios_int(0x10, &regs);
 
   load_kernel();
   main();

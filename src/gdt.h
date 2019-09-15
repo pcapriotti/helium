@@ -73,7 +73,7 @@ typedef struct {
   uint16_t es, ds, fs, gs;
 } regs16_t;
 
-int v8086_enter(uint32_t interrupt, regs16_t *regs);
+int bios_int(uint32_t interrupt, regs16_t *regs);
 void v8086_exit(void *stack);
 
 #endif /* GDT_H */
