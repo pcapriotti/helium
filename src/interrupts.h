@@ -26,6 +26,9 @@ typedef struct {
   uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
   uint32_t int_num, error;
   uint32_t eip, cs, eflags, esp, ss;
+
+  /* these are only present when returning from v8086 */
+  uint32_t es_8086, ds_8086, fs_8086, gs_8086;
 } __attribute__((packed)) isr_stack_t;
 
 #endif /* INTERRUPTS_H */

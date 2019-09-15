@@ -76,14 +76,14 @@ v8086_exit:
   mov %cx, 0xa(%eax) /* di */
   mov 0x18(%edx), %ecx
   mov %cx, 0xc(%eax) /* bp */
-  mov (%edx), %ecx
-  mov %cx, 0xe(%eax) /* es */
-  mov 0x4(%edx), %ecx
-  mov %cx, 0x10(%eax) /* ds */
-  mov 0x8(%edx), %ecx
-  mov %cx, 0x12(%eax) /* fs */
-  mov 0xc(%edx), %ecx
-  mov %cx, 0x14(%eax) /* gs */
+  mov 0x4c(%edx), %ecx
+  mov %cx, 0xe(%eax) /* es_8086 */
+  mov 0x50(%edx), %ecx
+  mov %cx, 0x10(%eax) /* ds_8086 */
+  mov 0x54(%edx), %ecx
+  mov %cx, 0x12(%eax) /* fs_8086 */
+  mov 0x58(%edx), %ecx
+  mov %cx, 0x14(%eax) /* gs_8086 */
 
   /* restore registers */
   pop %edi
