@@ -274,7 +274,7 @@ void sector_to_chs(unsigned int sector,
   *c = track / TRACKS_PER_CYLINDER;
 }
 
-void load_kernel()
+void load_kernel(int drive)
 {
   uint32_t kernel_size = _kernel_end - _kernel_start;
   uint32_t lba0 = _stage1_end - _stage0_start;
@@ -303,7 +303,7 @@ void load_kernel()
     regs.ax = 0x0200 | num_sectors;
     regs.bx = (uint32_t) buffer;
     regs.cx = (s & 0x3f) | (c << 8);
-    regs.dx = h << 8;
+    regs.dx = h << 8 | (drive & 0xff);
     regs.es = 0;
 
     int err = bios_int(0x13, &regs) & EFLAGS_CF;
@@ -403,7 +403,7 @@ int bios_int(uint32_t interrupt, regs16_t *regs)
   return v8086_enter(regs, handlers[interrupt], stack);
 }
 
-void _stage1()
+void _stage1(uint32_t drive)
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
@@ -428,6 +428,6 @@ void _stage1()
   regs.cx = 0x2000;
   bios_int(0x10, &regs);
 
-  load_kernel();
+  load_kernel(drive);
   main();
 }

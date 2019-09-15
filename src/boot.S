@@ -33,7 +33,7 @@ _stage0:
 
   mov $2, %ah
   mov $2, %cx
-  pop %dx
+  mov (%esp), %dx
   mov $0, %dh
   mov $0x7e00, %bx
   int $0x13
@@ -58,9 +58,12 @@ _stage0:
   mov %ax, %ss
 
   xor %ebp, %ebp
+  xor %edx, %edx
+  pop %dx
   mov $stack_base, %esp
 
-  jmp _stage1
+  push %edx
+  call _stage1
 
 hang:
   hlt
