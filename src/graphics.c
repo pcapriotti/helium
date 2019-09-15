@@ -1,5 +1,5 @@
 #include "debug.h"
-#include "gdt.h"
+#include "stage1.h"
 #include "graphics.h"
 
 font_t graphics_font;

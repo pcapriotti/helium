@@ -1,5 +1,5 @@
-#ifndef GDT_H
-#define GDT_H
+#ifndef STAGE1_H
+#define STAGE1_H
 
 #include "stdint.h"
 
@@ -76,4 +76,4 @@ typedef struct {
 int bios_int(uint32_t interrupt, regs16_t *regs);
 void v8086_exit(void *stack);
 
-#endif /* GDT_H */
+#endif /* STAGE1_H */

@@ -2,7 +2,7 @@
 #include "debug.h"
 #include "graphics.h"
 #include "stdint.h"
-#include "gdt.h"
+#include "stage1.h"
 
 void print_num(int num, int base)
 {

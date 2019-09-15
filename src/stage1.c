@@ -1,5 +1,5 @@
 #include "debug.h"
-#include "gdt.h"
+#include "stage1.h"
 #include "handlers.h"
 #include "interrupts.h"
 #include "io.h"
