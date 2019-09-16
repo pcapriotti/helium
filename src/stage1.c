@@ -16,6 +16,7 @@ void debug_str(const char *msg)
   char c;
   while ((c = *msg++)) {
     if (c == '\n') {
+      p += 80 - vgax;
       vgay++;
       vgax = 0;
     }
