@@ -82,9 +82,6 @@ memory_map_entry_t *get_memory_map(size_t *count)
 
   int num_entries = entry - result;
 
-  *count = num_entries;
-  return result;
-
   isort(result, num_entries, sizeof(memory_map_entry_t), &mm_compare);
 
   /* combine contiguous and overlapping entries */
