@@ -61,6 +61,7 @@ uint32_t *console_at(point_t p)
 
 void console_render_char(uint32_t *pos, char c, uint32_t fg)
 {
+  if (!c || c == 0x20) return;
   glyph_t *glyph = &graphics_font[(int) c];
   int pitch = console.pitch - 8;
   for (int i = 0; i < FONT_HEIGHT; i++) {
@@ -90,7 +91,7 @@ void console_render_buffer()
 
     pos += FONT_WIDTH;
     if (i % console.width == console.width - 1) {
-      pos += console.pitch - FONT_WIDTH * console.width;
+      pos += FONT_HEIGHT * console.pitch - FONT_WIDTH * console.width;
     }
   }
 }
