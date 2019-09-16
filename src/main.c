@@ -30,10 +30,9 @@ void main()
   if (graphics_init(&mode) == -1) text_panic();
   if (console_init() == -1) panic();
 
-  int colour = 0x00808080;
-  console_print_char(console_at(0, 0), 'O', colour);
-  console_print_char(console_at(1, 0), 'k', colour);
-  console_print_char(console_at(2, 0), '.', colour);
+  /* TODO: allocate memory for the console */
+  console_set_buffer((uint16_t *) 0x180000);
+  console_print_str("Ok.", 7);
 
   __asm__ volatile("hlt");
   while(1);
