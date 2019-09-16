@@ -437,23 +437,10 @@ typedef struct {
 bit register configuration. It works by taking a stack parameter,
 populating it with values that would be pushed before an interrupt
 from v8086 to protected mode, and issuing an iret instruction, which
-will jump to the given entry point. The stack parameter can be passed
-by the caller uninitialised, and is just there to make it easy to set
-up the stack. */
+will jump to the given entry point. */
 uint32_t v8086_enter(regs16_t *regs, ptr16_t entry, v8086_stack_t stack)
 {
   isr_stack_t *ctx;
-
-  /* set up the stack for iret */
-  stack.es = regs->es;
-  stack.ds = regs->ds;
-  stack.fs = regs->fs;
-  stack.gs = regs->gs;
-  stack.eflags = EFLAGS_VM;
-  stack.ss = 0;
-  stack.sp = V8086_STACK_BASE;
-  stack.eip = entry.offset;
-  stack.cs = entry.segment;
 
   /* set up a stack guard, in case some BIOS code attempts to return
   with a far return instead of an iret */
@@ -512,11 +499,32 @@ uint32_t v8086_enter(regs16_t *regs, ptr16_t entry, v8086_stack_t stack)
   return ctx->eflags;
 }
 
+/* The stack parameter of v8086_enter must be initialised by the
+caller to prevent undefined behaviour, so we have to use this little
+wrapper that just sets up the stack and passes it by value to
+v8086_enter */
+uint32_t v8086_set_stack_and_enter(regs16_t *regs, ptr16_t entry)
+{
+  /* set up the stack for iret */
+  v8086_stack_t stack;
+
+  stack.es = regs->es;
+  stack.ds = regs->ds;
+  stack.fs = regs->fs;
+  stack.gs = regs->gs;
+  stack.eflags = EFLAGS_VM;
+  stack.ss = 0;
+  stack.sp = V8086_STACK_BASE;
+  stack.eip = entry.offset;
+  stack.cs = entry.segment;
+
+  return v8086_enter(regs, entry, stack);
+}
+
 int bios_int(uint32_t interrupt, regs16_t *regs)
 {
-  v8086_stack_t stack;
   ptr16_t *handlers = 0; /* bios IVT */
-  return v8086_enter(regs, handlers[interrupt], stack);
+  return v8086_set_stack_and_enter(regs, handlers[interrupt]);
 }
 
 void _stage1(uint32_t drive)
