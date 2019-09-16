@@ -27,13 +27,13 @@ int get_graphics_info(vbe_info_t *info)
   info->signature = 0x32454256;
 
   regs16_t regs;
-  regs.ax = 0x4f00;
+  regs.eax = 0x4f00;
   regs.es = 0;
-  regs.di = (uint32_t) info;
+  regs.edi = (uint32_t) info;
 
   bios_int(0x10, &regs);
 
-  if ((regs.ax & 0xff) != 0x4f) {
+  if ((regs.eax & 0xff) != 0x4f) {
     return -1;
   }
 
@@ -78,13 +78,13 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     num_modes++;
     if (best_score == 0) continue;
 
-    regs.ax = 0x4f01;
-    regs.cx = modes[i];
+    regs.eax = 0x4f01;
+    regs.ecx = modes[i];
     regs.es = 0;
-    regs.di = (uint32_t) &info;
+    regs.edi = (uint32_t) &info;
 
     bios_int(0x10, &regs);
-    if ((regs.ax & 0xff) != 0x4f) return -1;
+    if ((regs.eax & 0xff) != 0x4f) return -1;
 
     int score = 0;
     if (req_width > 0) {
@@ -127,12 +127,12 @@ int get_font(font_t *font)
 {
   regs16_t regs;
 
-  regs.ax = 0x1130;
-  regs.bx = 0x0600;
+  regs.eax = 0x1130;
+  regs.ebx = 0x0600;
   bios_int(0x10, &regs);
 
   uint32_t *buf = (uint32_t *)
-    seg_off_to_linear(regs.es, regs.bp);
+    seg_off_to_linear(regs.es, regs.ebp);
   uint32_t *dest = (uint32_t *) font;
 
   for (unsigned int i = 0; i < sizeof(font_t) / 4; i++) {
@@ -158,10 +158,10 @@ int graphics_init(vbe_mode_t *req_mode)
 
   /* enable mode */
   regs16_t regs;
-  regs.ax = 0x4f02;
-  regs.bx = 0x4000 | req_mode->number;
+  regs.eax = 0x4f02;
+  regs.ebx = 0x4000 | req_mode->number;
   bios_int(0x10, &regs);
-  if ((regs.ax & 0xff) != 0x4f) return -1;
+  if ((regs.eax & 0xff) != 0x4f) return -1;
   graphics_mode = *req_mode;
 
   /* load font */

@@ -361,19 +361,20 @@ void sector_to_chs(drive_geometry_t *geom,
 int get_drive_geometry(int drive, drive_geometry_t *geom)
 {
   regs16_t regs;
-  regs.ax = 0x0800;
-  regs.dx = drive;
+  regs.eax = 0x0800;
+  regs.edx = drive;
   regs.es = 0;
-  regs.di = 0;
+  regs.edi = 0;
 
   int flags = bios_int(0x13, &regs);
 
   int err = flags & EFLAGS_CF;
   if (err) return -1;
 
-  geom->num_cylinders = 1 + ((regs.cx >> 8) | ((regs.cx << 2) & 0x300));
-  geom->tracks_per_cylinder = 1 + (regs.dx >> 8);
-  geom->sectors_per_track = regs.cx & 0x3f;
+  uint16_t cx = regs.ecx & 0xffff;
+  geom->num_cylinders = 1 + ((cx >> 8) | ((cx << 2) & 0x300));
+  geom->tracks_per_cylinder = 1 + ((regs.edx >> 8) & 0xff);
+  geom->sectors_per_track = cx & 0x3f;
 
   return 0;
 }
@@ -406,10 +407,10 @@ void load_kernel(int drive)
     sector_to_chs(&geom, sector, &c, &h, &s);
 
     /* read sectors from disk */
-    regs.ax = 0x0200 | num_sectors;
-    regs.bx = (uint32_t) buffer;
-    regs.cx = (s & 0x3f) | (c << 8);
-    regs.dx = (h << 8) | (drive & 0xff);
+    regs.eax = 0x0200 | num_sectors;
+    regs.ebx = (uint32_t) buffer;
+    regs.ecx = (s & 0x3f) | (c << 8);
+    regs.edx = (h << 8) | (drive & 0xff);
     regs.es = 0;
 
     int err = bios_int(0x13, &regs) & EFLAGS_CF;
@@ -455,12 +456,12 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      "mov %%esp, %0\n"
 
      /* set up registers */
-     "mov 0x0(%3), %%ax\n"
-     "mov 0x2(%3), %%bx\n"
-     "mov 0x4(%3), %%cx\n"
-     "mov 0x6(%3), %%dx\n"
-     "mov 0x8(%3), %%di\n"
-     "mov 0xa(%3), %%bp\n"
+     "mov 0x0(%3), %%eax\n"
+     "mov 0x4(%3), %%ebx\n"
+     "mov 0x8(%3), %%ecx\n"
+     "mov 0xc(%3), %%edx\n"
+     "mov 0x10(%3), %%edi\n"
+     "mov 0x14(%3), %%ebp\n"
 
      /* adjust the stack and jump to v8086 mode */
      "mov %2, %%esp\n"
@@ -484,12 +485,12 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      : "%eax", "%ebx", "%ecx", "%edx", "%edi", "%ebp");
 
   /* update regs structure */
-  regs->ax = ctx->eax;
-  regs->bx = ctx->ebx;
-  regs->cx = ctx->ecx;
-  regs->dx = ctx->edx;
-  regs->di = ctx->edi;
-  regs->bp = ctx->ebp;
+  regs->eax = ctx->eax;
+  regs->ebx = ctx->ebx;
+  regs->ecx = ctx->ecx;
+  regs->edx = ctx->edx;
+  regs->edi = ctx->edi;
+  regs->ebp = ctx->ebp;
   regs->es = ctx->es;
   regs->ds = ctx->ds;
   regs->fs = ctx->fs;
@@ -547,8 +548,8 @@ void _stage1(uint32_t drive)
   bios_int(0x10, &regs);
 
   /* hide cursor */
-  regs.ax = 0x0100;
-  regs.cx = 0x2000;
+  regs.eax = 0x0100;
+  regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
   load_kernel(drive);
