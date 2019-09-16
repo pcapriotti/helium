@@ -156,7 +156,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
       uint16_t *st = (uint16_t *)stack->esp;
 
       /* final iret from v8086 */
-      if (stack->esp == V8086_STACK_BASE) {
+      if (stack->esp >= V8086_STACK_BASE) {
         v8086_exit(stack);
         return;
       }
@@ -455,6 +455,15 @@ uint32_t v8086_enter(regs16_t *regs, ptr16_t entry, v8086_stack_t stack)
   stack.sp = V8086_STACK_BASE;
   stack.eip = entry.offset;
   stack.cs = entry.segment;
+
+  /* set up a stack guard, in case some BIOS code attempts to return
+  with a far return instead of an iret */
+  {
+    uint16_t *st = (uint16_t *) V8086_STACK_BASE;
+    st[0] = (uint32_t) st + 2; /* eip = addr of iret instruction later */
+    st[1] = 0; /* cs = 0 */
+    st[2] = 0xcf; /* iret */
+  }
 
   __asm__ volatile
     ( /* save current stack pointer in tss */
