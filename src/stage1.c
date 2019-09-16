@@ -515,7 +515,7 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
   with a far return instead of an iret */
   {
     uint16_t *st = (uint16_t *) V8086_STACK_BASE;
-    st[0] = (uint32_t) st + 2; /* eip = addr of iret instruction later */
+    st[0] = (uint32_t) (st + 2); /* eip = addr of iret instruction later */
     st[1] = 0; /* cs = 0 */
     st[2] = 0xcf; /* iret */
   }
