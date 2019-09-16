@@ -7,9 +7,49 @@
 
 volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
-void text_panic()
+static int vgax = 0, vgay = 0;
+static int enable_tracing = 0;
+
+void debug_str(const char *msg)
 {
-  vga_text[0] = 0x4000;
+  volatile uint16_t *p = vga_text + vgax + vgay * 80;
+  char c;
+  while ((c = *msg++)) {
+    if (c == '\n') {
+      vgay++;
+      vgax = 0;
+    }
+    else if (vgax < 80) {
+      *p++ = 0x700 | c;
+      vgax++;
+    }
+  }
+  if (vgay == 25) {
+    for (int i = 0; i < 80 * 24; i++) {
+      vga_text[i] = vga_text[i + 80];
+    }
+    for (int i = 0; i < 80; i++) {
+      vga_text[80 * 24 + i] = 0;
+    }
+    vgay--;
+  }
+}
+
+void debug_byte(uint8_t x)
+{
+  int d1 = x >> 4;
+  int d2 = x & 0xf;
+  char msg[] = {
+    (char)(d1 > 9 ? 'a' + d1 - 10 : '0' + d1),
+    (char)(d2 > 9 ? 'a' + d2 - 10 : '0' + d2),
+    0
+  };
+  debug_str(msg);
+}
+
+void text_panic(const char *msg)
+{
+  debug_str(msg);
   __asm__ volatile("hlt");
   while(1);
 }
@@ -152,7 +192,10 @@ void v8086_gpf_handler(isr_stack_t *stack)
       return;
     }
   default:
-    text_panic();
+    debug_str("Unimplemented v8086 opcode ");
+    debug_byte(*addr);
+    debug_str("\n");
+    text_panic("Panic");
   }
 }
 
@@ -194,6 +237,10 @@ void interrupt_handler(isr_stack_t stack)
 
       return;
     }
+
+    debug_str("Exception in v8086: ");
+    debug_byte(stack.int_num);
+    debug_str("\n");
   }
 
   if (stack.int_num >= IDT_IRQ) {
@@ -203,8 +250,25 @@ void interrupt_handler(isr_stack_t stack)
     return;
   }
 
-  __asm__ volatile("" : : "c"(&stack));
-  while(1);
+  debug_str("Unhandled exception: ");
+  debug_byte(stack.int_num);
+  debug_str("\n");
+
+  debug_str("flags: ");
+  debug_byte(stack.eflags >> 24);
+  debug_byte(stack.eflags >> 16);
+  debug_byte(stack.eflags >> 8);
+  debug_byte(stack.eflags);
+  debug_str(" eip: ");
+  debug_byte(stack.eip >> 24);
+  debug_byte(stack.eip >> 16);
+  debug_byte(stack.eip >> 8);
+  debug_byte(stack.eip);
+  debug_str(" cs: ");
+  debug_byte(stack.cs >> 8);
+  debug_byte(stack.cs);
+  debug_str("\n");
+  text_panic("Panic");
 }
 
 gdtp_t kernel_idtp = {
@@ -355,7 +419,7 @@ void load_kernel(int drive)
     int err = bios_int(0x13, &regs) & EFLAGS_CF;
 
     if (err) {
-      text_panic();
+      text_panic("Could not load kernel from disk");
     }
 
     unsigned int num_words = num_sectors * sizeof(sector_t) / 4;
@@ -476,7 +540,5 @@ void _stage1(uint32_t drive)
 
   load_kernel(drive);
 
-  vga_text[0] = 0x2000;
-  while(1);
   main();
 }
