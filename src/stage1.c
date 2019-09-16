@@ -8,7 +8,6 @@
 volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
 static int vgax = 0, vgay = 0;
-static int enable_tracing = 0;
 
 void debug_str(const char *msg)
 {
@@ -438,7 +437,7 @@ bit register configuration. It works by taking a stack parameter,
 populating it with values that would be pushed before an interrupt
 from v8086 to protected mode, and issuing an iret instruction, which
 will jump to the given entry point. */
-uint32_t v8086_enter(regs16_t *regs, ptr16_t entry, v8086_stack_t stack)
+uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
 {
   isr_stack_t *ctx;
 
@@ -518,7 +517,7 @@ uint32_t v8086_set_stack_and_enter(regs16_t *regs, ptr16_t entry)
   stack.eip = entry.offset;
   stack.cs = entry.segment;
 
-  return v8086_enter(regs, entry, stack);
+  return v8086_enter(regs, stack);
 }
 
 int bios_int(uint32_t interrupt, regs16_t *regs)
