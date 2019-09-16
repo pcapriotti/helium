@@ -279,22 +279,21 @@ gdtp_t kernel_idtp = {
 /* Create code for an isr stub */
 void isr_assemble(isr_t *isr, uint8_t number)
 {
-  int offset = 4;
+  int push = 1;
   if (number == 8 || number == 10 || number == 11 || number == 12 ||
       number == 13 || number == 14 || number == 17) {
-    offset = 0;
+    push = 0;
   }
 
   uint8_t *p = isr->code;
-  *p++ = 0x83; /* sub */
-  *p++ = 0xec; /* esp */
-  *p++ = offset;
+  if (push) *p++ = 0x50; /* push ax */
 
   *p++ = 0x6a; /* push */
   *p++ = number;
 
-  *p++ = 0xe9; /* rel jump */
-  *((int32_t *) p) = (int32_t)isr_generic - (int32_t)(p + 4);
+  int32_t rel = (int32_t)isr_generic - (int32_t)(p + 5);
+  *p++ = 0xe9; /* jump */
+  *((int32_t *) p) = rel;
 }
 
 __asm__
