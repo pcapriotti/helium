@@ -1,5 +1,7 @@
 SECTIONS
 {
+
+  _stack_base = 0x7b00;
   . = 0x7c00;
   _stage0_start = .;
   .text0 :
@@ -16,6 +18,8 @@ SECTIONS
   /* put bss in low memory, so that it can be used by stage 1 code */
   . = _stage1_end;
   .bss : { *(.bss) }
+
+  _kernel_low_end = .;
 
   /* the kernel goes in high memory */
   . = 0x100000;

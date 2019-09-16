@@ -1,6 +1,8 @@
 #ifndef INTERRUPTS_H
 #define INTERRUPTS_H
 
+#include "stage1.h"
+
 enum {
   IDT_GP = 0xd,
   IDT_IRQ = 0x20,

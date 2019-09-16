@@ -2,7 +2,6 @@
 #include "debug.h"
 #include "graphics.h"
 
-
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16

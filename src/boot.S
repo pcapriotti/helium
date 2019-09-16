@@ -1,12 +1,11 @@
 .code16
 
 .set vga_segment, 0xb800
-.set stack_base, 0x7b00
 
 /* stage0 loader: this has to fit into 512 bytes */
 
 _stage0:
-  mov $stack_base, %sp
+  mov $_stack_base, %sp
   ljmp $0, $1f
 1:
   push %dx /* save drive information */
@@ -62,7 +61,7 @@ _stage0:
   xor %ebp, %ebp
   xor %edx, %edx
   pop %dx
-  mov $stack_base, %esp
+  mov $_stack_base, %esp
 
   push %edx
   call _stage1

@@ -1,9 +1,10 @@
 #include "debug.h"
-#include "stage1.h"
 #include "interrupts.h"
 #include "io.h"
-#include "stdint.h"
 #include "main.h"
+#include "memory.h"
+#include "stage1.h"
+#include "stdint.h"
 
 volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
@@ -48,6 +49,7 @@ void debug_byte(uint8_t x)
 
 void text_panic(const char *msg)
 {
+  debug_str("Panic: ");
   debug_str(msg);
   __asm__ volatile("hlt");
   while(1);
@@ -194,7 +196,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
     debug_str("Unimplemented v8086 opcode ");
     debug_byte(*addr);
     debug_str("\n");
-    text_panic("Panic");
+    text_panic("v8086");
   }
 }
 
@@ -267,7 +269,7 @@ void interrupt_handler(isr_stack_t stack)
   debug_byte(stack.cs >> 8);
   debug_byte(stack.cs);
   debug_str("\n");
-  text_panic("Panic");
+  text_panic("interrupt_handler");
 }
 
 gdtp_t kernel_idtp = {
@@ -545,6 +547,7 @@ void _stage1(uint32_t drive)
 
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  regs.eax = 0x2;
   bios_int(0x10, &regs);
 
   /* hide cursor */
