@@ -135,23 +135,47 @@ void pic_setup() {
 void v8086_gpf_handler(isr_stack_t *stack)
 {
   uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
+  int op32 = 0;
+
+  if (*addr == 0x66) {
+    op32 = 1;
+    addr++;
+    stack->eip++;
+  }
+  else if (*addr == 0x67) {
+    addr++;
+    stack->eip++;
+  }
+
   switch (*addr) {
   case 0x9c: /* pushf */
-    {
+    if (op32) {
+      stack->esp -= 4;
+      uint32_t *st = (uint32_t *) stack->esp;
+      st[0] = stack->eflags;
+      stack->eip += 1;
+    }
+    else {
       stack->esp -= 2;
-      uint16_t *st = (uint16_t *)stack->esp;
+      uint16_t *st = (uint16_t *) stack->esp;
       st[0] = stack->eflags & 0xffff;
       stack->eip += 1;
-      return;
     }
+    return;
   case 0x9d: /* popf */
-    {
+    if (op32) {
+      uint32_t *st = (uint32_t *)stack->esp;
+      stack->esp += 4;
+      stack->eflags = st[0] | EFLAGS_VM;
+      stack->eip += 1;
+    }
+    else {
       uint16_t *st = (uint16_t *)stack->esp;
       stack->esp += 2;
       stack->eflags = st[0] | EFLAGS_VM;
       stack->eip += 1;
-      return;
     }
+    return;
   case 0xcf: /* iret */
     {
       uint16_t *st = (uint16_t *)stack->esp;
@@ -176,7 +200,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
   case 0xfb: /* sti */
     stack->eip += 1;
     stack->eflags |= EFLAGS_IF;
-    break;
+    return;
   case 0xcd: /* int */
     {
       ptr16_t *handlers = 0;
