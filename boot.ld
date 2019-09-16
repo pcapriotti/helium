@@ -25,7 +25,7 @@ SECTIONS
     *(.text)
   }
 
-  .data : { *(.data) }
+  .data : { *(.data) *(.rodata) }
   _kernel_end = .;
 
 }
