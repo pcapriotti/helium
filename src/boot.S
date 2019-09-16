@@ -41,6 +41,8 @@ _stage0:
 
   /* enable protected mode */
   cli
+  xor %ax, %ax
+  mov %ax, %ds
   lgdt kernel_gdtp
   mov %cr0, %eax
   or $1, %eax
