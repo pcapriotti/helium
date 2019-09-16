@@ -46,6 +46,8 @@ void isort(void *base, size_t nmemb, size_t size,
   }
 }
 
+extern int v8086_tracing;
+
 /* Get memory map from BIOS. Since we don't know how much high memory
 we have yet, and in particular we have no way to allocate it, we have
 to assume that there is enough memory to at least store the memory
@@ -69,6 +71,21 @@ memory_map_entry_t *get_memory_map(size_t *count)
     int flags = bios_int(0x15, &regs);
 
     if (flags & EFLAGS_CF || regs.eax != 0x534d4150) {
+      debug_str("memory map bios call failed\n  eax: ");
+      debug_byte(regs.eax >> 24);
+      debug_byte(regs.eax >> 16);
+      debug_byte(regs.eax >> 8);
+      debug_byte(regs.eax);
+      debug_str(" eflags: ");
+      debug_byte(flags >> 24);
+      debug_byte(flags >> 16);
+      debug_byte(flags >> 8);
+      debug_byte(flags);
+      debug_str("\n  num entries so far: ");
+      int num = entry - result;
+      debug_byte(num >> 8);
+      debug_byte(num);
+      debug_str("\n");
       return 0;
     }
 

@@ -133,23 +133,60 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x00);
 }
 
+int v8086_tracing = 0;
+
+void v8086_debug_dump(const char *s, isr_stack_t *stack)
+{
+  debug_str("[v8086] ");
+  debug_str(s);
+  debug_str(" at ");
+  debug_byte(stack->cs >> 8);
+  debug_byte(stack->cs);
+  debug_str(":");
+  debug_byte(stack->eip >> 8);
+  debug_byte(stack->eip);
+  debug_str(" sp ");
+  debug_byte(stack->ss >> 8);
+  debug_byte(stack->ss);
+  debug_str(":");
+  debug_byte(stack->esp >> 8);
+  debug_byte(stack->esp);
+  debug_str("\n ");
+  uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
+  for (int i = 0; i < 15; i++) {
+    debug_str(" ");
+    debug_byte(addr[i]);
+  }
+  uint16_t *st = (uint16_t *)seg_off_to_linear(stack->ss, stack->esp);
+  debug_str("\n");
+  debug_str("  stack:");
+  for (int i = 0; i < 8; i++) {
+    debug_str(" ");
+    debug_byte(st[i] >> 8);
+    debug_byte(st[i]);
+  }
+  debug_str("\n");
+}
+
 void v8086_gpf_handler(isr_stack_t *stack)
 {
   uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
   int op32 = 0;
 
   if (*addr == 0x66) {
-    op32 = 1;
+    if (v8086_tracing) debug_str("[v8086] opsize\n");
     addr++;
     stack->eip++;
   }
   else if (*addr == 0x67) {
+    if (v8086_tracing) debug_str("[v8086] adsize\n");
     addr++;
     stack->eip++;
   }
 
   switch (*addr) {
   case 0x9c: /* pushf */
+    if (v8086_tracing) v8086_debug_dump("pushf", stack);
     if (op32) {
       stack->esp -= 4;
       uint32_t *st = (uint32_t *) stack->esp;
@@ -164,6 +201,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
     }
     return;
   case 0x9d: /* popf */
+    if (v8086_tracing) v8086_debug_dump("popf", stack);
     if (op32) {
       uint32_t *st = (uint32_t *)stack->esp;
       stack->esp += 4;
@@ -178,6 +216,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
     }
     return;
   case 0xcf: /* iret */
+    if (v8086_tracing) v8086_debug_dump("iret", stack);
     {
       uint16_t *st = (uint16_t *)stack->esp;
 
@@ -195,14 +234,17 @@ void v8086_gpf_handler(isr_stack_t *stack)
       return;
     }
   case 0xfa: /* cli */
+    if (v8086_tracing) v8086_debug_dump("cli", stack);
     stack->eip += 1;
     stack->eflags &= ~EFLAGS_IF;
     return;
   case 0xfb: /* sti */
+    if (v8086_tracing) v8086_debug_dump("sti", stack);
     stack->eip += 1;
     stack->eflags |= EFLAGS_IF;
     return;
   case 0xcd: /* int */
+    if (v8086_tracing) v8086_debug_dump("int", stack);
     {
       ptr16_t *handlers = 0;
       ptr16_t iv = handlers[addr[1]];
