@@ -153,7 +153,7 @@ void v8086_gpf_handler(isr_stack_t *stack)
     if (op32) {
       stack->esp -= 4;
       uint32_t *st = (uint32_t *) stack->esp;
-      st[0] = stack->eflags;
+      st[0] = stack->eflags & 0xdff;
       stack->eip += 1;
     }
     else {
