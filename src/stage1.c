@@ -375,7 +375,7 @@ int get_drive_geometry(int drive, drive_geometry_t *geom)
 
   geom->num_cylinders = 1 + ((regs.cx >> 8) | ((regs.cx << 2) & 0x300));
   geom->tracks_per_cylinder = 1 + (regs.dx >> 8);
-  geom->sectors_per_track = 1 + (regs.cx & 0x3f);
+  geom->sectors_per_track = regs.cx & 0x3f;
 
   return 0;
 }
@@ -394,9 +394,7 @@ void load_kernel(int drive)
   regs16_t regs;
 
   drive_geometry_t geom;
-  geom.num_cylinders = 80;
-  geom.tracks_per_cylinder = 2;
-  geom.sectors_per_track = 18;
+  get_drive_geometry(drive, &geom);
 
   int sector = sector0;
   while (sector < sector1) {
