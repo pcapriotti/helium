@@ -1,1 +1,6 @@
 TARGET := i686-elf
+
+CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -fdiagnostics-color=always
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-unused-variable
