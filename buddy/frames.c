@@ -242,8 +242,9 @@ void *take_block(frames_t *frames, unsigned int order)
   return block;
 }
 
-frames_t *frames_new(void *start, size_t size,
+frames_t *frames_new(void *start,
                      unsigned int min_order,
+                     unsigned int max_order,
                      int (*mem_info)(void *start, size_t size, void *data),
                      void *data)
 {
@@ -254,7 +255,7 @@ frames_t *frames_new(void *start, size_t size,
   frames_t frames;
   frames.start = start;
   frames.min_order = min_order;
-  frames.max_order = ORDER_OF(size);
+  frames.max_order = max_order;
   if (frames.max_order < frames.min_order) {
     FRAMES_PANIC(0, "min_order too large\n");
   }

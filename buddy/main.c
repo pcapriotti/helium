@@ -15,7 +15,7 @@
 
 int test_alloc_free(void *mem, size_t sz)
 {
-  frames_t *frames = frames_new(mem, sz, 5, default_mem_info, 0);
+  frames_t *frames = frames_new(mem, 5, 20, default_mem_info, 0);
   ASSERT(frames);
   size_t total = frames_available_memory(frames);
   printf("total memory: 0x%lx\n", total);
