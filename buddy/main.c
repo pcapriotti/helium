@@ -11,7 +11,7 @@
   } } while (0)
 #define ASSERT(x) ASSERT_MSG(x, #x)
 #define ASSERT_EQ(x, y) ASSERT_MSG(((x) == (y)), \
-  "equality test failed:\n  " #x " = %lu\n  " #y " = %lu", x, y)
+  "equality test failed:\n  " #x " = 0x%lx\n  " #y " = 0x%lx", x, y)
 
 int test_alloc_free(void *mem, size_t sz)
 {
