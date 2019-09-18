@@ -3,24 +3,31 @@
 #include <assert.h>
 #include <string.h>
 
+#define FRAMES_DEBUG 0
+
 #if HAVE_STDIO
 #include <stdio.h>
 #define FRAMES_PANIC(ret, ...) do { \
-  fprintf(stderr, "[frames]"); \
+  fprintf(stderr, "[frames] "); \
   fprintf(stderr, __VA_ARGS__); \
   return ret; } while(0)
 
 #else
-#define FRAMES_PANIC(ret, ...) return ret;
+#include "debug.h"
+#define FRAMES_PANIC(ret, ...) do { \
+  kprintf("[frames] "); \
+  kprintf(__VA_ARGS__); \
+  return ret; } while(0)
 #endif
 
 #if FRAMES_DEBUG
-#if HAVE_STDIO
-#define TRACE(...) printf(__VA_ARGS__)
+# if HAVE_STDIO
+#  define TRACE(...) printf(__VA_ARGS__)
+# else
+#  define TRACE(...) kprintf(__VA_ARGS__)
+# endif
 #else
-#endif
-#else
-#define TRACE(...) do {} while(0)
+# define TRACE(...) do {} while(0)
 #endif
 
 /* operations on bitvectors defined as arrays of uint32_t */
@@ -199,10 +206,12 @@ void add_blocks(unsigned int order, void *start, frames_t *frames,
                 void *data)
 {
   int info = mem_info(start, 1 << order, data);
+  /* TRACE("block %p order %u info %d\n", start, order, info); */
 
   /* if the block is usable, just add it to the list */
   if (info == MEM_INFO_USABLE) {
     block_t *block = (block_t *)start;
+    /* TRACE("adding block %p order %u\n", block, order); */
     list_add(block_head(frames, order), block);
     return;
   }
@@ -226,7 +235,7 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
     SET_BIT(frames->metadata, index);
   }
 
-  if (info == MEM_INFO_PARTIALLY_USABLE) {
+  if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
     mark_blocks(frames, start, order - 1, mem_info, data);
     mark_blocks(frames, start + (1 << (order - 1)), order - 1, mem_info, data);
   }
@@ -313,17 +322,23 @@ frames_t *frames_new(void *start,
 
   /* set metadata */
   frames.metadata = 0;
-  int meta_order = frames.max_order - frames.min_order - 2;
+  unsigned int meta_order = frames.max_order - frames.min_order - 2;
   if (meta_order <= 2) meta_order = 2;
+  if (meta_order < frames.min_order) meta_order = frames.min_order;
   frames.metadata = take_block(&frames, meta_order);
-  if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata");
+  if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata\n");
+
+  TRACE("setting initial metadata\n");
 
   memset(frames.metadata, 0, 1 << meta_order);
   /* synchronise metadata with initial blocks */
   mark_blocks(&frames, start, frames.max_order, mem_info, data);
 
+
   /* execute metadata changes for the metadata block allocation */
   {
+    TRACE("replaying metadata for %#lx order %u\n",
+          frames.metadata, meta_order);
     unsigned int index = frames_block_index(&frames, frames.metadata, meta_order);
     while (index < frames.max_order) {
       SET_BIT(frames.metadata, index);
@@ -344,7 +359,7 @@ size_t frames_available_memory(frames_t *frames)
   size_t total = 0;
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     size_t size = 1 << k;
-    block_t *block = frames->free[k - frames->min_order];
+    block_t *block = *block_head(frames, k);
     while (block) {
       total += size;
       block = block->next;
