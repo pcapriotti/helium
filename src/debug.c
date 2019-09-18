@@ -26,6 +26,15 @@ int isdigit(char c)
   return c >= '0' && c <= '9';
 }
 
+#ifdef SERIAL_PORT_DEBUG
+#include "io.h"
+void print_char(char c)
+{
+  if (c == '\n')
+    outb(0x3f8, '\r');
+  outb(0x3f8, c);
+}
+#else
 void print_char(char c)
 {
   if (c == '\n') {
@@ -48,6 +57,7 @@ void print_char(char c)
     debug_console.y--;
   }
 }
+#endif
 
 int print_string(const char *s)
 {
@@ -100,11 +110,10 @@ int print_uint(long n, unsigned int base, int X, int alt, int padded, int width)
     n /= base;
   }
 
-  for (int i = digits; i < width; i++) {
-    if (padded)
-      print_char('0');
-    else
+  if (!padded) {
+    for (int i = digits; i < width; i++) {
       print_char(' ');
+    }
   }
   if (alt) {
     switch (base) {
@@ -115,6 +124,11 @@ int print_uint(long n, unsigned int base, int X, int alt, int padded, int width)
     case 8:
       print_char('0');
       break;
+    }
+  }
+  if (padded) {
+    for (int i = digits; i < width; i++) {
+      print_char('0');
     }
   }
   for (int i = 0; i < digits; i++) {
