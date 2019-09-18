@@ -92,7 +92,7 @@ chunk_t *memory_get_chunks(int *count, void *heap)
       return 0;
     }
 
-    kprintf("entry: %p size: %p type: %d\n",
+    kprintf("entry: %08p size: %08p type: %d\n",
             (unsigned long) entry->base,
             (unsigned long) entry->size,
             entry->type);
@@ -282,7 +282,7 @@ int memory_init(void *heap)
 
   kprintf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
-    kprintf("type: %d base: %p\n",
+    kprintf("type: %d base: %08p\n",
             chunks[i].type,
             chunks[i].base);
   }

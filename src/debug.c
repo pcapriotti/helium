@@ -21,6 +21,11 @@ struct {
   volatile uint16_t *p;
 } debug_console = {0, 0, VGA_TEXT};
 
+int isdigit(char c)
+{
+  return c >= '0' && c <= '9';
+}
+
 void print_char(char c)
 {
   if (c == '\n') {
@@ -74,7 +79,7 @@ void print_digit_X(uint8_t d)
   }
 }
 
-int print_uint(long n, unsigned int base, int X, int alt)
+int print_uint(long n, unsigned int base, int X, int alt, int padded, int width)
 {
   uint8_t str[256];
 
@@ -94,6 +99,12 @@ int print_uint(long n, unsigned int base, int X, int alt)
     n /= base;
   }
 
+  for (int i = digits; i < width; i++) {
+    if (padded)
+      print_char('0');
+    else
+      print_char(' ');
+  }
   if (alt) {
     switch (base) {
     case 16:
@@ -105,7 +116,6 @@ int print_uint(long n, unsigned int base, int X, int alt)
       break;
     }
   }
-
   for (int i = 0; i < digits; i++) {
     if (X)
       print_digit_X(str[i]);
@@ -116,14 +126,14 @@ int print_uint(long n, unsigned int base, int X, int alt)
   return digits;
 }
 
-static inline int print_int(long n, int base, int X, int alt)
+static inline int print_int(long n, int base, int X, int alt, int padded, int width)
 {
   if (n < 0) {
     print_char('-');
-    return print_uint(-n, base, X, alt);
+    return print_uint(-n, base, X, alt, padded, width);
   }
   else {
-    return print_uint(n, base, X, alt);
+    return print_uint(n, base, X, alt, padded, width);
   }
 }
 
@@ -135,6 +145,7 @@ int kvprintf(const char *fmt, va_list list)
       i++;
 
       int alt = 0;
+      int padded = 0;
 
       /* flags */
       int done = 0;
@@ -144,9 +155,27 @@ int kvprintf(const char *fmt, va_list list)
           alt = 1;
           i++;
           break;
+        case '0':
+          padded = 1;
+          i++;
+          break;
         default:
           done = 1;
           break;
+        }
+      }
+
+      /* width */
+      int width = 0;
+      done = 0;
+      while (!done) {
+        if (isdigit(fmt[i])) {
+          width *= 10;
+          width += fmt[i] - '0';
+          i++;
+        }
+        else {
+          done = 1;
         }
       }
 
@@ -174,19 +203,19 @@ int kvprintf(const char *fmt, va_list list)
       case 'i':
         {
           int n = va_arg(list, int);
-          count += print_int(n, 10, 0, alt);
+          count += print_int(n, 10, 0, alt, padded, width);
         }
         break;
       case 'u':
         {
           unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 10, 0, alt);
+          count += print_uint(n, 10, 0, alt, padded, width);
         }
         break;
       case 'o':
         {
           unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 8, 0, alt);
+          count += print_uint(n, 8, 0, alt, padded, width);
         }
         break;
       case 'p':
@@ -194,13 +223,13 @@ int kvprintf(const char *fmt, va_list list)
       case 'x':
         {
           unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 16, 0, alt);
+          count += print_uint(n, 16, 0, alt, padded, width);
         }
         break;
       case 'X':
         {
           unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 16, 1, alt);
+          count += print_uint(n, 16, 1, alt, padded, width);
         }
         break;
       }
