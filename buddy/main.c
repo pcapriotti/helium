@@ -41,6 +41,55 @@ int test_alloc_free(void *mem, size_t sz)
   return 0;
 }
 
+typedef struct {
+  void *start;
+  size_t size;
+} chunk_t;
+
+int chunk_mem_info(void *start, size_t size, void *data) {
+  chunk_t *chunk = data;
+  if (start < chunk->start) {
+    if (start + size > chunk->start)
+      return MEM_INFO_PARTIALLY_USABLE;
+    else
+      return MEM_INFO_RESERVED;
+  }
+  else if (start >= chunk->start + chunk->size) {
+    return MEM_INFO_RESERVED;
+  }
+  else if (start + size > chunk->start + chunk->size) {
+    return MEM_INFO_PARTIALLY_USABLE;
+  }
+  else {
+    return MEM_INFO_USABLE;
+  }
+}
+
+int test_chunk_alloc(void *mem, size_t sz0) {
+  size_t sz = 12000;
+  ASSERT(sz <= sz0);
+
+  chunk_t chunk;
+  chunk.start = mem;
+  chunk.size = sz;
+
+  frames_t *frames = frames_new(mem, 4, 14, chunk_mem_info, &chunk);
+  ASSERT(frames);
+  size_t total = frames_available_memory(frames);
+  ASSERT(total < sz);
+
+  printf("init done\n");
+
+  void *x = frames_alloc(frames, 6500);
+  ASSERT(x);
+  ASSERT_EQ(frames_available_memory(frames), total - 0x2000);
+
+  void *y = frames_alloc(frames, 6500);
+  ASSERT(!y);
+
+  return 0;
+}
+
 int test_order_of()
 {
   ASSERT(ORDER_OF(0xf) == 4);
@@ -57,7 +106,8 @@ int main(int argc, char **argv)
   void *mem = malloc(sz);
 
   int err = 0;
-  err = test_alloc_free(mem, sz) || err;
-  err = test_order_of() || err;
+  /* err = test_alloc_free(mem, sz) || err; */
+  err = test_chunk_alloc(mem, sz) || err;
+  /* err = test_order_of() || err; */
   return err;
 }

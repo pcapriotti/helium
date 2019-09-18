@@ -207,8 +207,10 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
   int info = mem_info(start, 1 << order, data);
   if (info == MEM_INFO_USABLE) return;
 
-  unsigned int index = frames_block_index(frames, start, order);
-  SET_BIT(frames->metadata, index);
+  if (order < frames->max_order) {
+    unsigned int index = frames_block_index(frames, start, order);
+    SET_BIT(frames->metadata, index);
+  }
 
   if (info == MEM_INFO_PARTIALLY_USABLE) {
     mark_blocks(frames, start, order - 1, mem_info, data);
@@ -216,6 +218,11 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
   }
 }
 
+/* Create an allocated block of the given order.
+
+   If the metadata is invalid, this function can still be used, but it
+   does not make any changes: it just returns the address of the block
+   that would be returned by a real allocation. */
 void *take_block(frames_t *frames, unsigned int order)
 {
   if (order > frames->max_order) return 0;
@@ -285,8 +292,6 @@ frames_t *frames_new(void *start,
     *block_head(&frames, k) = 0;
   }
 
-  frames_dump_diagnostics(&frames);
-
   /* add all blocks */
   add_blocks(frames.max_order, start, &frames, mem_info, data);
 
@@ -298,8 +303,6 @@ frames_t *frames_new(void *start,
   if (meta_order <= 2) meta_order = 2;
   frames.metadata = take_block(&frames, meta_order);
   if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata");
-
-  frames_dump_diagnostics(&frames);
 
   memset(frames.metadata, 0, 1 << meta_order);
   /* synchronise metadata with initial blocks */
