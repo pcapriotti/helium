@@ -451,7 +451,7 @@ int get_drive_geometry(int drive, drive_geometry_t *geom)
 void load_kernel(int drive)
 {
   uint32_t kernel_size = _kernel_end - _kernel_start;
-  uint32_t lba0 = _stage1_end - _stage0_start;
+  uint32_t lba0 = _stage1_end - _kernel_low_start;
   uint32_t lba1 = lba0 + kernel_size;
 
   int sector0 = lba0 / sizeof(sector_t);
@@ -466,9 +466,8 @@ void load_kernel(int drive)
 
   int sector = sector0;
   while (sector < sector1) {
-    int track_end = sector + 1 +
-      (sector + SECTORS_PER_TRACK - 1) %
-      SECTORS_PER_TRACK;
+    int track_end = sector + SECTORS_PER_TRACK + 1 -
+      (sector + 1) % SECTORS_PER_TRACK;
     if (track_end >= sector1) track_end = sector1;
     int num_sectors = track_end - sector;
 
@@ -490,7 +489,7 @@ void load_kernel(int drive)
 
     unsigned int num_words = num_sectors * sizeof(sector_t) / 4;
     for (unsigned int i = 0; i < num_words; i++) {
-      dest[i] = buffer[i];
+      *dest++ = buffer[i];
     }
 
     sector = track_end;
@@ -598,6 +597,7 @@ int bios_int(uint32_t interrupt, regs16_t *regs)
 
 void _stage1(uint32_t drive)
 {
+
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
                 sizeof(kernel_tss),

@@ -3,10 +3,10 @@
 
 #include "stdint.h"
 
-extern uint8_t _stage0_start[];
 extern uint8_t _stage1_end[];
 extern uint8_t _kernel_start[];
 extern uint8_t _kernel_end[];
+extern uint8_t _kernel_low_start[];
 extern uint8_t _kernel_low_end[];
 
 typedef struct {

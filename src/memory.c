@@ -60,6 +60,7 @@ memory_map_entry_t *get_memory_map(size_t *count)
   memory_map_entry_t *result = (memory_map_entry_t *)_kernel_low_end;
   memory_map_entry_t *entry = result;
 
+
   regs.ebx = 0;
   do {
     regs.eax = 0xe820;
@@ -68,6 +69,8 @@ memory_map_entry_t *get_memory_map(size_t *count)
     regs.edi = (uint32_t) entry;
     regs.ecx = sizeof(memory_map_entry_t);
     entry->type = MM_AVAILABLE;
+
+
     int flags = bios_int(0x15, &regs);
 
     if (flags & EFLAGS_CF || regs.eax != 0x534d4150) {

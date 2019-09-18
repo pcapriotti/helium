@@ -3,7 +3,7 @@ SECTIONS
 
   _stack_base = 0x7b00;
   . = 0x7c00;
-  _stage0_start = .;
+  _kernel_low_start = .;
   .text0 :
   {
     src/boot.o
