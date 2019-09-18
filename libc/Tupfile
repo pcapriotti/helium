@@ -2,9 +2,8 @@ include_rules
 
 CFLAGS += -std=gnu99 -ffreestanding
 CFLAGS += -fomit-frame-pointer
-CFLAGS += -isystem ../libc
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 
-: foreach *.S |> $(CC) -c %f -o %o |> %B.o
 : foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: *.o |> ar crs %o %f |> libc.a

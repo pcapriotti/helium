@@ -2,8 +2,10 @@
 #include "debug.h"
 #include "graphics.h"
 #include "memory.h"
-#include "stdint.h"
 #include "stage1.h"
+
+#include <stdint.h>
+#include <stddef.h>
 
 void main()
 {

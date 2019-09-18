@@ -1,6 +1,6 @@
 include_rules
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
-: src/*.o |> $(LD) -T boot.ld %f -o %o |> demo.elf
+: src/*.o libc/libc.a |> $(LD) -T boot.ld %f -o %o |> demo.elf
 : demo.elf |> objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin
 : demo.bin |> ./scripts/build-floppy-image.sh %f %o |> fda

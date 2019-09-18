@@ -1,7 +1,8 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "stdint.h"
+#include <stdint.h>
+#include <stddef.h>
 
 extern uint8_t _stage1_end[];
 extern uint8_t _kernel_start[];
