@@ -6,47 +6,7 @@
 #include "stage1.h"
 #include "stdint.h"
 
-volatile uint16_t *vga_text = (uint16_t *)0xb8000;
-
 static int vgax = 0, vgay = 0;
-
-void debug_str(const char *msg)
-{
-  volatile uint16_t *p = vga_text + vgax + vgay * 80;
-  char c;
-  while ((c = *msg++)) {
-    if (c == '\n') {
-      p += 80 - vgax;
-      vgay++;
-      vgax = 0;
-    }
-    else if (vgax < 80) {
-      *p++ = 0x700 | c;
-      vgax++;
-    }
-  }
-  if (vgay == 25) {
-    for (int i = 0; i < 80 * 24; i++) {
-      vga_text[i] = vga_text[i + 80];
-    }
-    for (int i = 0; i < 80; i++) {
-      vga_text[80 * 24 + i] = 0;
-    }
-    vgay--;
-  }
-}
-
-void debug_byte(uint8_t x)
-{
-  int d1 = x >> 4;
-  int d2 = x & 0xf;
-  char msg[] = {
-    (char)(d1 > 9 ? 'a' + d1 - 10 : '0' + d1),
-    (char)(d2 > 9 ? 'a' + d2 - 10 : '0' + d2),
-    0
-  };
-  debug_str(msg);
-}
 
 void text_panic(const char *msg)
 {

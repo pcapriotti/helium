@@ -103,19 +103,10 @@ chunk_t *memory_get_chunks(int *count, void *heap)
       return 0;
     }
 
-    debug_str("entry: ");
-    debug_byte(entry->base >> 56); debug_byte(entry->base >> 48);
-    debug_byte(entry->base >> 40); debug_byte(entry->base >> 32);
-    debug_byte(entry->base >> 24); debug_byte(entry->base >> 16);
-    debug_byte(entry->base >> 8); debug_byte(entry->base);
-    debug_str(" size: ");
-    debug_byte(entry->size >> 56); debug_byte(entry->size >> 48);
-    debug_byte(entry->size >> 40); debug_byte(entry->size >> 32);
-    debug_byte(entry->size >> 24); debug_byte(entry->size >> 16);
-    debug_byte(entry->size >> 8); debug_byte(entry->size);
-    debug_str(" type: ");
-    debug_byte(entry->type);
-    debug_str("\n");
+    kprintf("entry: 0x%x size: 0x%x type: %d\n",
+            (unsigned long) entry->base,
+            (unsigned long) entry->size,
+            entry->type);
     entry++;
   } while (regs.ebx);
 

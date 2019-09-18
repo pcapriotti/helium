@@ -5,9 +5,6 @@
 
 extern volatile uint16_t *vga_text;
 
-void debug_str(const char *msg);
-void debug_byte(uint8_t x);
-
 void text_panic(const char *msg);
 
 typedef struct {
