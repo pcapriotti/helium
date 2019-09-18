@@ -1,9 +1,14 @@
 #include "debug.h"
+#include "frames.h"
 #include "memory.h"
 #include "stage1.h"
 
 #include <stdint.h>
 #include <string.h>
+
+#define FRAMES_MIN_ORDER 14 /* 16K frames */
+
+frames_t *memory_frames;
 
 typedef struct {
   uint64_t base;
@@ -223,14 +228,111 @@ void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
   }
 }
 
+int find_chunk(chunk_t *chunks, int num_chunks, uint64_t base)
+{
+  int i = 0;
+  for (; i < num_chunks; i++) {
+    if (base > chunks[i].base) break;
+  }
+  return i - 1;
+}
+
 typedef struct {
-  int num_entries;
-  memory_map_entry_t *entries;
-} memory_map_t;
+  chunk_t *chunks;
+  int num_chunks;
+} chunk_info_t;
 
 /* return availability information for a memory block */
-int mm_info(void *start, size_t size32, void *data)
+int mem_info(void *start, size_t size, void *data)
 {
-  memory_map_t *mm = data;
+  chunk_info_t *chunk_info = data;
+
+  int reserved = 0;
+  int available = 0;
+
+  int i = find_chunk(chunk_info->chunks, chunk_info->num_chunks,
+                     (unsigned long) start);
+  int j = find_chunk(chunk_info->chunks, chunk_info->num_chunks,
+                     (unsigned long) (start + size));
+  if (i < 0) {
+    i = 0;
+    reserved = 1;
+  }
+
+  for (int k = i; k <= j; k++) {
+    if (chunk_info->chunks[k].type == MM_AVAILABLE) {
+      available = 1;
+    }
+    else {
+      reserved = 1;
+    }
+  }
+
+  if (!available)
+    return MEM_INFO_RESERVED;
+  else if (!reserved)
+    return MEM_INFO_USABLE;
+  else
+    return MEM_INFO_PARTIALLY_USABLE;
+
+  return 0;
+}
+
+int memory_init(void *heap)
+{
+  int num_chunks;
+  chunk_t *chunks = memory_get_chunks(&num_chunks, heap);
+  if (!chunks || num_chunks <= 0) text_panic("memory");
+
+  /* reserve high kernel memory */
+  memory_reserve_chunk(chunks, &num_chunks,
+                       (unsigned long)_kernel_start,
+                       (unsigned long)_kernel_end);
+
+  /* reserve BIOS and low kernel memory */
+  heap += (num_chunks + 2) * sizeof(chunk_t);
+  memory_reserve_chunk(chunks, &num_chunks,
+                       0, (unsigned long) heap);
+
+  /* There are potentially a few other memory areas that we might use,
+  between 0x500 and 0x7c00, but note that the kernel stack is still at
+  0x7b00 at this point, and the area around 0x2000 is used for v8086,
+  so we just forget about any memory before the low kernel for
+  simplicity. */
+
+  debug_str("memory map:\n");
+  for (int i = 0; i < num_chunks; i++) {
+    debug_str("type: ");
+    debug_byte(chunks[i].type);
+    debug_str(" base: ");
+    debug_byte(chunks[i].base >> 56); debug_byte(chunks[i].base >> 48);
+    debug_byte(chunks[i].base >> 40); debug_byte(chunks[i].base >> 32);
+    debug_byte(chunks[i].base >> 24); debug_byte(chunks[i].base >> 16);
+    debug_byte(chunks[i].base >> 8); debug_byte(chunks[i].base);
+    debug_str("\n");
+  }
+
+  uint64_t total_memory_size = chunks[num_chunks - 1].base;
+  debug_str("memory size: ");
+  debug_byte(total_memory_size >> 56); debug_byte(total_memory_size >> 48);
+  debug_byte(total_memory_size >> 40); debug_byte(total_memory_size >> 32);
+  debug_byte(total_memory_size >> 24); debug_byte(total_memory_size >> 16);
+  debug_byte(total_memory_size >> 8); debug_byte(total_memory_size);
+  debug_str("\n");
+
+  chunk_info_t chunk_info;
+  chunk_info.chunks = chunks;
+  chunk_info.num_chunks = num_chunks;
+
+  memory_frames = frames_new(0, FRAMES_MIN_ORDER, ORDER_OF(total_memory_size),
+                             &mem_info, &chunk_info);
+
+  uint32_t free_mem = frames_available_memory(memory_frames);
+  debug_str("free memory: ");
+  debug_byte(free_mem >> 24); debug_byte(free_mem >> 16);
+  debug_byte(free_mem >> 8); debug_byte(free_mem);
+  debug_str("\n");
+
+  while(1);
   return 0;
 }

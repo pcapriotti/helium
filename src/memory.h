@@ -15,8 +15,12 @@ typedef struct {
   int type;
 } chunk_t;
 
+struct frames_t;
+extern struct frames_t *memory_frames;
+
 chunk_t *memory_get_chunks(int *count, void *heap);
 void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
                           uint64_t start, uint64_t end);
+int memory_init(void *heap);
 
 #endif /* MEMORY_H */
