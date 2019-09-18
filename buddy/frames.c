@@ -27,7 +27,9 @@ typedef struct block_t {
 } block_t;
 
 /*
-Blocks are numbered as follows:
+A standard buddy memory allocator. This manages a contiguous chunk of
+memory of size a power of two. The memory is divided into blocks of
+size also a power of two, and arranged as follows:
 
 _______________
 _______________
@@ -36,9 +38,68 @@ _2_|_3_|_4_|_5_
 6|7|8|9|a|b|c|d
       ...
 
-Note that the unique block of maximum order is not numbered. This is for two reasons:
+Where each block, except the top one, is half of its parent block on
+the previous row. The two halves of a block are called *buddies*. Note
+that the unique block of maximum order is not numbered. This is
+for two reasons:
+
  - it does not have a buddy
- - taking the buddy of a block just corresponds to flipping the lowest bit of its index. */
+ - with this convention, taking the buddy of a block just corresponds
+   to flipping the lowest bit of its index.
+
+The numbers in the table above are referred to as block *indices*,
+while the index of a block within its row is its *relative index*. The
+order of a block is the base-two logarithm of its size. The various
+parameters of the system are:
+
+ - start: pointer to the beginning of the managed memory chunk
+ - min_order: order of the smallest blocks
+ - max_order: order of the largest block
+
+The state of the system is maintained in two data structures:
+
+ - an array of (intrusive) doubly-linked lists, one for every order,
+   containing the available blocks;
+ - a bit vector with one bit for every block, called the metadata table.
+
+Block can be *allocated*, *available* or neither. The
+metadata bit for a block is set exactly when some descendent of
+the block is allocated.
+
+The first invariant that the system maintains is that the available blocks,
+plus the allocated blocks, form a partition of the top block. This
+makes sure that every byte in the initial memory chunk is only used by
+one allocated block at a time, and that all the memory is potentially
+allocatable.
+
+The second invariant is that if a block is available, then its buddy
+is not. This is to prevent fragmentation, by making sure that
+consecutive blocks tend to be merged into larger blocks.
+
+There are essentially two operations in the system: allocation and
+deallocation. Allocation creates a new allocated block of the given
+order, while deallocation destroys it.
+
+Allocation works quite simply: we first check the linked list of the
+given order to see whether it contains an available block; if so, we
+turn it into an allocated block and return it. Otherwise, we
+recursively allocate a block of larger order, make half available and
+the other allocated, and return the allocated one. In either case, we
+set the metadata bit of the returned block.
+
+Deallocation is more complicated. First, it needs to determine the
+order of the block being deallocated, given just its offset. Every
+block has a maximum order it can have, determined by the alignment of
+its offset. The correct order is then the maximum one such that the
+all the blocks with that offset of smaller orders are *not* allocated.
+
+Now observe that if the buddy of an allocated block is not available,
+then its metadata bit must be set (because no containing block can be
+allocated, as allocated blocks are disjoint). It follows that we can
+check the availability of the buddy block just by testing its
+bit. This allows us to maintain the second invariant: if both the
+block and its buddy would end up being available, we merge them by
+making them unavailable and recursing on the parent block. */
 struct frames_t {
   void *start;
   struct block_t *free[MAX_ORDER];
