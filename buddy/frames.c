@@ -242,6 +242,28 @@ void *take_block(frames_t *frames, unsigned int order)
   return block;
 }
 
+/* Create a new buddy allocator for a chunk of memory.
+
+  start - pointer to the beginning of the memory chunk
+  min_order, max_order - block parameters (see comment above)
+  mem_info, data - closure that returns whether a fragment of the
+    memory chunk is available for use
+
+  Initialisation happens in several phases. First, a frames_t
+  structure is constructed on the stack and initialised with no
+  available blocks.
+
+  Then, the available blocks are constructed and added to the lists
+  using recursive invocations of mem_info.
+
+  At this point, metadata needs to be created. Unfortunately, because
+  there is no metadata yet, when we allocate it no metadata changes
+  can be recorded.  So after the metadata block has been allocated, we
+  first synchronise it with the initial block setup, then reconstruct
+  the metadata changes that would have happened during its allocation.
+
+  Finally we allocate a block for the frames_t structure itself, copy
+  it over, and return its address. */
 frames_t *frames_new(void *start,
                      unsigned int min_order,
                      unsigned int max_order,
@@ -280,7 +302,17 @@ frames_t *frames_new(void *start,
   frames_dump_diagnostics(&frames);
 
   memset(frames.metadata, 0, 1 << meta_order);
+  /* synchronise metadata with initial blocks */
   mark_blocks(&frames, start, frames.max_order, mem_info, data);
+
+  /* execute metadata changes for the metadata block allocation */
+  {
+    unsigned int index = frames_block_index(&frames, frames.metadata, meta_order);
+    while (index < frames.max_order) {
+      SET_BIT(frames.metadata, index);
+      index = (index >> 1) - 1;
+    }
+  }
 
   /* allocate frames_t structure itself */
   printf("allocating frames_t (size 0x%lx)\n", sizeof(frames_t));
