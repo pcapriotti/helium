@@ -44,6 +44,7 @@ void print_char(char c)
     for (int i = 0; i < 80; i++) {
       vga_text[80 * 24 + i] = 0;
     }
+    debug_console.p -= 80;
     debug_console.y--;
   }
 }
@@ -176,6 +177,19 @@ int kvprintf(const char *fmt, va_list list)
         }
         else {
           done = 1;
+        }
+      }
+
+      /* length */
+      done = 0;
+      while (!done) {
+        switch (fmt[i]) {
+        case 'l':
+          i++;
+          break;
+        default:
+          done = 1;
+          break;
         }
       }
 
