@@ -85,25 +85,14 @@ chunk_t *memory_get_chunks(int *count, void *heap)
     int flags = bios_int(0x15, &regs);
 
     if (flags & EFLAGS_CF || regs.eax != 0x534d4150) {
-      debug_str("memory map bios call failed\n  eax: ");
-      debug_byte(regs.eax >> 24);
-      debug_byte(regs.eax >> 16);
-      debug_byte(regs.eax >> 8);
-      debug_byte(regs.eax);
-      debug_str(" eflags: ");
-      debug_byte(flags >> 24);
-      debug_byte(flags >> 16);
-      debug_byte(flags >> 8);
-      debug_byte(flags);
-      debug_str("\n  num entries so far: ");
+      kprintf("memory map bios call failed\n  eax: %#x eflags: %#x\n",
+              regs.eax, flags);
       int num = entry - entry0;
-      debug_byte(num >> 8);
-      debug_byte(num);
-      debug_str("\n");
+      kprintf("  num entries so far: %d\n", num);
       return 0;
     }
 
-    kprintf("entry: 0x%x size: 0x%x type: %d\n",
+    kprintf("entry: %p size: %p type: %d\n",
             (unsigned long) entry->base,
             (unsigned long) entry->size,
             entry->type);
@@ -291,25 +280,15 @@ int memory_init(void *heap)
   so we just forget about any memory before the low kernel for
   simplicity. */
 
-  debug_str("memory map:\n");
+  kprintf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
-    debug_str("type: ");
-    debug_byte(chunks[i].type);
-    debug_str(" base: ");
-    debug_byte(chunks[i].base >> 56); debug_byte(chunks[i].base >> 48);
-    debug_byte(chunks[i].base >> 40); debug_byte(chunks[i].base >> 32);
-    debug_byte(chunks[i].base >> 24); debug_byte(chunks[i].base >> 16);
-    debug_byte(chunks[i].base >> 8); debug_byte(chunks[i].base);
-    debug_str("\n");
+    kprintf("type: %d base: %p\n",
+            chunks[i].type,
+            chunks[i].base);
   }
 
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
-  debug_str("memory size: ");
-  debug_byte(total_memory_size >> 56); debug_byte(total_memory_size >> 48);
-  debug_byte(total_memory_size >> 40); debug_byte(total_memory_size >> 32);
-  debug_byte(total_memory_size >> 24); debug_byte(total_memory_size >> 16);
-  debug_byte(total_memory_size >> 8); debug_byte(total_memory_size);
-  debug_str("\n");
+  kprintf("memory size: %#x\n", total_memory_size);
 
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
@@ -319,10 +298,7 @@ int memory_init(void *heap)
                              &mem_info, &chunk_info);
 
   uint32_t free_mem = frames_available_memory(memory_frames);
-  debug_str("free memory: ");
-  debug_byte(free_mem >> 24); debug_byte(free_mem >> 16);
-  debug_byte(free_mem >> 8); debug_byte(free_mem);
-  debug_str("\n");
+  kprintf("free memory: %#x\n", free_mem);
 
   while(1);
   return 0;

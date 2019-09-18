@@ -43,6 +43,17 @@ void print_char(char c)
   }
 }
 
+int print_string(const char *s)
+{
+  char c;
+  int i = 0;
+  while ((c = *s++)) {
+    print_char(c);
+    i++;
+  }
+  return i;
+}
+
 void print_digit(uint8_t d)
 {
   if (d < 10) {
@@ -53,7 +64,17 @@ void print_digit(uint8_t d)
   }
 }
 
-int print_uint(long n, unsigned int base)
+void print_digit_X(uint8_t d)
+{
+  if (d < 10) {
+    print_char(d + '0');
+  }
+  else {
+    print_char(d + 'A' - 10);
+  }
+}
+
+int print_uint(long n, unsigned int base, int X, int alt)
 {
   uint8_t str[256];
 
@@ -73,21 +94,36 @@ int print_uint(long n, unsigned int base)
     n /= base;
   }
 
+  if (alt) {
+    switch (base) {
+    case 16:
+      print_char('0');
+      print_char('x');
+      break;
+    case 8:
+      print_char('0');
+      break;
+    }
+  }
+
   for (int i = 0; i < digits; i++) {
-    print_digit(str[i]);
+    if (X)
+      print_digit_X(str[i]);
+    else
+      print_digit(str[i]);
   }
 
   return digits;
 }
 
-static inline int print_int(long n, int base)
+static inline int print_int(long n, int base, int X, int alt)
 {
   if (n < 0) {
     print_char('-');
-    return print_uint(-n, base);
+    return print_uint(-n, base, X, alt);
   }
   else {
-    return print_uint(n, base);
+    return print_uint(n, base, X, alt);
   }
 }
 
@@ -97,6 +133,23 @@ int kvprintf(const char *fmt, va_list list)
   for (int i = 0; fmt[i]; i++) {
     if (fmt[i] == '%') {
       i++;
+
+      int alt = 0;
+
+      /* flags */
+      int done = 0;
+      while (!done) {
+        switch (fmt[i]) {
+        case '#':
+          alt = 1;
+          i++;
+          break;
+        default:
+          done = 1;
+          break;
+        }
+      }
+
       switch (fmt[i]) {
       case '\0':
         return count;
@@ -104,16 +157,50 @@ int kvprintf(const char *fmt, va_list list)
         print_char('%');
         count++;
         break;
-      case 'd':
+      case 'c':
         {
-          int n = va_arg(list, int);
-          count += print_int(n, 10);
+          char c = va_arg(list, int);
+          print_char(c);
+          count++;
         }
         break;
+      case 's':
+        {
+          const char *s = va_arg(list, const char *);
+          count += print_string(s);
+        }
+        break;
+      case 'd':
+      case 'i':
+        {
+          int n = va_arg(list, int);
+          count += print_int(n, 10, 0, alt);
+        }
+        break;
+      case 'u':
+        {
+          unsigned int n = va_arg(list, unsigned int);
+          count += print_uint(n, 10, 0, alt);
+        }
+        break;
+      case 'o':
+        {
+          unsigned int n = va_arg(list, unsigned int);
+          count += print_uint(n, 8, 0, alt);
+        }
+        break;
+      case 'p':
+        alt = 1; __attribute__ ((fallthrough));
       case 'x':
         {
-          unsigned long n = va_arg(list, unsigned long);
-          count += print_uint(n, 16);
+          unsigned int n = va_arg(list, unsigned int);
+          count += print_uint(n, 16, 0, alt);
+        }
+        break;
+      case 'X':
+        {
+          unsigned int n = va_arg(list, unsigned int);
+          count += print_uint(n, 16, 1, alt);
         }
         break;
       }
@@ -140,10 +227,7 @@ int kprintf(const char *fmt, ...)
 
 void debug_str(const char *s)
 {
-  char c;
-  while ((c = *s++)) {
-    print_char(c);
-  }
+  print_string(s);
 }
 
 void debug_byte(uint8_t x)
