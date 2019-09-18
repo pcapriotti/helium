@@ -11,7 +11,7 @@ sz=$(stat --printf="%s" "$1")
 sectors=$(((sz + 511) / 512))
 echo "$sectors sectors"
 
-[ "$sectors" -le 36 ] || die "Binary too large ($sectors sectors)"
+[ "$sectors" -le 54 ] || die "Binary too large ($sectors sectors)"
 
 osz=$((sectors * 512))
 dd if="$1" of="$2" bs=512

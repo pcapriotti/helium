@@ -12,10 +12,11 @@ extern uint8_t _kernel_low_end[];
 
 typedef struct {
   uint64_t base;
-  uint64_t size;
-  uint64_t type;
-} __attribute__((packed)) memory_map_entry_t;
+  int type;
+} chunk_t;
 
-memory_map_entry_t *get_memory_map(size_t *count);
+chunk_t *memory_get_chunks(int *count, void *heap);
+void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
+                          uint64_t start, uint64_t end);
 
 #endif /* MEMORY_H */

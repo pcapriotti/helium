@@ -9,38 +9,56 @@
 
 void main()
 {
-  vbe_mode_t mode;
-  mode.width = 800;
-  mode.height = 600;
-  mode.bpp = 32;
+  void *heap = _kernel_low_end;
 
-  size_t mm_size;
-  memory_map_entry_t *mm = get_memory_map(&mm_size);
-  if (!mm || mm_size <= 0) text_panic("memory");
+  int num_chunks;
+  chunk_t *chunks = memory_get_chunks(&num_chunks, heap);
+
+  /* reserve high kernel memory */
+  memory_reserve_chunk(chunks, &num_chunks,
+                       (unsigned long)_kernel_start,
+                       (unsigned long)_kernel_end);
+
+  /* reserve BIOS and low kernel memory */
+  heap += (num_chunks + 2) * sizeof(chunk_t);
+  memory_reserve_chunk(chunks, &num_chunks,
+                       0, (unsigned long) heap);
+
+  /* There are potentially a few other memory areas that we might use,
+  between 0x500 and 0x7c00, but note that the kernel stack is still at
+  0x7b00 at this point, and the area around 0x2000 is used for v8086,
+  so we just forget about any memory before the low kernel for
+  simplicity. */
+
+  if (!chunks || num_chunks <= 0) text_panic("memory");
+  heap += num_chunks + sizeof(chunk_t);
 
   debug_str("memory map:\n");
-  for (unsigned int i = 0; i < mm_size; i++) {
+  for (int i = 0; i < num_chunks; i++) {
     debug_str("type: ");
-    debug_byte(mm[i].type);
+    debug_byte(chunks[i].type);
     debug_str(" base: ");
-    debug_byte(mm[i].base >> 56); debug_byte(mm[i].base >> 48);
-    debug_byte(mm[i].base >> 40); debug_byte(mm[i].base >> 32);
-    debug_byte(mm[i].base >> 24); debug_byte(mm[i].base >> 16);
-    debug_byte(mm[i].base >> 8); debug_byte(mm[i].base);
-    debug_str(" size: ");
-    debug_byte(mm[i].size >> 56); debug_byte(mm[i].size >> 48);
-    debug_byte(mm[i].size >> 40); debug_byte(mm[i].size >> 32);
-    debug_byte(mm[i].size >> 24); debug_byte(mm[i].size >> 16);
-    debug_byte(mm[i].size >> 8); debug_byte(mm[i].size);
+    debug_byte(chunks[i].base >> 56); debug_byte(chunks[i].base >> 48);
+    debug_byte(chunks[i].base >> 40); debug_byte(chunks[i].base >> 32);
+    debug_byte(chunks[i].base >> 24); debug_byte(chunks[i].base >> 16);
+    debug_byte(chunks[i].base >> 8); debug_byte(chunks[i].base);
     debug_str("\n");
   }
-  while(1);
 
-  if (graphics_init(&mode) == -1) text_panic("graphics");
+  while(1) {}
+
+  {
+    vbe_mode_t mode;
+    mode.width = 800;
+    mode.height = 600;
+    mode.bpp = 32;
+    if (graphics_init(&mode) == -1) text_panic("graphics");
+  }
+
   if (console_init() == -1) panic();
 
   /* TODO: allocate memory for the console */
-  console_set_buffer((uint16_t *) 0x180000);
+  console_set_buffer((uint16_t *) heap);
   console_print_str("Ok.", 7);
 
   __asm__ volatile("hlt");

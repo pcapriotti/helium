@@ -1,7 +1,15 @@
 #include "debug.h"
 #include "memory.h"
 #include "stage1.h"
-#include "stdint.h"
+
+#include <stdint.h>
+#include <string.h>
+
+typedef struct {
+  uint64_t base;
+  uint64_t size;
+  uint64_t type;
+} __attribute__((packed)) memory_map_entry_t;
 
 int mm_compare(const void *x1, const void *x2)
 {
@@ -51,15 +59,13 @@ extern int v8086_tracing;
 /* Get memory map from BIOS. Since we don't know how much high memory
 we have yet, and in particular we have no way to allocate it, we have
 to assume that there is enough memory to at least store the memory
-map. We put it at the very end of the part of the kernel loaded in low
-memory, just after the bss. */
-memory_map_entry_t *get_memory_map(size_t *count)
+map. */
+chunk_t *memory_get_chunks(int *count, void *heap)
 {
   regs16_t regs;
 
-  memory_map_entry_t *result = (memory_map_entry_t *)_kernel_low_end;
-  memory_map_entry_t *entry = result;
-
+  memory_map_entry_t *entry0 = (memory_map_entry_t *)heap;
+  memory_map_entry_t *entry = entry0;
 
   regs.ebx = 0;
   do {
@@ -85,49 +91,146 @@ memory_map_entry_t *get_memory_map(size_t *count)
       debug_byte(flags >> 8);
       debug_byte(flags);
       debug_str("\n  num entries so far: ");
-      int num = entry - result;
+      int num = entry - entry0;
       debug_byte(num >> 8);
       debug_byte(num);
       debug_str("\n");
       return 0;
     }
 
-    /* ignore blocks with unknown type */
-    /* if (entry->type >= MM_UNKNOWN || entry->type <= 0) { */
-    /*   entry->type = MM_RESERVED; */
-    /* } */
-
+    debug_str("entry: ");
+    debug_byte(entry->base >> 56); debug_byte(entry->base >> 48);
+    debug_byte(entry->base >> 40); debug_byte(entry->base >> 32);
+    debug_byte(entry->base >> 24); debug_byte(entry->base >> 16);
+    debug_byte(entry->base >> 8); debug_byte(entry->base);
+    debug_str(" size: ");
+    debug_byte(entry->size >> 56); debug_byte(entry->size >> 48);
+    debug_byte(entry->size >> 40); debug_byte(entry->size >> 32);
+    debug_byte(entry->size >> 24); debug_byte(entry->size >> 16);
+    debug_byte(entry->size >> 8); debug_byte(entry->size);
+    debug_str(" type: ");
+    debug_byte(entry->type);
+    debug_str("\n");
     entry++;
   } while (regs.ebx);
 
-  int num_entries = entry - result;
+  int num_entries = entry - entry0;
 
-  isort(result, num_entries, sizeof(memory_map_entry_t), &mm_compare);
+  isort(entry0, num_entries, sizeof(memory_map_entry_t), &mm_compare);
+
+  /* allocate an array of chunks */
 
   /* combine contiguous and overlapping entries */
-  memory_map_entry_t *last_entry = result;
+  memory_map_entry_t *last_entry = entry0;
+
+  chunk_t *chunk0 = (chunk_t *)entry;
+
+  chunk_t *chunk = chunk0;
+  chunk->base = last_entry->base;
+  chunk->type = last_entry->type;
+  chunk++;
+
   for (int i = 1; i < num_entries; i++) {
-    memory_map_entry_t *entry = &result[i];
+    memory_map_entry_t *entry = &entry0[i];
 
     /* overlap */
-    if (last_entry->base + last_entry->size > entry->base) {
-      last_entry->size = entry->size + entry->base - last_entry->base;
-      last_entry->type = mm_type_combine(last_entry->type, entry->type);
+    if (entry->base < last_entry->base + last_entry->size) {
+      unsigned int type = mm_type_combine(entry->type, last_entry->type);
+      if (type != last_entry->type) {
+        chunk->base = entry->base;
+        chunk->type = type;
+        chunk++;
+      }
+
+      if (entry->base + entry->size < last_entry->base + last_entry->size) {
+        if (type != last_entry->type) {
+          chunk->base = entry->base + entry->size;
+          chunk->type = last_entry->type;
+          chunk++;
+        }
+      }
+      else {
+        last_entry = entry;
+      }
     }
-    /* contiguous */
-    else if (last_entry->base + last_entry->size == entry->base &&
-             last_entry->type == entry->type) {
-      last_entry->size += entry->size;
+    /* gap */
+    else if (last_entry->base + last_entry->size < entry->base) {
+      if (last_entry->type != MM_RESERVED) {
+        chunk->base = last_entry->base + last_entry->size;
+        chunk->type = MM_RESERVED;
+        chunk++;
+      }
+      if (entry->type != MM_RESERVED) {
+        chunk->base = entry->base;
+        chunk->type = entry->type;
+        chunk++;
+      }
+      last_entry = entry;
     }
+    /* consecutive */
     else {
-      last_entry++;
-      /* fill possible gap */
-      if (last_entry != entry) *last_entry = *entry;
+      if (last_entry->type != entry->type) {
+        chunk->base = entry->base;
+        chunk->type = entry->type;
+        chunk++;
+      }
+      last_entry = entry;
     }
   }
 
-  num_entries = last_entry - result + 1;
+  /* terminator chunk */
+  if (last_entry->type != MM_RESERVED) {
+    chunk->base = last_entry->base + last_entry->size;
+    chunk->type = MM_RESERVED;
+    chunk++;
+  }
 
-  *count = num_entries;
-  return result;
+  int num_chunks = chunk - chunk0;
+
+  /* discard memory map and compact memory */
+  memmove(heap, chunk0, num_chunks * sizeof(chunk_t));
+  *count = num_chunks;
+  return (chunk_t *)heap;
+}
+
+int memory_add_chunk(chunk_t *chunks, int *num_chunks, uint64_t base)
+{
+  int i = 0;
+  for (; i < *num_chunks; i++) {
+    if (base == chunks[i].base) return i;
+    if (base < chunks[i].base) {
+      memmove(&chunks[i + 1], &chunks[i], (*num_chunks - i) * sizeof(chunk_t));
+      break;
+    }
+  }
+  chunks[i].base = base;
+  chunks[i].type = i > 0 ? chunks[i - 1].type : MM_RESERVED;
+  (*num_chunks)++;
+  return i;
+}
+
+void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
+                          uint64_t start, uint64_t end)
+{
+  if (start >= end) return;
+
+  /* add chunks */
+  int i = memory_add_chunk(chunks, num_chunks, start);
+  int j = memory_add_chunk(chunks, num_chunks, end);
+
+  for (int k = i; k < j; k++) {
+    chunks[k].type = MM_RESERVED;
+  }
+}
+
+typedef struct {
+  int num_entries;
+  memory_map_entry_t *entries;
+} memory_map_t;
+
+/* return availability information for a memory block */
+int mm_info(void *start, size_t size32, void *data)
+{
+  memory_map_t *mm = data;
+  return 0;
 }
