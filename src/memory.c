@@ -212,7 +212,7 @@ int find_chunk(chunk_t *chunks, int num_chunks, uint64_t base)
 {
   int i = 0;
   for (; i < num_chunks; i++) {
-    if (base > chunks[i].base) break;
+    if (base < chunks[i].base) break;
   }
   return i - 1;
 }
@@ -226,7 +226,6 @@ typedef struct {
 int mem_info(void *start, size_t size, void *data)
 {
   chunk_info_t *chunk_info = data;
-
   int reserved = 0;
   int available = 0;
 
@@ -288,14 +287,22 @@ int memory_init(void *heap)
   }
 
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
+  if (total_memory_size > 0xffffffff)
+    total_memory_size = 0xffffffff;
   kprintf("memory size: %#x\n", total_memory_size);
 
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
   chunk_info.num_chunks = num_chunks;
 
-  memory_frames = frames_new(0, FRAMES_MIN_ORDER, ORDER_OF(total_memory_size),
+  unsigned int max_order = ORDER_OF(total_memory_size);
+  kprintf("max_order = %u\n", max_order);
+  memory_frames = frames_new(0, FRAMES_MIN_ORDER, max_order,
                              &mem_info, &chunk_info);
+
+  if (!memory_frames) {
+    text_panic("could not initialise frame allocator\n");
+  }
 
   uint32_t free_mem = frames_available_memory(memory_frames);
   kprintf("free memory: %#x\n", free_mem);
