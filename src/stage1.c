@@ -467,6 +467,7 @@ will jump to the given entry point. */
 uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
 {
   isr_stack_t *ctx;
+  uint32_t eflags;
 
   /* set up a stack guard, in case some BIOS code attempts to return
   with a far return instead of an iret */
@@ -476,6 +477,13 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
     st[1] = 0; /* cs = 0 */
     st[2] = 0xcf; /* iret */
   }
+
+  /* save flags */
+  __asm__ volatile
+    (
+     "pushf\n"
+     "pop %0\n"
+     : "=r"(eflags));
 
   __asm__ volatile
     ( /* save current stack pointer in tss */
@@ -521,6 +529,13 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
   regs->ds = ctx->ds;
   regs->fs = ctx->fs;
   regs->gs = ctx->gs;
+
+  /* restore flags */
+  __asm__ volatile
+    ("push %0\n"
+     "popf\n"
+     :
+     : "r"(eflags));
 
   return ctx->eflags;
 }
