@@ -6,6 +6,12 @@
 #define DEBUG_EAX(x) __asm__ volatile("" : : "a"(x))
 #define DEBUG_REGS(a, b, c, d) __asm__ volatile("" : : "a"(a), "b"(b), "c"(c), "d"(d))
 
+typedef struct {
+  int x, y;
+  volatile uint16_t *p;
+} debug_console_t;
+extern debug_console_t debug_console;
+
 extern volatile int debug_key_pressed;
 extern int debug_paging;
 

@@ -21,10 +21,7 @@ void panic(void)
 
 #define VGA_TEXT ((volatile uint16_t*) 0xb8000)
 
-struct {
-  int x, y;
-  volatile uint16_t *p;
-} debug_console = {0, 0, VGA_TEXT};
+debug_console_t debug_console = {0, 0, VGA_TEXT};
 
 void debug_print_char(char c)
 {
