@@ -92,10 +92,8 @@ chunk_t *memory_get_chunks(int *count, void *heap)
       return 0;
     }
 
-    kprintf("entry: %08p size: %08p type: %d\n",
-            (unsigned long) entry->base,
-            (unsigned long) entry->size,
-            entry->type);
+    kprintf("entry: %#016llx size: %#016llx type: %d\n",
+            entry->base, entry->size, entry->type);
     entry++;
   } while (regs.ebx);
 
@@ -223,20 +221,24 @@ typedef struct {
 } chunk_info_t;
 
 /* return availability information for a memory block */
-int mem_info(void *start, size_t size, void *data)
+int mem_info(void *startp, size_t size, void *data)
 {
   chunk_info_t *chunk_info = data;
   int reserved = 0;
   int available = 0;
 
-  int i = find_chunk(chunk_info->chunks, chunk_info->num_chunks,
-                     (unsigned long) start);
-  int j = find_chunk(chunk_info->chunks, chunk_info->num_chunks,
-                     (unsigned long) (start + size));
+  uint64_t start = (uint32_t) startp;
+  uint64_t length = size ? size : 1ULL << 32;
+
+  /* kprintf("[mi] start = %#llx, length = %#llx\n", start, length); */
+
+  int i = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start);
+  int j = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start + length);
   if (i < 0) {
     i = 0;
     reserved = 1;
   }
+  /* kprintf("[mi] i = %d, j = %d\n", i, j); */
 
   for (int k = i; k <= j; k++) {
     if (chunk_info->chunks[k].type == MM_AVAILABLE) {
@@ -281,7 +283,7 @@ int memory_init(void *heap)
 
   kprintf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
-    kprintf("type: %d base: %08p\n",
+    kprintf("type: %d base: %#016llx\n",
             chunks[i].type,
             chunks[i].base);
   }

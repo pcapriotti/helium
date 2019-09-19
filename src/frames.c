@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define FRAMES_DEBUG 1
+#define FRAMES_DEBUG 0
 
 #if HAVE_STDIO
 #include <stdio.h>
@@ -205,7 +205,7 @@ void add_blocks(unsigned int order, void *start, frames_t *frames,
                 int (*mem_info)(void *start, size_t size, void *data),
                 void *data)
 {
-  int info = mem_info(start, 1 << order, data);
+  int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
   /* TRACE("block %p order %u info %d\n", start, order, info); */
 
   /* if the block is usable, just add it to the list */

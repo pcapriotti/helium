@@ -6,7 +6,9 @@
 #include <stdarg.h>
 
 volatile int debug_key_pressed = 0;
-int debug_paging = 1;
+int debug_paging = 0;
+
+#undef SERIAL_PORT_DEBUG
 
 void panic(void)
 {
