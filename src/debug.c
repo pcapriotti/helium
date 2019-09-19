@@ -197,10 +197,12 @@ int kvprintf(const char *fmt, va_list list)
 
       /* length */
       done = 0;
+      int length = 0;
       while (!done) {
         switch (fmt[i]) {
         case 'l':
           i++;
+          length++;
           break;
         default:
           done = 1;
@@ -208,6 +210,7 @@ int kvprintf(const char *fmt, va_list list)
         }
       }
 
+      int base = 16;
       switch (fmt[i]) {
       case '\0':
         return count;
@@ -231,36 +234,40 @@ int kvprintf(const char *fmt, va_list list)
       case 'd':
       case 'i':
         {
-          int n = va_arg(list, int);
+          intmax_t n;
+          if (length > 1) {
+            n = va_arg(list, long long int);
+          }
+          else if (length == 1) {
+            n = va_arg(list, long int);
+          }
+          else {
+            n = va_arg(list, int);
+          }
           count += print_int(n, 10, 0, alt, padded, width);
         }
         break;
-      case 'u':
-        {
-          unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 10, 0, alt, padded, width);
-        }
-        break;
       case 'o':
-        {
-          unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 8, 0, alt, padded, width);
-        }
-        break;
+        base -= 2; __attribute__ ((fallthrough));
+      case 'u':
+        base -= 4; __attribute__ ((fallthrough));
       case 'p':
         alt = 1; __attribute__ ((fallthrough));
       case 'x':
-        {
-          unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 16, 0, alt, padded, width);
-        }
-        break;
       case 'X':
         {
-          unsigned int n = va_arg(list, unsigned int);
-          count += print_uint(n, 16, 1, alt, padded, width);
+          uintmax_t n;
+          if (length > 1) {
+            n = va_arg(list, long long unsigned int);
+          }
+          else if (length == 1) {
+            n = va_arg(list, long unsigned int);
+          }
+          else {
+            n = va_arg(list, unsigned int);
+          }
+          count += print_uint(n, base, 0, alt, padded, width);
         }
-        break;
       }
     }
     else {
