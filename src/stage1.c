@@ -5,6 +5,7 @@
 #include "memory.h"
 #include "stage1.h"
 #include "stdint.h"
+#include "timer.h"
 
 volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
@@ -274,19 +275,17 @@ void interrupt_handler(isr_stack_t stack)
   if (stack.int_num >= IDT_IRQ) {
     int irq = stack.int_num - IDT_IRQ;
 
-    /* static int x = 0; */
-    /* static int y = 0; */
-    /* vga_text[y * 80 + x] = 0x2000 | irq; */
-    /* x++; */
-    /* if (x > 80) { */
-    /*   x = 0; */
-    /*   y++; */
-    /* } */
-
-    if (debug_paging && irq == 1) {
-      uint8_t scancode = inb(0x60);
-      if ((scancode & 0x80) == 0)
-        debug_key_pressed = 1;
+    switch (irq) {
+    case 0:
+      timer_irq();
+      break;
+    case 1:
+      if (debug_paging) {
+        uint8_t scancode = inb(0x60);
+        if ((scancode & 0x80) == 0)
+          debug_key_pressed = 1;
+      }
+      break;
     }
 
     pic_eoi(irq);

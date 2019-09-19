@@ -274,7 +274,7 @@ int kvprintf(const char *fmt, va_list list)
       case 'o':
         base -= 2; __attribute__ ((fallthrough));
       case 'u':
-        base -= 4; __attribute__ ((fallthrough));
+        base -= 6; __attribute__ ((fallthrough));
       case 'p':
         alt = 1; __attribute__ ((fallthrough));
       case 'x':

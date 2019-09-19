@@ -3,6 +3,7 @@
 #include "graphics.h"
 #include "memory.h"
 #include "stage1.h"
+#include "timer.h"
 
 #include <stdint.h>
 #include <stddef.h>
@@ -12,6 +13,8 @@ void main()
   __asm__ volatile("sti");
 
   void *heap = _kernel_low_end;
+
+  if (timer_init() == -1) panic();
 
   if (memory_init(heap) == -1) panic();
 
