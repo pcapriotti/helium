@@ -502,19 +502,24 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      : "=r"(eflags));
 
   __asm__ volatile
-    ( /* save current stack pointer in tss */
+    (/* save registers used here */
+     "push %3\n"
+
+     /* save current stack pointer in tss */
      "mov %%esp, %0\n"
 
-     /* set up registers */
+     /* adjust the stack */
+     "mov %2, %%esp\n"
+
+     /* /\* set up registers *\/ */
      "mov 0x0(%3), %%eax\n"
      "mov 0x4(%3), %%ebx\n"
-     "mov 0x8(%3), %%ecx\n"
      "mov 0xc(%3), %%edx\n"
      "mov 0x10(%3), %%edi\n"
      "mov 0x14(%3), %%ebp\n"
+     "mov 0x8(%3), %%ecx\n" /* this has to be last */
 
-     /* adjust the stack and jump to v8086 mode */
-     "mov %2, %%esp\n"
+     /* jump to v8086 mode */
      "iret\n"
 
      /* control will return here from the v8086 #GP handler after the
@@ -522,17 +527,17 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      "v8086_exit:\n"
 
      /* save context */
-     "mov 4(%%esp), %%edx\n"
+     "mov 4(%%esp), %1\n"
 
      /* restore stack */
      "mov %0, %%esp\n"
 
-     /* return context */
-     "mov %%edx, %1\n"
+     /* restore registers */
+     "pop %3\n"
 
-     : "=m"(kernel_tss.tss.esp0), "=r"(ctx)
-     : "X"(&stack), "r"(regs)
-     : "%eax", "%ebx", "%ecx", "%edx", "%edi", "%ebp");
+     : "=m"(kernel_tss.tss.esp0), "=a"(ctx)
+     : "a"(&stack), "c"(regs)
+     : "%ebx", "%edx", "%edi", "%ebp");
 
   /* update regs structure */
   regs->eax = ctx->eax;
