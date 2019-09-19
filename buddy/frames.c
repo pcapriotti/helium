@@ -1,13 +1,33 @@
 #include "frames.h"
 
 #include <assert.h>
-#include <stdio.h>
 #include <string.h>
 
+#define FRAMES_DEBUG 0
+
+#if _HELIUM
+#include "../src/debug.h"
 #define FRAMES_PANIC(ret, ...) do { \
-  fprintf(stderr, "[frames]"); \
+  kprintf("[frames] "); \
+  kprintf(__VA_ARGS__); \
+  return ret; } while(0)
+#else
+#include <stdio.h>
+#define FRAMES_PANIC(ret, ...) do { \
+  fprintf(stderr, "[frames] "); \
   fprintf(stderr, __VA_ARGS__); \
   return ret; } while(0)
+#endif
+
+#if FRAMES_DEBUG
+# if _HELIUM
+#  define TRACE(...) kprintf(__VA_ARGS__)
+# else
+#  define TRACE(...) printf(__VA_ARGS__)
+# endif
+#else
+# define TRACE(...) do {} while(0)
+#endif
 
 /* operations on bitvectors defined as arrays of uint32_t */
 #define GET_BIT(v, index) \
@@ -184,11 +204,13 @@ void add_blocks(unsigned int order, void *start, frames_t *frames,
                 int (*mem_info)(void *start, size_t size, void *data),
                 void *data)
 {
-  int info = mem_info(start, 1 << order, data);
+  int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
+  /* TRACE("block %p order %u info %d\n", start, order, info); */
 
   /* if the block is usable, just add it to the list */
   if (info == MEM_INFO_USABLE) {
     block_t *block = (block_t *)start;
+    /* TRACE("adding block %p order %u\n", block, order); */
     list_add(block_head(frames, order), block);
     return;
   }
@@ -212,7 +234,7 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
     SET_BIT(frames->metadata, index);
   }
 
-  if (info == MEM_INFO_PARTIALLY_USABLE) {
+  if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
     mark_blocks(frames, start, order - 1, mem_info, data);
     mark_blocks(frames, start + (1 << (order - 1)), order - 1, mem_info, data);
   }
@@ -242,7 +264,7 @@ void *take_block(frames_t *frames, unsigned int order)
 
   assert((void *)block >= frames->start);
   if (frames->metadata && order < frames->max_order) {
-    printf("set bit order %u index 0x%x\n", order,
+    TRACE("set bit order %u index 0x%x\n", order,
            frames_block_index(frames, block, order));
     SET_BIT(frames->metadata, frames_block_index(frames, block, order));
   }
@@ -299,17 +321,23 @@ frames_t *frames_new(void *start,
 
   /* set metadata */
   frames.metadata = 0;
-  int meta_order = frames.max_order - frames.min_order - 2;
+  unsigned int meta_order = frames.max_order - frames.min_order - 2;
   if (meta_order <= 2) meta_order = 2;
+  if (meta_order < frames.min_order) meta_order = frames.min_order;
   frames.metadata = take_block(&frames, meta_order);
-  if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata");
+  if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata\n");
+
+  TRACE("setting initial metadata\n");
 
   memset(frames.metadata, 0, 1 << meta_order);
   /* synchronise metadata with initial blocks */
   mark_blocks(&frames, start, frames.max_order, mem_info, data);
 
+
   /* execute metadata changes for the metadata block allocation */
   {
+    TRACE("replaying metadata for %#lx order %u\n",
+          frames.metadata, meta_order);
     unsigned int index = frames_block_index(&frames, frames.metadata, meta_order);
     while (index < frames.max_order) {
       SET_BIT(frames.metadata, index);
@@ -318,7 +346,7 @@ frames_t *frames_new(void *start,
   }
 
   /* allocate frames_t structure itself */
-  printf("allocating frames_t (size 0x%lx)\n", sizeof(frames_t));
+  TRACE("allocating frames_t (size 0x%lx)\n", sizeof(frames_t));
   frames_t *ret = frames_alloc(&frames, sizeof(frames_t));
   *ret = frames;
 
@@ -330,7 +358,7 @@ size_t frames_available_memory(frames_t *frames)
   size_t total = 0;
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     size_t size = 1 << k;
-    block_t *block = frames->free[k - frames->min_order];
+    block_t *block = *block_head(frames, k);
     while (block) {
       total += size;
       block = block->next;
@@ -342,7 +370,7 @@ size_t frames_available_memory(frames_t *frames)
 void *frames_alloc(frames_t *frames, size_t sz)
 {
   void *ret = take_block(frames, ORDER_OF(sz));
-  printf("allocated 0x%lx size 0x%lx (order %lu)\n",
+  TRACE("allocated 0x%lx size 0x%lx (order %lu)\n",
          ret - frames->start, sz, ORDER_OF(sz));
   frames_dump_diagnostics(frames);
   return ret;
@@ -350,18 +378,18 @@ void *frames_alloc(frames_t *frames, size_t sz)
 
 void frames_dump_diagnostics(frames_t *frames)
 {
-  printf("----\n");
+  TRACE("----\n");
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     block_t *block = *block_head(frames, k);
     int nonempty = block != 0;
-    if (nonempty) printf("order %d: ", k);
+    if (nonempty) TRACE("order %d: ", k);
     while (block) {
-      printf("0x%lx ", (void *)block - frames->start);
+      TRACE("0x%lx ", (void *)block - frames->start);
       block = block->next;
     }
-    if (nonempty) printf("\n");
+    if (nonempty) TRACE("\n");
   }
-  printf("----\n");
+  TRACE("----\n");
 }
 
 void frames_free_order(frames_t *frames, void *p, unsigned int order)
@@ -373,7 +401,7 @@ void frames_free_order(frames_t *frames, void *p, unsigned int order)
   if (order < frames->max_order) {
     int index = frames_block_index(frames, block, order);
     UNSET_BIT(frames->metadata, index);
-    printf("checking buddy for 0x%lx order %d index 0x%x\n",
+    TRACE("checking buddy for 0x%lx order %d index 0x%x\n",
            p - frames->start, order, index);
     if (!GET_BIT(frames->metadata, index ^ 1)) {
       buddy = frames_index_block(frames, index ^ 1, order);
@@ -382,7 +410,7 @@ void frames_free_order(frames_t *frames, void *p, unsigned int order)
 
   /* merge */
   if (buddy) {
-    printf("  buddy found: 0x%lx\n", (void *)buddy - frames->start);
+    TRACE("  buddy found: 0x%lx\n", (void *)buddy - frames->start);
     list_remove(block_head(frames, order), buddy);
     if (buddy < block) block = buddy;
     frames_free_order(frames, block, order + 1);
@@ -392,30 +420,30 @@ void frames_free_order(frames_t *frames, void *p, unsigned int order)
     list_add(block_head(frames, order), block);
   }
 
-  printf("freed 0x%lx of order %d\n", p - frames->start, order);
+  TRACE("freed 0x%lx of order %d\n", p - frames->start, order);
   frames_dump_diagnostics(frames);
 }
 
 unsigned int frames_find_order(frames_t *frames, void *p)
 {
   unsigned int order = __builtin_ctzl(p - frames->start);
-  printf("maximum order for 0x%lx: %d\n", p - frames->start, order);
+  TRACE("maximum order for 0x%lx: %d\n", p - frames->start, order);
 
   for (unsigned int k = order - 1; k >= frames->min_order; k--) {
     unsigned int i = frames_block_index(frames, p, k);
-    printf("  order %u index 0x%x: %s\n", k, i, GET_BIT(frames->metadata, i) ? "yes" : "no");
+    TRACE("  order %u index 0x%x: %s\n", k, i, GET_BIT(frames->metadata, i) ? "yes" : "no");
   }
-  printf("  ---\n");
+  TRACE("  ---\n");
 
   unsigned int index = frames_block_index(frames, p, order);
   for (; order > frames->min_order; order--) {
     index = (index << 1) + 2; /* first child */
-    printf("  bit order %u index 0x%x: %s\n",
+    TRACE("  bit order %u index 0x%x: %s\n",
            order - 1, index,
            GET_BIT(frames->metadata, index) ? "yes" : "no");
     if (!GET_BIT(frames->metadata, index)) break;
   }
-  printf("  order %d\n", order);
+  TRACE("  order %d\n", order);
   return order;
 }
 

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "frames.h"
+#include "buddy/frames.h"
 
 #define ASSERT_MSG(x, msg, ...) do {\
   if (!(x)) { \
@@ -78,8 +78,6 @@ int test_chunk_alloc(void *mem, size_t sz0) {
   size_t total = frames_available_memory(frames);
   ASSERT(total < sz);
 
-  printf("init done\n");
-
   void *x = frames_alloc(frames, 6500);
   ASSERT(x);
   ASSERT_EQ(frames_available_memory(frames), total - 0x2000);
@@ -100,7 +98,7 @@ int test_order_of()
   return 0;
 }
 
-int main(int argc, char **argv)
+int buddy_test(void)
 {
   size_t sz = 0x100000;
   void *mem = malloc(sz);

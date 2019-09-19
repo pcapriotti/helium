@@ -1,5 +1,5 @@
 #include "debug.h"
-#include "frames.h"
+#include "buddy/frames.h"
 #include "memory.h"
 #include "stage1.h"
 

@@ -1,8 +1,6 @@
 include_rules
 
-CFLAGS += -std=gnu99 -ffreestanding
-CFLAGS += -fomit-frame-pointer
-CFLAGS += -isystem ../libc
+CFLAGS += $(CFLAGS_HELIUM)
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 

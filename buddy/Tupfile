@@ -1,8 +1,8 @@
 include_rules
 
-CC=gcc
+CFLAGS += $(CFLAGS_HELIUM)
 
-CFLAGS += -g
+CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 
-: foreach *.c |> gcc $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> gcc $(LDFLAGS) -o %o %f |> buddy
+: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: *.o |> ar rcs %o %f |> buddy.a

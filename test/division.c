@@ -13,7 +13,7 @@ int test_div64(uint64_t a, uint64_t b)
   return 0;
 }
 
-int main(int argc, char **argv)
+int division_test(void)
 {
   int ret = 0;
   ret = test_div64(39287ULL, 1098) || ret;

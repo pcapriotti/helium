@@ -2,7 +2,10 @@ include_rules
 
 CC=gcc
 
-CFLAGS += -g
+CFLAGS += -g -I..
+
+# recompile buddy library for the host
+: foreach ../buddy/*.c |> $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
 
 : foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> $(CC) $(LDFLAGS) %f -o %o |> test
+: *.o buddy/*.o |> $(CC) $(LDFLAGS) %f -o %o |> test
