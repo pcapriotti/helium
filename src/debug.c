@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "graphics.h"
+#include "math.h"
 #include "stdint.h"
 
 #include <stdarg.h>
@@ -90,24 +91,24 @@ void print_digit_X(uint8_t d)
   }
 }
 
-int print_uint(long n, unsigned int base, int X, int alt, int padded, int width)
+int print_uint(uintmax_t n, unsigned int base, int X, int alt, int padded, int width)
 {
   uint8_t str[256];
 
   /* number of digits */
   int digits = 0;
   {
-    long m = n;
+    uint64_t m = n;
     while (m) {
-      m /= base;
+      m = div64sd(m, base);
       digits++;
     }
   }
   if (digits == 0) digits = 1;
 
   for (int i = digits - 1; i >= 0; i--) {
-    str[i] = n % base;
-    n /= base;
+    str[i] = mod64sd(n, base);
+    n = div64sd(n, base);
   }
 
   if (!padded) {
@@ -141,7 +142,7 @@ int print_uint(long n, unsigned int base, int X, int alt, int padded, int width)
   return digits;
 }
 
-static inline int print_int(long n, int base, int X, int alt, int padded, int width)
+static inline int print_int(intmax_t n, int base, int X, int alt, int padded, int width)
 {
   if (n < 0) {
     print_char('-');

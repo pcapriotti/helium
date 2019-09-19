@@ -1,0 +1,8 @@
+include_rules
+
+CC=gcc
+
+CFLAGS += -g
+
+: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: *.o |> $(CC) $(LDFLAGS) %f -o %o |> test
