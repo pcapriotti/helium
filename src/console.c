@@ -1,6 +1,7 @@
 #include "console.h"
 #include "debug.h"
 #include "graphics.h"
+#include "memory.h"
 
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FONT_WIDTH 8
@@ -40,17 +41,14 @@ int console_init(void)
   console.height = graphics_mode.height / FONT_HEIGHT;
   if (console.width <= 0 || console.height <= 0) return -1;
 
-  console.buffer = 0;
-  console.cur = (point_t){0, 0};
-  return 0;
-}
-
-void console_set_buffer(uint16_t *buf)
-{
-  console.buffer = buf;
+  console.buffer = (uint16_t *) falloc(console.width * console.height * sizeof(uint16_t));
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
   }
+
+  console.cur = (point_t){0, 0};
+  return 0;
+
 }
 
 uint32_t *console_at(point_t p)
@@ -61,6 +59,7 @@ uint32_t *console_at(point_t p)
 void console_render_char(uint32_t *pos, char c, uint32_t fg)
 {
   if (!c || c == 0x20) return;
+  if (c < 0) return;
   glyph_t *glyph = &graphics_font[(int) c];
   int pitch = console.pitch - 8;
   for (int i = 0; i < FONT_HEIGHT; i++) {

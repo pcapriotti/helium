@@ -24,9 +24,6 @@ void main()
   }
 
   if (console_init() == -1) panic();
-
-  /* TODO: allocate memory for the console */
-  console_set_buffer((uint16_t *) heap);
   console_print_str("Ok.", 7);
 
   __asm__ volatile("hlt");

@@ -309,6 +309,15 @@ int memory_init(void *heap)
   uint32_t free_mem = frames_available_memory(memory_frames);
   kprintf("free memory: %#x\n", free_mem);
 
-  while(1);
   return 0;
+}
+
+void *falloc(size_t sz)
+{
+  return frames_alloc(memory_frames, sz);
+}
+
+void ffree(void *p)
+{
+  frames_free(memory_frames, p);
 }

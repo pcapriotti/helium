@@ -19,7 +19,6 @@ extern console_t console;
 
 int console_init(void);
 uint32_t *console_at(point_t point);
-void console_set_buffer(uint16_t *buf);
 void console_print_str(const char *s, uint8_t colour);
 
 void console_render_char(uint32_t *pos, char c, uint32_t fg);
