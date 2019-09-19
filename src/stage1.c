@@ -249,8 +249,6 @@ void interrupt_handler(isr_stack_t stack)
     if (stack.int_num >= IDT_IRQ) {
       int irq = stack.int_num - IDT_IRQ;
 
-      if (irq == 0) return;
-
       /* let the BIOS handle this interrupt */
       stack.esp -= 6;
       uint16_t *st = (uint16_t *)stack.esp;
