@@ -94,22 +94,19 @@ void console_render_buffer()
   }
 }
 
-void console_print_str(const char *s, uint8_t colour)
+void console_print_char(char c, uint8_t colour)
 {
-  char c;
   uint16_t *p = console.buffer + console.cur.x + console.cur.y * console.width;
   uint16_t col = colour << 8;
-  while ((c = *s++)) {
-    if (c == '\n') {
-      p += console.width - console.cur.x;
+  if (c == '\n') {
+    p += console.width - console.cur.x;
 
-      console.cur.y++;
-      console.cur.x = 0;
-    }
-    else if (console.cur.x < 80) {
-      *p++ = col | c;
-      console.cur.x++;
-    }
+    console.cur.y++;
+    console.cur.x = 0;
+  }
+  else if (console.cur.x < 80) {
+    *p++ = col | c;
+    console.cur.x++;
   }
   if (console.cur.y == console.height) {
     int last_line = console.width * (console.height - 1);
@@ -121,6 +118,12 @@ void console_print_str(const char *s, uint8_t colour)
     }
     console.cur.y--;
   }
+}
 
-  console_render_buffer();
+void console_print_str(const char *s, uint8_t colour)
+{
+  char c;
+  while ((c = *s++)) {
+    console_print_char(c, colour);
+  }
 }

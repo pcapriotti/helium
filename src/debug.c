@@ -1,3 +1,4 @@
+#include "console.h"
 #include "debug.h"
 #include "graphics.h"
 #include "math.h"
@@ -25,21 +26,7 @@ struct {
   volatile uint16_t *p;
 } debug_console = {0, 0, VGA_TEXT};
 
-int isdigit(char c)
-{
-  return c >= '0' && c <= '9';
-}
-
-#ifdef SERIAL_PORT_DEBUG
-#include "io.h"
-void print_char(char c)
-{
-  if (c == '\n')
-    outb(0x3f8, '\r');
-  outb(0x3f8, c);
-}
-#else
-void print_char(char c)
+void debug_print_char(char c)
 {
   if (c == '\n') {
     debug_console.p += 80 - debug_console.x;
@@ -63,6 +50,39 @@ void print_char(char c)
     }
     debug_console.p -= 80;
     debug_console.y--;
+  }
+}
+
+
+int isdigit(char c)
+{
+  return c >= '0' && c <= '9';
+}
+
+#ifdef SERIAL_PORT_DEBUG
+#include "io.h"
+void print_char(char c)
+{
+  if (c == '\n')
+    outb(0x3f8, '\r');
+  outb(0x3f8, c);
+}
+void flush_output(void) {}
+#else
+void print_char(char c)
+{
+  if (console.width > 0) {
+    console_print_char(c, 0x7);
+  }
+  else {
+    debug_print_char(c);
+  }
+}
+
+void flush_output(void)
+{
+  if (console.width > 0) {
+    console_render_buffer();
   }
 }
 #endif
@@ -220,7 +240,7 @@ int kvprintf(const char *fmt, va_list list)
       int base = 16;
       switch (fmt[i]) {
       case '\0':
-        return count;
+        break;
       case '%':
         print_char('%');
         count++;
@@ -282,6 +302,7 @@ int kvprintf(const char *fmt, va_list list)
     }
   }
 
+  flush_output();
   return 0;
 }
 

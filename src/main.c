@@ -24,7 +24,8 @@ void main()
   }
 
   if (console_init() == -1) panic();
-  console_print_str("Ok.", 7);
+  kprintf("console %dx%d\n",
+          console.width, console.height);
 
   __asm__ volatile("hlt");
   while(1);
