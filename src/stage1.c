@@ -440,8 +440,8 @@ void load_kernel(int drive)
 
   int sector = sector0;
   while (sector < sector1) {
-    int track_end = sector + SECTORS_PER_TRACK + 1 -
-      (sector + 1) % SECTORS_PER_TRACK;
+    int track_end = sector + geom.sectors_per_track -
+      sector % geom.sectors_per_track;
     if (track_end >= sector1) track_end = sector1;
     int num_sectors = track_end - sector;
 
