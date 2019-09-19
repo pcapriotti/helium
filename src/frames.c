@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define FRAMES_DEBUG 0
+#define FRAMES_DEBUG 1
 
 #if HAVE_STDIO
 #include <stdio.h>

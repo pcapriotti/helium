@@ -6,6 +6,9 @@
 #define DEBUG_EAX(x) __asm__ volatile("" : : "a"(x))
 #define DEBUG_REGS(a, b, c, d) __asm__ volatile("" : : "a"(a), "b"(b), "c"(c), "d"(d))
 
+extern volatile int debug_key_pressed;
+extern int debug_paging;
+
 void panic(void);
 
 void debug_str(const char *msg);

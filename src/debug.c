@@ -5,6 +5,9 @@
 
 #include <stdarg.h>
 
+volatile int debug_key_pressed = 0;
+int debug_paging = 1;
+
 void panic(void)
 {
   uint32_t *fb = (uint32_t *)graphics_mode.framebuffer + 400;
@@ -14,8 +17,6 @@ void panic(void)
 }
 
 #define VGA_TEXT ((volatile uint16_t*) 0xb8000)
-
-volatile uint16_t *vga_text = VGA_TEXT;
 
 struct {
   int x, y;
@@ -48,6 +49,10 @@ void print_char(char c)
     debug_console.x++;
   }
   if (debug_console.y == 25) {
+    if (debug_paging) {
+      while (!debug_key_pressed);
+      debug_key_pressed = 0;
+    }
     for (int i = 0; i < 80 * 24; i++) {
       vga_text[i] = vga_text[i + 80];
     }

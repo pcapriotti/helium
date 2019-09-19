@@ -9,6 +9,8 @@
 
 void main()
 {
+  __asm__ volatile("sti");
+
   void *heap = _kernel_low_end;
 
   if (memory_init(heap) == -1) panic();
