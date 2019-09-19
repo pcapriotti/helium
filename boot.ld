@@ -26,7 +26,7 @@ SECTIONS
   .text : AT(_stage1_end)
   {
     _kernel_start = .;
-    *(.text)
+    *(.text) *(.text.*)
   }
 
   .data : { *(.data) *(.rodata) }
