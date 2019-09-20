@@ -15,6 +15,11 @@ enum {
 };
 
 enum {
+  PCI_H1_BUS_NUMBER = 6,
+  PCI_H1_STATUS = 6,
+};
+
+enum {
   PCI_CLS_UNCLASSIF = 0,
   PCI_CLS_STORAGE,
   PCI_CLS_NETWORK,
@@ -31,6 +36,33 @@ enum {
   PCI_CLS_WIFI
 };
 
+enum {
+  PCI_STORAGE_SCSI = 0,
+  PCI_STORAGE_IDE,
+  PCI_STORAGE_FLOPPY,
+  PCI_STORAGE_IPI,
+  PCI_STORAGE_RAID,
+  PCI_STORAGE_ATA,
+  PCI_STORAGE_SATA,
+  PCI_STORAGE_SSCSI,
+  PCI_STORAGE_NV,
+  PCI_STORAGE_OTHER = 0x80,
+};
+
+enum {
+  PCI_BRIDGE_HOST = 0,
+  PCI_BRIDGE_ISA,
+  PCI_BRIDGE_EISA,
+  PCI_BRIDGE_MCA,
+  PCI_BRIDGE_PCI,
+  PCI_BRIDGE_PCMCIA,
+  PCI_BRIDGE_NUBUS,
+  PCI_BRIDGE_CARDBUS,
+  PCI_BRIDGE_PCI2,
+  PCI_BRIDGE_INFINIBAND,
+  PCI_BRIDGE_OTHER = 0x80,
+};
+
 uint32_t pci_read(uint8_t bus, uint8_t device,
                   uint8_t func, uint8_t offset)
 {
@@ -45,18 +77,21 @@ uint32_t pci_read(uint8_t bus, uint8_t device,
   return inl(PCI_CONF_DATA);
 }
 
+void pci_scan_bus(uint8_t bus);
+
 void pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
 {
   uint32_t cl = pci_read(bus, device, func, PCI_CLASS);
   uint32_t hd = pci_read(bus, device, func, PCI_HEADER_TYPE);
+  uint8_t subclass = (cl >> 16) & 0xff;
+  uint8_t class = (cl >> 24) & 0xff;
   uint8_t htype = (hd >> 16) & 0x7f;
-  if (htype == 0) { /* general device */
+  switch (htype) {
+  case 0: /* general device */
     /* uint8_t revision = cl & 0xff; */
     /* uint8_t prog_if = (cl >> 8) & 0xff; */
-    uint8_t subclass = (cl >> 16) & 0xff;
-    uint8_t class = (cl >> 24) & 0xff;
     if (class == PCI_CLS_STORAGE &&
-        subclass == 0x01) { /* IDE controller */
+        subclass == PCI_STORAGE_IDE) { /* IDE controller */
 #if PCI_DEBUG
       uint32_t vd = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
       kprintf("found IDE controller: bus %u no %u vd %#x cl %#x\n",
@@ -70,6 +105,15 @@ void pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
         kprintf("bar%d: %p\n", i, bars[i]);
       }
     }
+    break;
+  case 1: /* bridge */
+    if (class == PCI_CLS_BRIDGE &&
+        subclass == PCI_BRIDGE_PCI) {
+      uint32_t val = pci_read(bus, device, func, PCI_H1_STATUS);
+      uint8_t bus = (val >> 8) & 0xff;
+      pci_scan_bus(bus);
+    }
+    break;
   }
 }
 
@@ -90,11 +134,14 @@ void pci_check_device(uint8_t bus, uint8_t device)
   }
 }
 
+void pci_scan_bus(uint8_t bus)
+{
+  for (unsigned int device = 0; device < 0x20; device++) {
+    pci_check_device(bus, device);
+  }
+}
+
 void pci_scan(void)
 {
-  for (unsigned int bus = 0; bus < 0x100; bus++) {
-    for (unsigned int device = 0; device < 0x20; device++) {
-      pci_check_device(bus, device);
-    }
-  }
+  pci_scan_bus(0);
 }
