@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define PAGE_BITS 12
+
 extern uint8_t _stage1_end[];
 extern uint8_t _kernel_start[];
 extern uint8_t _kernel_end[];
