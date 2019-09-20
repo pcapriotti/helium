@@ -234,15 +234,12 @@ void interrupt_handler(isr_stack_t stack)
 {
   int v8086 = stack.eflags & EFLAGS_VM;
   if (v8086) {
-    __asm__
-      ("mov $0x10, %ax\n"
-       "mov %ax, %ds\n"
-       "mov %ax, %es\n"
-       "mov %ax, %fs\n"
-       "mov %ax, %gs\n");
-  }
-
-  if (v8086) {
+    __asm__ volatile
+      ("mov %0, %%ds\n"
+       "mov %0, %%es\n"
+       "mov %0, %%fs\n"
+       "mov %0, %%gs\n"
+       : : "r"(GDT_SEL(GDT_DATA)));
     switch (stack.int_num) {
     case IDT_GP:
       v8086_gpf_handler(&stack);
