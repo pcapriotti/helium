@@ -7,8 +7,8 @@
 #define MAX_ORDER 32
 #define ORDER_OF(n) (sizeof(unsigned long) * 8 - __builtin_clzl((n) - 1))
 
-struct frames_t;
-typedef struct frames_t frames_t;
+struct frames;
+typedef struct frames frames_t;
 
 typedef struct {
   void *start;

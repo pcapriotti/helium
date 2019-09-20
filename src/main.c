@@ -34,6 +34,7 @@ void main()
   if (timer_init() == -1) panic();
 
   if (memory_init(heap) == -1) panic();
+  if (kmalloc_init(memory_frames) == -1) panic();
 
   kprintf("entering graphic mode\n");
 
@@ -74,11 +75,11 @@ void main()
   LIST_HEAD(devices);
   pci_scan(&devices);
 
-  /* device_t *dev; */
-  /* list_foreach_entry(dev, &devices, head) { */
-  /*   kprintf("found device %p class: %#x subclass: %#x\n", */
-  /*           dev, dev->class, dev->subclass); */
-  /* } */
+  device_t *dev;
+  list_foreach_entry(dev, &devices, head) {
+    kprintf("found device %p class: %#x subclass: %#x\n",
+            dev, dev->class, dev->subclass);
+  }
   kprintf("Ok.\n");
 
   fs_t *fs = ext2_new_fs(test_read, 0);

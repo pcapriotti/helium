@@ -120,7 +120,7 @@ check the availability of the buddy block just by testing its
 bit. This allows us to maintain the second invariant: if both the
 block and its buddy would end up being available, we merge them by
 making them unavailable and recursing on the parent block. */
-struct frames_t {
+struct frames {
   void *start;
   struct block_t *free[MAX_ORDER];
   unsigned int min_order, max_order;

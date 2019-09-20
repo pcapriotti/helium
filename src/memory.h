@@ -17,8 +17,8 @@ typedef struct {
   int type;
 } chunk_t;
 
-struct frames_t;
-extern struct frames_t *memory_frames;
+struct frames;
+extern struct frames *memory_frames;
 
 void *falloc(size_t sz);
 void ffree(void *p);
