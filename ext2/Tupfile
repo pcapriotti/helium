@@ -1,6 +1,7 @@
 include_rules
 
 CFLAGS += $(CFLAGS_HELIUM)
+CFLAGS += -I../src
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 

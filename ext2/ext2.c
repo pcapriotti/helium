@@ -1,10 +1,17 @@
 #include "ext2.h"
 
-#ifndef _HELIUM
+#ifdef _HELIUM
+# include "kmalloc.h"
+# define MALLOC kmalloc
+# define FREE kfree
+#else
 # include <stdio.h>
 # include <stdlib.h>
+# define MALLOC malloc
+# define FREE free
 #endif
 
+#include <stddef.h>
 #include <string.h>
 
 #define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
@@ -47,14 +54,14 @@ fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
     return 0;
   }
 
-  fs_t *fs = malloc(sizeof(fs_t));
+  fs_t *fs = MALLOC(sizeof(fs_t));
   fs->read = read;
   fs->read_data = read_data;
   fs->block_size = ext2_block_size(&sb);
   fs->inode_size = ext2_inode_size(&sb);
   fs->inodes_per_group = sb.inodes_per_group;
   fs->superblock_offset = sb.superblock_offset;
-  fs->buf = malloc(fs->block_size);
+  fs->buf = MALLOC(fs->block_size);
 
 #if EXT2_DEBUG
   vga_print("block size: ");
@@ -70,8 +77,8 @@ fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
 }
 
 void ext2_free_fs(fs_t *fs) {
-  free(fs->buf);
-  free(fs);
+  FREE(fs->buf);
+  FREE(fs);
 }
 
 int ext2_num_bgroups(superblock_t *sb) {
@@ -119,13 +126,13 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
   }
 
   int path_len = strlen(path);
-  char *pbuf = malloc(path_len + 1);
+  char *pbuf = MALLOC(path_len + 1);
   strncpy(pbuf, path, path_len + 1);
 
   char *saveptr = 0;
   char *token = strtok_r(pbuf, "/", &saveptr);
   if (token == 0) { /* root */
-    free(pbuf);
+    FREE(pbuf);
     return inode;
   }
   while (token != 0) {
@@ -139,7 +146,7 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
     }
   }
 
-  free(pbuf);
+  FREE(pbuf);
   return inode;
 }
 
@@ -195,7 +202,7 @@ uint16_t ext2_inode_size(superblock_t *sb)
 
 inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode)
 {
-  inode_iterator_t *it = malloc(sizeof(inode_iterator_t));
+  inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
