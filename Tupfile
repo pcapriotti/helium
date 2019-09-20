@@ -2,7 +2,7 @@ include_rules
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
-LIBS=libc/libc.a buddy/buddy.a
+LIBS=libc/libc.a buddy/buddy.a ext2/ext2.a
 
 : src/*.o $(LIBS) |> $(LD) $(LDFLAGS) -T boot.ld %f -o %o |> demo.elf
 : demo.elf |> objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin
