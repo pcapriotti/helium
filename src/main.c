@@ -2,6 +2,8 @@
 #include "debug.h"
 #include "ext2/ext2.h"
 #include "graphics.h"
+#include "list.h"
+#include "kmalloc.h"
 #include "memory.h"
 #include "pci.h"
 #include "stage1.h"
@@ -17,6 +19,11 @@ void test_read(void *data, void *buf,
                unsigned int bytes)
 {
 }
+
+typedef struct {
+  list_t head;
+  int x;
+} test_t;
 
 void main()
 {
@@ -64,7 +71,15 @@ void main()
   kprintf("console %dx%d\n",
           console.width, console.height);
 
-  pci_scan();
+  LIST_HEAD(devices);
+  pci_scan(&devices);
+
+  /* device_t *dev; */
+  /* list_foreach_entry(dev, &devices, head) { */
+  /*   kprintf("found device %p class: %#x subclass: %#x\n", */
+  /*           dev, dev->class, dev->subclass); */
+  /* } */
+  kprintf("Ok.\n");
 
   fs_t *fs = ext2_new_fs(test_read, 0);
   ext2_free_fs(fs);

@@ -1,10 +1,12 @@
 #include "debug.h"
 #include "io.h"
+#include "kmalloc.h"
+#include "pci.h"
 
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 1
+#define PCI_DEBUG 0
 
 enum {
   PCI_VENDOR_DEVICE = 0,
@@ -77,9 +79,10 @@ uint32_t pci_read(uint8_t bus, uint8_t device,
   return inl(PCI_CONF_DATA);
 }
 
-void pci_scan_bus(uint8_t bus);
+void pci_scan_bus(list_t *devices, uint8_t bus);
 
-void pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
+void pci_check_function(list_t *devices, uint8_t bus,
+                        uint8_t device, uint8_t func)
 {
   uint32_t cl = pci_read(bus, device, func, PCI_CLASS);
   uint32_t hd = pci_read(bus, device, func, PCI_HEADER_TYPE);
@@ -97,13 +100,17 @@ void pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
       kprintf("found IDE controller: bus %u no %u vd %#x cl %#x\n",
               bus, device, vd, cl);
 #endif
-      uint32_t bars[4];
+      device_t *dev = kmalloc(sizeof(device_t));
+      dev->class = class;
+      dev->subclass = subclass;
       for (unsigned int i = 0; i < 4; i++) {
-        bars[i] = pci_read(bus, device, func, PCI_BAR0 + i) & ~3;
+        dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i) & ~3;
       }
+#if PCI_DEBUG
       for (int i = 0; i < 4; i++) {
-        kprintf("bar%d: %p\n", i, bars[i]);
+        kprintf("  bar%d: %p\n", i, dev->bars[i]);
       }
+#endif
     }
     break;
   case 1: /* bridge */
@@ -111,37 +118,39 @@ void pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
         subclass == PCI_BRIDGE_PCI) {
       uint32_t val = pci_read(bus, device, func, PCI_H1_STATUS);
       uint8_t bus = (val >> 8) & 0xff;
-      pci_scan_bus(bus);
+      pci_scan_bus(devices, bus);
     }
     break;
   }
 }
 
-void pci_check_device(uint8_t bus, uint8_t device)
+void pci_check_device(list_t *devices, uint8_t bus, uint8_t id)
 {
-  uint32_t vd = pci_read(bus, device, 0, PCI_VENDOR_DEVICE);
+  uint32_t vd = pci_read(bus, id, 0, PCI_VENDOR_DEVICE);
   if (vd == (uint32_t)(~0)) {
     return;
   }
-  uint32_t hd = pci_read(bus, device, 0, PCI_HEADER_TYPE);
-  kprintf("found device bus %u dev %u hd %#x\n",
-          bus, device, hd);
-  pci_check_function(bus, device, 0);
+  uint32_t hd = pci_read(bus, id, 0, PCI_HEADER_TYPE);
+#if PCI_DEBUG
+  kprintf("found device bus %u id %u hd %#x\n",
+          bus, id, hd);
+#endif
+  pci_check_function(devices, bus, id, 0);
   if ((hd >> 23) & 1) { /* multifunction */
     for (uint8_t func = 1; func < 8; func++) {
-      pci_check_function(bus, device, func);
+      pci_check_function(devices, bus, id, func);
     }
   }
 }
 
-void pci_scan_bus(uint8_t bus)
+void pci_scan_bus(list_t *devices, uint8_t bus)
 {
-  for (unsigned int device = 0; device < 0x20; device++) {
-    pci_check_device(bus, device);
+  for (unsigned int id = 0; id < 0x20; id++) {
+    pci_check_device(devices, bus, id);
   }
 }
 
-void pci_scan(void)
+void pci_scan(list_t *devices)
 {
-  pci_scan_bus(0);
+  pci_scan_bus(devices, 0);
 }
