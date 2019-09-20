@@ -3,6 +3,7 @@
 #include "ext2/ext2.h"
 #include "graphics.h"
 #include "memory.h"
+#include "pci.h"
 #include "stage1.h"
 #include "timer.h"
 
@@ -61,6 +62,8 @@ void main()
 
   kprintf("console %dx%d\n",
           console.width, console.height);
+
+  pci_scan();
 
   fs_t *fs = ext2_new_fs(test_read, 0);
   ext2_free_fs(fs);
