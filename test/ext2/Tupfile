@@ -1,0 +1,9 @@
+include_rules
+
+CC=gcc
+
+CFLAGS += -I../..
+
+: foreach ../../ext2/*.c |> $(CC) $(CFLAGS) -c %f -o %o |> ext2/%B.o
+: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: *.o ext2/*.o |> $(CC) $(LDFLAGS) %f -o %o |> test
