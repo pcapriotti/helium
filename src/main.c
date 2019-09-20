@@ -1,5 +1,6 @@
 #include "console.h"
 #include "debug.h"
+#include "ext2/ext2.h"
 #include "graphics.h"
 #include "memory.h"
 #include "stage1.h"
@@ -7,6 +8,13 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
+
+void test_read(void *data, void *buf,
+               unsigned int offset,
+               unsigned int bytes)
+{
+}
 
 void main()
 {
@@ -53,6 +61,9 @@ void main()
 
   kprintf("console %dx%d\n",
           console.width, console.height);
+
+  fs_t *fs = ext2_new_fs(test_read, 0);
+  ext2_free_fs(fs);
 
   __asm__ volatile("hlt");
   while(1);
