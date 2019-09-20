@@ -1,3 +1,4 @@
+#include "ata.h"
 #include "console.h"
 #include "debug.h"
 #include "ext2/ext2.h"
@@ -75,15 +76,11 @@ void main()
   LIST_HEAD(devices);
   pci_scan(&devices);
 
-  device_t *dev;
-  list_foreach_entry(dev, &devices, head) {
-    kprintf("found device %p class: %#x subclass: %#x\n",
-            dev, dev->class, dev->subclass);
-  }
-  kprintf("Ok.\n");
+  if (ata_init(&devices) == -1) panic();
 
   fs_t *fs = ext2_new_fs(test_read, 0);
   ext2_free_fs(fs);
 
+  kprintf("Ok.\n");
   hang_system();
 }

@@ -11,12 +11,12 @@ int debug_paging = 0;
 
 #undef SERIAL_PORT_DEBUG
 
+void hang_system(void);
+
 void panic(void)
 {
-  uint32_t *fb = (uint32_t *)graphics_mode.framebuffer + 400;
-  fb[0] = 0x00ff0000;
-  __asm__ volatile("hlt");
-  while(1);
+  kprintf("kernel panic\n");
+  hang_system();
 }
 
 #define VGA_TEXT ((volatile uint16_t*) 0xb8000)

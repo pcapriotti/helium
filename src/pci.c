@@ -21,50 +21,6 @@ enum {
   PCI_H1_STATUS = 6,
 };
 
-enum {
-  PCI_CLS_UNCLASSIF = 0,
-  PCI_CLS_STORAGE,
-  PCI_CLS_NETWORK,
-  PCI_CLS_DISPLAY,
-  PCI_CLS_MULTIMEDIA,
-  PCI_CLS_MEMORY,
-  PCI_CLS_BRIDGE,
-  PCI_CLS_COMM,
-  PCI_CLS_SYS,
-  PCI_CLS_INPUT,
-  PCI_CLS_DOCKING,
-  PCI_CLS_CPU,
-  PCI_CLS_SERIAL,
-  PCI_CLS_WIFI
-};
-
-enum {
-  PCI_STORAGE_SCSI = 0,
-  PCI_STORAGE_IDE,
-  PCI_STORAGE_FLOPPY,
-  PCI_STORAGE_IPI,
-  PCI_STORAGE_RAID,
-  PCI_STORAGE_ATA,
-  PCI_STORAGE_SATA,
-  PCI_STORAGE_SSCSI,
-  PCI_STORAGE_NV,
-  PCI_STORAGE_OTHER = 0x80,
-};
-
-enum {
-  PCI_BRIDGE_HOST = 0,
-  PCI_BRIDGE_ISA,
-  PCI_BRIDGE_EISA,
-  PCI_BRIDGE_MCA,
-  PCI_BRIDGE_PCI,
-  PCI_BRIDGE_PCMCIA,
-  PCI_BRIDGE_NUBUS,
-  PCI_BRIDGE_CARDBUS,
-  PCI_BRIDGE_PCI2,
-  PCI_BRIDGE_INFINIBAND,
-  PCI_BRIDGE_OTHER = 0x80,
-};
-
 uint32_t pci_read(uint8_t bus, uint8_t device,
                   uint8_t func, uint8_t offset)
 {
@@ -93,11 +49,10 @@ void pci_check_function(list_t *devices, uint8_t bus,
   case 0: /* general device */
     /* uint8_t revision = cl & 0xff; */
     /* uint8_t prog_if = (cl >> 8) & 0xff; */
-    if (class == PCI_CLS_STORAGE &&
-        subclass == PCI_STORAGE_IDE) { /* IDE controller */
+    {
 #if PCI_DEBUG
       uint32_t vd = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
-      kprintf("found IDE controller: bus %u no %u vd %#x cl %#x\n",
+      kprintf("found device: bus %u no %u vd %#x cl %#x\n",
               bus, device, vd, cl);
 #endif
       device_t *dev = kmalloc(sizeof(device_t));
@@ -154,4 +109,11 @@ void pci_scan_bus(list_t *devices, uint8_t bus)
 void pci_scan(list_t *devices)
 {
   pci_scan_bus(devices, 0);
+#if PCI_DEBUG
+  device_t *dev;
+  list_foreach_entry(dev, &devices, head) {
+    kprintf("found device %p class: %#x subclass: %#x\n",
+            dev, dev->class, dev->subclass);
+  }
+#endif
 }
