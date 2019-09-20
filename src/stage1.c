@@ -230,9 +230,9 @@ void v8086_gpf_handler(isr_stack_t *stack)
   }
 }
 
-void interrupt_handler(isr_stack_t stack)
+void interrupt_handler(isr_stack_t *stack)
 {
-  int v8086 = stack.eflags & EFLAGS_VM;
+  int v8086 = stack->eflags & EFLAGS_VM;
   if (v8086) {
     __asm__ volatile
       ("mov %0, %%ds\n"
@@ -240,37 +240,37 @@ void interrupt_handler(isr_stack_t stack)
        "mov %0, %%fs\n"
        "mov %0, %%gs\n"
        : : "r"(GDT_SEL(GDT_DATA)));
-    switch (stack.int_num) {
+    switch (stack->int_num) {
     case IDT_GP:
-      v8086_gpf_handler(&stack);
+      v8086_gpf_handler(stack);
       return;
     }
 
-    if (stack.int_num >= IDT_IRQ) {
-      int irq = stack.int_num - IDT_IRQ;
+    if (stack->int_num >= IDT_IRQ) {
+      int irq = stack->int_num - IDT_IRQ;
 
       /* let the BIOS handle this interrupt */
-      stack.esp -= 6;
-      uint16_t *st = (uint16_t *)stack.esp;
-      st[0] = stack.eip;
-      st[1] = stack.cs;
-      st[2] = stack.eflags;
+      stack->esp -= 6;
+      uint16_t *st = (uint16_t *)stack->esp;
+      st[0] = stack->eip;
+      st[1] = stack->cs;
+      st[2] = stack->eflags;
 
       int mapped = irq < 8 ? irq + 8 : irq + 0x68;
       struct { uint16_t off; uint16_t seg; } *iv = 0;
-      stack.eip = iv[mapped].off;
-      stack.cs = iv[mapped].seg;
+      stack->eip = iv[mapped].off;
+      stack->cs = iv[mapped].seg;
 
       return;
     }
 
     debug_str("Exception in v8086: ");
-    debug_byte(stack.int_num);
+    debug_byte(stack->int_num);
     debug_str("\n");
   }
 
-  if (stack.int_num >= IDT_IRQ) {
-    int irq = stack.int_num - IDT_IRQ;
+  if (stack->int_num >= IDT_IRQ) {
+    int irq = stack->int_num - IDT_IRQ;
 
     switch (irq) {
     case 0:
@@ -290,22 +290,22 @@ void interrupt_handler(isr_stack_t stack)
   }
 
   debug_str("Unhandled exception: ");
-  debug_byte(stack.int_num);
+  debug_byte(stack->int_num);
   debug_str("\n");
 
   debug_str("flags: ");
-  debug_byte(stack.eflags >> 24);
-  debug_byte(stack.eflags >> 16);
-  debug_byte(stack.eflags >> 8);
-  debug_byte(stack.eflags);
+  debug_byte(stack->eflags >> 24);
+  debug_byte(stack->eflags >> 16);
+  debug_byte(stack->eflags >> 8);
+  debug_byte(stack->eflags);
   debug_str(" eip: ");
-  debug_byte(stack.eip >> 24);
-  debug_byte(stack.eip >> 16);
-  debug_byte(stack.eip >> 8);
-  debug_byte(stack.eip);
+  debug_byte(stack->eip >> 24);
+  debug_byte(stack->eip >> 16);
+  debug_byte(stack->eip >> 8);
+  debug_byte(stack->eip);
   debug_str(" cs: ");
-  debug_byte(stack.cs >> 8);
-  debug_byte(stack.cs);
+  debug_byte(stack->cs >> 8);
+  debug_byte(stack->cs);
   debug_str("\n");
   text_panic("interrupt_handler");
 }
@@ -339,7 +339,9 @@ __asm__
 ("isr_generic:"
  "cli\n"
  "pusha\n"
+ "push %esp\n"
  "call interrupt_handler\n"
+ "add $4, %esp\n"
  "popa\n"
  "add $8, %esp\n"
  "iret\n");
