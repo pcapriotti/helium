@@ -337,7 +337,6 @@ void isr_assemble(isr_t *isr, uint8_t number)
 
 __asm__
 ("isr_generic:"
- "cli\n"
  "pusha\n"
  "push %esp\n"
  "call interrupt_handler\n"
