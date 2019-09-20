@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+void hang_system(void);
 
 void test_read(void *data, void *buf,
                unsigned int offset,
@@ -68,6 +69,5 @@ void main()
   fs_t *fs = ext2_new_fs(test_read, 0);
   ext2_free_fs(fs);
 
-  __asm__ volatile("hlt");
-  while(1);
+  hang_system();
 }

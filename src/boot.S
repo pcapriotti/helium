@@ -66,7 +66,9 @@ _stage0:
   push %edx
   call _stage1
 
-hang:
+.globl hang_system
+hang_system:
+  cli
   hlt
 1:
   jmp 1b
