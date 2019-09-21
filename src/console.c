@@ -3,6 +3,8 @@
 #include "graphics.h"
 #include "memory.h"
 
+#include <string.h>
+
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
@@ -39,6 +41,7 @@ int console_init(void)
 
   console.width = graphics_mode.width / FONT_WIDTH;
   console.height = graphics_mode.height / FONT_HEIGHT;
+  console.offset = 0;
   if (console.width <= 0 || console.height <= 0) return -1;
 
   console.buffer = (uint16_t *) falloc(console.width * console.height * sizeof(uint16_t));
@@ -58,16 +61,24 @@ uint32_t *console_at(point_t p)
 
 void console_render_char(uint32_t *pos, char c, uint32_t fg)
 {
-  if (!c || c == 0x20) return;
-  if (c < 0) return;
-  glyph_t *glyph = &graphics_font[(int) c];
   int pitch = console.pitch - 8;
+
+  if (!c) {
+    /* just draw background */
+    for (int i = 0; i < FONT_HEIGHT; i++) {
+      for (int j = 0; j < FONT_WIDTH; j++) {
+        *pos++ = 0;
+      }
+      pos += pitch;
+    }
+    return;
+  }
+
+  glyph_t *glyph = &graphics_font[(int) c];
   for (int i = 0; i < FONT_HEIGHT; i++) {
     uint8_t line = glyph->lines[i];
     for (int j = 0; j < FONT_WIDTH; j++) {
-      if (line & 0x80) *pos = fg;
-
-      pos++;
+      *pos++ = (line & 0x80) ? fg : 0;
       line <<= 1;
     }
     pos += pitch;
@@ -82,8 +93,10 @@ uint32_t palette[8] = {
 void console_render_buffer()
 {
   uint32_t *pos = at((point_t) {0, 0});
-  for (int i = 0; i < console.height * console.width; i++) {
-    uint16_t c = console.buffer[i];
+  int coffset = console.offset * console.width;
+  int num_chars = console.height * console.width;
+  for (int i = 0; i < num_chars; i++) {
+    uint16_t c = console.buffer[(i + coffset) % num_chars];
     uint32_t fg = palette[(c >> 8) & 0x7];
     console_render_char(pos, c, fg);
 
@@ -94,29 +107,32 @@ void console_render_buffer()
   }
 }
 
+void console_clear_line(int y)
+{
+  uint16_t *p = console.buffer +
+    console.cur.x +
+    (y % console.height) * console.width;
+  memset(p, 0, console.width * sizeof(uint16_t));
+}
+
 void console_print_char(char c, uint8_t colour)
 {
-  uint16_t *p = console.buffer + console.cur.x + console.cur.y * console.width;
+  uint16_t *p = console.buffer +
+    console.cur.x +
+    (console.cur.y % console.height) *
+    console.width;
   uint16_t col = colour << 8;
   if (c == '\n') {
-    p += console.width - console.cur.x;
-
     console.cur.y++;
     console.cur.x = 0;
   }
   else if (console.cur.x < 80) {
-    *p++ = col | c;
+    *p = col | c;
     console.cur.x++;
   }
-  if (console.cur.y == console.height) {
-    int last_line = console.width * (console.height - 1);
-    for (int i = 0; i < last_line; i++) {
-      console.buffer[i] = console.buffer[i + console.width];
-    }
-    for (int i = 0; i < console.width; i++) {
-      vga_text[last_line + i] = 0;
-    }
-    console.cur.y--;
+  while (console.cur.y - console.offset >= console.height) {
+    console_clear_line(console.offset + console.height);
+    console.offset++;
   }
 }
 

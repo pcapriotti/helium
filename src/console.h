@@ -11,6 +11,7 @@ typedef struct {
   int pitch;
 
   int width, height;
+  int offset;
   uint16_t *buffer;
   point_t cur;
 } console_t;
