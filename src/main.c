@@ -13,19 +13,31 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 void hang_system(void);
 
-void test_read(void *data, void *buf,
-               unsigned int offset,
-               unsigned int bytes)
-{
-}
-
 typedef struct {
-  list_t head;
-  int x;
-} test_t;
+  drive_t *drive;
+  uint32_t part_offset;
+} ata_closure_data_t;
+
+void ata_read_closure(void *data, void *buf,
+                      unsigned int offset,
+                      unsigned int bytes)
+{
+  ata_closure_data_t *clo_data = data;
+#if ATA_CLOSURE_DEBUG
+  kprintf("reading at %#x from drive %u:%u with part offset %#x\n",
+          offset, clo_data->drive->channel,
+          clo_data->drive->index,
+          clo_data->part_offset);
+#endif
+  ata_read_bytes(clo_data->drive,
+                 offset + (clo_data->part_offset << 9),
+                 bytes,
+                 buf);
+}
 
 void main()
 {
@@ -88,13 +100,38 @@ void main()
               i, table[i].lba_start,
               table[i].lba_start + table[i].num_sectors);
     }
+    ata_closure_data_t clo_data;
+    clo_data.drive = drive;
+    clo_data.part_offset = table[0].lba_start;
+
+    fs_t *fs = ext2_new_fs(ata_read_closure, &clo_data);
+
+    inode_t *inode = ext2_get_path_inode(fs, "hello");
+    if (inode) {
+      inode_t tmp = *inode;
+      inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
+      while (!ext2_inode_iterator_end(it)) {
+        char *buf = ext2_inode_iterator_read(it);
+        int len = ext2_inode_iterator_block_size(it);
+
+        char *s = kmalloc(len + 1);
+        strncpy(s, buf, len);
+        s[len] = '\0';
+        kprintf("%s", s);
+        kfree(s);
+
+        ext2_inode_iterator_next(it);
+      }
+      kfree(it);
+    }
+
+    ext2_free_fs(fs);
+
   }
   else {
     kprintf("no drive 0\n");
   }
 
-  fs_t *fs = ext2_new_fs(test_read, 0);
-  ext2_free_fs(fs);
 
   kprintf("Ok.\n");
   hang_system();

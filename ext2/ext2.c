@@ -2,17 +2,22 @@
 
 #ifdef _HELIUM
 # include "kmalloc.h"
+# include "debug.h"
 # define MALLOC kmalloc
 # define FREE kfree
+# define TRACE kprintf
 #else
 # include <stdio.h>
 # include <stdlib.h>
 # define MALLOC malloc
 # define FREE free
+# define TRACE printf
 #endif
 
 #include <stddef.h>
 #include <string.h>
+
+#define EXT2_DEBUG 1
 
 #define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
 
@@ -44,12 +49,12 @@ fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
 {
   superblock_t sb;
 #if EXT2_DEBUG
-  vga_println("Locating superblock");
+  TRACE("Locating superblock\n");
 #endif
 
   if (!ext2_locate_superblock(read, read_data, &sb)) {
 #if EXT2_DEBUG
-    vga_println("Could not find superblock");
+    TRACE("Could not find superblock\n");
 #endif
     return 0;
   }
@@ -64,13 +69,8 @@ fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
   fs->buf = MALLOC(fs->block_size);
 
 #if EXT2_DEBUG
-  vga_print("block size: ");
-  vga_dec(fs->block_size);
-  vga_print(" inode size: ");
-  vga_dec(fs->inode_size);
-  vga_print(" superblock offset: ");
-  vga_dec(fs->superblock_offset);
-  vga_println("");
+  TRACE("block size: %#x inode size: %#x superblock offset: %#x\n",
+          fs->block_size, fs->inode_size, fs->superblock_offset);
 #endif
 
   return fs;
