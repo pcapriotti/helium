@@ -4,6 +4,10 @@ LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 LIBS=libc/libc.a buddy/buddy.a ext2/ext2.a
 
+OFFSET=72s
+SIZE=10M
+
 : src/*.o $(LIBS) |> $(LD) $(LDFLAGS) -T boot.ld %f -o %o |> demo.elf
 : demo.elf |> objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin
 : demo.bin |> ./scripts/build-floppy-image.sh %f %o |> fda
+: |> ./scripts/make-image.sh -s $(SIZE) -o $(OFFSET) %o image |> disk.img
