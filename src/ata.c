@@ -81,7 +81,6 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
   uint32_t lba = offset >> 9;
   uint32_t lba_end = ROUND64(offset + bytes, 9);
   uint32_t count = lba_end - lba;
-  if (bytes == 1 << 17) count = 0;
   if (count > 0xff) return 0;
 
   /* send read command */
@@ -115,7 +114,7 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
     for (unsigned int k = 0; k < 256; k++) {
       uint16_t val = ata_readw(drive->channel, ATA_REG_DATA);
       if (buf_offset) {
-        buf_offset--;
+        buf_offset -= 2;
       }
       else if (j < bytes - 1) {
         result[j++] = val & 0xff;
@@ -140,6 +139,7 @@ void *ata_read_lba(drive_t *drive, uint32_t lba, uint8_t count, void *buf)
 int ata_identify_drive(drive_t *drive)
 {
   uint8_t status;
+  drive->present = 0;
 
   /* select drive */
   ata_write(drive->channel, ATA_REG_DRIVE_HEAD, 0xe0 | (drive->index << 4));
@@ -259,9 +259,6 @@ int ata_init(list_t *devices)
         }
         kprintf("\n");
 #endif
-      }
-      else {
-        kprintf("IDENTIFY failed for drive %u\n", i);
       }
       i++;
     }

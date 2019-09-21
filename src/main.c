@@ -5,6 +5,7 @@
 #include "graphics.h"
 #include "list.h"
 #include "kmalloc.h"
+#include "mbr.h"
 #include "memory.h"
 #include "pci.h"
 #include "stage1.h"
@@ -77,6 +78,20 @@ void main()
   pci_scan(&devices);
 
   if (ata_init(&devices) == -1) panic();
+
+  drive_t *drive = ata_get_drive(0);
+  if (drive->present) {
+    partition_table_t table;
+    read_partition_table(drive, table);
+    for (int i = 0; i < 4; i++) {
+      kprintf("part %u: %#x - %#x\n",
+              i, table[i].lba_start,
+              table[i].lba_start + table[i].num_sectors);
+    }
+  }
+  else {
+    kprintf("no drive 0\n");
+  }
 
   fs_t *fs = ext2_new_fs(test_read, 0);
   ext2_free_fs(fs);
