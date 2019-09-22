@@ -5,6 +5,9 @@ CFLAGS += -fdiagnostics-color=always
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable
 
+# get rid of .eh_frame sections
+CFLAGS += -fno-asynchronous-unwind-tables
+
 CFLAGS_HELIUM += -std=gnu99 -ffreestanding
 CFLAGS_HELIUM += -fomit-frame-pointer
 CFLAGS_HELIUM += -I.. -isystem ../libc

@@ -30,4 +30,5 @@ SECTIONS
 
   kernel_gdtp_segment = kernel_gdtp >> 16;
   kernel_gdtp_offset = kernel_gdtp & 0xffff;
+  loader_num_sectors = (_loader_end - _loader_start + 511) / 512;
 }
