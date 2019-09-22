@@ -7,6 +7,8 @@
 #include "stdint.h"
 #include "timer.h"
 
+#include <string.h>
+
 volatile uint16_t *vga_text = (uint16_t *)0xb8000;
 
 static int vgax = 0, vgay = 0;
@@ -588,6 +590,11 @@ int bios_int(uint32_t interrupt, regs16_t *regs)
 
 void _stage1(uint32_t drive)
 {
+  /* set bss to zero */
+  for (uint8_t *p = _bss_start;
+       p < _bss_end; p++) {
+    *p = 0;
+  }
 
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
@@ -595,9 +602,6 @@ void _stage1(uint32_t drive)
                 0x89, 0);
   kernel_tss.tss.ss0 = GDT_SEL(GDT_DATA);
   kernel_tss.tss.iomap_base = sizeof(tss_t);
-  for (unsigned int i = 0; i < sizeof(kernel_tss.iomap); i++) {
-    kernel_tss.iomap[i] = 0;
-  }
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   set_kernel_idt();

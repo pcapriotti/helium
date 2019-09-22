@@ -17,7 +17,10 @@ SECTIONS
 
   /* put bss in low memory, so that it can be used by stage 1 code */
   . = _stage1_end;
+
+  _bss_start = .;
   .bss : { *(.bss) }
+  _bss_end = .;
 
   _kernel_low_end = .;
 
