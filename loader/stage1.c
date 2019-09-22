@@ -563,10 +563,64 @@ int bios_int(uint32_t interrupt, regs16_t *regs)
   return v8086_set_stack_and_enter(regs, handlers[interrupt]);
 }
 
+typedef struct {
+  int drive;
+  drive_geometry_t geom;
+  size_t part_offset;
+} bios_read_info_t;
+
+sector_t bios_read_buffer;
+
 void bios_read_closure(void *data, void *buf,
                        unsigned int offset,
                        unsigned int bytes)
 {
+  bios_read_info_t *info = data;
+  uint32_t sector0 = offset / sizeof(sector_t);
+  uint32_t sector1 = (offset + bytes + sizeof(sector_t) - 1) / sizeof(sector_t);
+
+  uint8_t *p = buf;
+  regs16_t regs;
+  uint32_t sector = sector0;
+  int partial_read = (offset % sizeof(sector_t)) != 0;
+  while (sector < sector1) {
+    uint32_t next;
+
+    if (partial_read) {
+      next = sector + 1;
+    }
+    else {
+      next = sector + info->geom.sectors_per_track -
+        (sector % info->geom.sectors_per_track);
+    }
+    if (next > sector1) next = sector1;
+    uint32_t count = next - sector;
+
+    unsigned int c, h, s;
+    sector_to_chs(&info->geom, sector, &c, &h, &s);
+    regs.eax = 0x200 | (count & 0xff);
+    regs.ebx = partial_read ? (uint32_t) &bios_read_buffer : (uint32_t) p;
+    regs.ecx = ((c & 0xff) << 8) | ((c & 0x300) >> 2) | (s & 0x3f) ;
+    regs.edx = (h << 8) | ((info->drive | 0x80) & 0xff);
+    regs.es = (uint32_t) p >> 16;
+
+    bios_int(0x13, &regs);
+
+    if (partial_read) {
+      unsigned int j = 0;
+      for (unsigned int i = ((uint32_t) offset) % sizeof(sector_t);
+           i < sizeof(sector_t); i++) {
+        p[j++] = bios_read_buffer[i];
+      }
+      p += j;
+    }
+    else {
+      p += count * sizeof(sector_t);
+    }
+
+    partial_read = 0;
+    sector += count;
+  }
 }
 
 void _stage1(uint32_t drive)
@@ -598,9 +652,13 @@ void _stage1(uint32_t drive)
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  fs_t * fs = ext2_new_fs(&bios_read_closure, 0);
+  bios_read_info_t info;
+  info.drive = 0;
+  info.part_offset = 72;
+  get_drive_geometry(info.drive, &info.geom);
 
-  load_kernel(drive, _loader_end - _loader0_start, 100);
+  fs_t * fs = ext2_new_fs(&bios_read_closure, &info);
+  if (fs) ext2_free_fs(fs);
 
   debug_str("Ok.\n");
   while(1);
