@@ -10,6 +10,16 @@
 uint8_t *_kernel_start = (uint8_t *)0x100000;
 static int vgax = 0, vgay = 0;
 
+static uint8_t heap[8192];
+static uint8_t *heapp = heap;
+
+void *loader_kmalloc(size_t sz) {
+  void *ret = heapp;
+  heapp += sz;
+  return ret;
+}
+void loader_kfree(void *p) { }
+
 void text_panic(const char *msg)
 {
   debug_str("Panic: ");
@@ -571,54 +581,61 @@ typedef struct {
 
 sector_t bios_read_buffer;
 
+extern int read_debug;
+
 void bios_read_closure(void *data, void *buf,
                        unsigned int offset,
                        unsigned int bytes)
 {
+  /* kprintf("offset = %#x, bytes = %#x\n", offset, bytes); */
   bios_read_info_t *info = data;
-  uint32_t sector0 = offset / sizeof(sector_t);
-  uint32_t sector1 = (offset + bytes + sizeof(sector_t) - 1) / sizeof(sector_t);
+  uint32_t sector0 = info->part_offset + offset / sizeof(sector_t);
+  uint32_t sector1 = info->part_offset +
+    (offset + bytes + sizeof(sector_t) - 1) / sizeof(sector_t);
 
   uint8_t *p = buf;
   regs16_t regs;
   uint32_t sector = sector0;
-  int partial_read = (offset % sizeof(sector_t)) != 0;
+  unsigned int partial_begin = offset % sizeof(sector_t);
+  unsigned int partial_end = (offset + bytes) % sizeof(sector_t);
   while (sector < sector1) {
-    uint32_t next;
-
-    if (partial_read) {
-      next = sector + 1;
-    }
-    else {
-      next = sector + info->geom.sectors_per_track -
-        (sector % info->geom.sectors_per_track);
-    }
+    uint32_t next = sector +
+      info->geom.sectors_per_track -
+      (sector % info->geom.sectors_per_track);
     if (next > sector1) next = sector1;
+    int direct = (sector > sector0 || !partial_begin) &&
+      (next < sector1 || !partial_end);
+    if (!direct) next = sector + 1;
     uint32_t count = next - sector;
 
     unsigned int c, h, s;
     sector_to_chs(&info->geom, sector, &c, &h, &s);
+    ptr16_t dest = linear_to_ptr16
+      (direct ? (uint32_t) p : (uint32_t) &bios_read_buffer);
+
     regs.eax = 0x200 | (count & 0xff);
-    regs.ebx = partial_read ? (uint32_t) &bios_read_buffer : (uint32_t) p;
+    regs.ebx = dest.offset;
     regs.ecx = ((c & 0xff) << 8) | ((c & 0x300) >> 2) | (s & 0x3f) ;
-    regs.edx = (h << 8) | ((info->drive | 0x80) & 0xff);
-    regs.es = (uint32_t) p >> 16;
+    regs.edx = (h << 8) | (info->drive & 0xff);
+    regs.es = dest.segment;
 
-    bios_int(0x13, &regs);
+    /* kprintf("dest = %p\n"); */
+    /* kprintf("eax = %#x, ebx = %#x, ecx = %#x, edx = %#x, es = %#x\n", */
+    /*         regs.eax, regs.ebx, regs.ecx, regs.edx, regs.es); */
+    int flags = bios_int(0x13, &regs);
+    /* kprintf("  CF = %u\n", flags & EFLAGS_CF); */
 
-    if (partial_read) {
-      unsigned int j = 0;
-      for (unsigned int i = ((uint32_t) offset) % sizeof(sector_t);
-           i < sizeof(sector_t); i++) {
-        p[j++] = bios_read_buffer[i];
-      }
-      p += j;
-    }
-    else {
+    if (direct) {
       p += count * sizeof(sector_t);
     }
+    else {
+      unsigned int i0 = sector > sector0 ? 0 : partial_begin;
+      unsigned int i1 = next < sector1 ? 0 : partial_end;
+      for (unsigned int i = i0; i < i1; i++) {
+        *p++ = bios_read_buffer[i];
+      }
+    }
 
-    partial_read = 0;
     sector += count;
   }
 }
@@ -653,12 +670,32 @@ void _stage1(uint32_t drive)
   bios_int(0x10, &regs);
 
   bios_read_info_t info;
-  info.drive = 0;
+  info.drive = 0x80;
   info.part_offset = 72;
+  kprintf("drive = %#x\n", info.drive);
   get_drive_geometry(info.drive, &info.geom);
 
-  fs_t * fs = ext2_new_fs(&bios_read_closure, &info);
-  if (fs) ext2_free_fs(fs);
+  fs_t *fs = ext2_new_fs(&bios_read_closure, &info);
+  if (!fs) text_panic("fs");
+  inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
+  if (inode) {
+    inode_t tmp = *inode;
+    inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
+    while (!ext2_inode_iterator_end(it)) {
+      char *buf = ext2_inode_iterator_read(it);
+      int len = ext2_inode_iterator_block_size(it);
+
+      char *s = loader_kmalloc(len + 1);
+      strncpy(s, buf, len);
+      s[len] = '\0';
+      kprintf("%s\n", s);
+      loader_kfree(s);
+
+      ext2_inode_iterator_next(it);
+    }
+    loader_kfree(it);
+  }
+  ext2_free_fs(fs);
 
   debug_str("Ok.\n");
   while(1);

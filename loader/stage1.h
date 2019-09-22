@@ -28,6 +28,19 @@ static inline uint32_t ptr16_to_linear(ptr16_t ptr)
   return seg_off_to_linear(ptr.segment, ptr.offset);
 }
 
+static inline void linear_to_seg_off(uint32_t p, uint16_t *seg, uint16_t *off)
+{
+  *seg = (p >> 4) & 0xf000;
+  *off = p;
+}
+
+static inline ptr16_t linear_to_ptr16(uint32_t p)
+{
+  ptr16_t p16;
+  linear_to_seg_off(p, &p16.segment, &p16.offset);
+  return p16;
+}
+
 #define GDT_SEL(i) ((uint16_t)((i) * sizeof(gdt_entry_t)))
 
 typedef struct {

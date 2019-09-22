@@ -1,24 +1,19 @@
 #include "ext2.h"
 
-#if _HELIUM
-# if _HELIUM_LOADER
 #include <stddef.h>
 
-static uint8_t heap[32768];
-static uint8_t *heapp = heap;
-
-static void *kmalloc(size_t sz) {
-  void *ret = heapp;
-  heapp += sz;
-  return ret;
-}
-static void kfree(void *p) { }
+#if _HELIUM
+# if _HELIUM_LOADER
+void *loader_kmalloc(size_t sz);
+void loader_kfree(void *p);
+#  define MALLOC loader_kmalloc
+#  define FREE loader_kfree
 # else
 #  include "kmalloc.h"
+#  define MALLOC kmalloc
+#  define FREE kfree
 # endif /* _HELIUM_LOADER */
 # include "../loader/debug.h"
-# define MALLOC kmalloc
-# define FREE kfree
 # define TRACE kprintf
 #else
 # include <stdio.h>
@@ -125,6 +120,7 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
   unsigned int index_in_group = index % fs->inodes_per_group;
   unsigned int inodes_per_block = fs->block_size / fs->inode_size;
   unsigned int block = index_in_group / inodes_per_block;
+
   void *table = ext2_read_block(fs, gdesc->inode_table_offset + block);
   unsigned int index_in_block = index_in_group % inodes_per_block;
   return table + fs->inode_size * index_in_block;
@@ -132,6 +128,7 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
 
 inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 {
+
   /* get root first */
   inode_t *inode = ext2_get_inode(fs, 2);
 

@@ -32,12 +32,12 @@ done
 shift $((OPTIND - 1))
 disk=$1
 src=$2
-[ -n "$disk" ] || usage
-[ -n "$src" ] || usage
 [ -z "$3" ] || usage
 
 : ${size:=$((10 * 1024 * 1024))}
 : ${offset:=$((72 * 512))}
+: ${disk:="build/disk.img"}
+: ${src:="image"}
 
 dd if=/dev/zero of="$disk" bs=1024 count=$(((size + 1023) / 1024)) >&2
 parted -m -s "$disk" -- mklabel msdos >&2

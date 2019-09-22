@@ -7,7 +7,7 @@ CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 : foreach *.S |> $(CC) -c %f -o %o |> %B.o
-: foreach *.c |> $(CC) $(CFLAGS) -O2 -c %f -o %o |> %B.o
-: foreach ../ext2/*.c |> $(CC) $(CFLAGS) -O2 -c %f -o %o |> %B.o
+: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: foreach ../ext2/*.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
 : *.o ../libc/libc.a |> $(LD) $(LDFLAGS) -T loader.ld %f -o %o |> loader.elf
 : loader.elf |> objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin
