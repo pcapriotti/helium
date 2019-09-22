@@ -4,5 +4,5 @@ CFLAGS += $(CFLAGS_HELIUM)
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 
-: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> ar crs %o %f |> libc.a
+: foreach *.c |> !cc |>
+: *.o |> !ar |> libc.a

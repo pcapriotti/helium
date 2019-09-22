@@ -67,6 +67,16 @@ char *strncpy(char *dest, const char *src, size_t n)
   return dest;
 }
 
+char *strcpy(char *dest, const char *src)
+{
+  size_t i;
+  for (i = 0; src[i]; i++) {
+    dest[i] = src[i];
+  }
+  dest[i] = '\0';
+  return dest;
+}
+
 char *strtok_r(char *str, const char *delim, char **saveptr)
 {
   char *x = str;

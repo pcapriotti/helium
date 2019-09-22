@@ -138,7 +138,7 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 
   int path_len = strlen(path);
   char *pbuf = MALLOC(path_len + 1);
-  strncpy(pbuf, path, path_len + 1);
+  strcpy(pbuf, path);
 
   char *saveptr = 0;
   char *token = strtok_r(pbuf, "/", &saveptr);

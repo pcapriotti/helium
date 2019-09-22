@@ -5,5 +5,5 @@ CFLAGS += -I..
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 
-: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> ar rcs %o %f |> ext2.a
+: foreach *.c |> !cc |>
+: *.o |> !ar |> ext2.a

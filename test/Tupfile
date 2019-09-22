@@ -5,7 +5,7 @@ CC=gcc
 CFLAGS += -g -I..
 
 # recompile buddy library for the host
-: foreach ../buddy/*.c |> $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
+: foreach ../buddy/*.c |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
 
-: foreach *.c |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
-: *.o buddy/*.o |> $(CC) $(LDFLAGS) %f -o %o |> test
+: foreach *.c |> !cc |>
+: *.o buddy/*.o |> ^ LINK %o^ $(CC) $(LDFLAGS) %f -o %o |> test

@@ -1,6 +1,6 @@
 TARGET := i686-elf
 
-CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -Wall -Wextra -Werror -O2
 CFLAGS += -fdiagnostics-color=always
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable
@@ -12,3 +12,7 @@ CFLAGS_HELIUM += -std=gnu99 -ffreestanding
 CFLAGS_HELIUM += -fomit-frame-pointer
 CFLAGS_HELIUM += -I.. -isystem ../libc
 CFLAGS_HELIUM += -D_HELIUM
+
+!cc = |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+!ar = |> ^ AR %o^ ar rcs %o %f |>
+!ld = |> ^ LD %o^ $(LD) $(LDFLAGS) -T $(LSCRIPT) %f -o %o |>
