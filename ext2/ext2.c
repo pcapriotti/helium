@@ -1,8 +1,22 @@
 #include "ext2.h"
 
-#ifdef _HELIUM
-# include "kmalloc.h"
-# include "debug.h"
+#if _HELIUM
+# if _HELIUM_LOADER
+#include <stddef.h>
+
+static uint8_t heap[32768];
+static uint8_t *heapp = heap;
+
+static void *kmalloc(size_t sz) {
+  void *ret = heapp;
+  heapp += sz;
+  return ret;
+}
+static void kfree(void *p) { }
+# else
+#  include "kmalloc.h"
+# endif /* _HELIUM_LOADER */
+# include "../loader/debug.h"
 # define MALLOC kmalloc
 # define FREE kfree
 # define TRACE kprintf
@@ -12,7 +26,7 @@
 # define MALLOC malloc
 # define FREE free
 # define TRACE printf
-#endif
+#endif /* _HELIUM */
 
 #include <stddef.h>
 #include <string.h>

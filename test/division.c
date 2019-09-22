@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "../src/math.h"
+#include "../libc/math.h"
 #include "test_assert.h"
 
 int test_div64(uint64_t a, uint64_t b)
