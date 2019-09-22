@@ -3,6 +3,11 @@ include_rules
 CFLAGS += $(CFLAGS_HELIUM)
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
+LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
+
+LIBS=../libc/libc.a ../buddy/buddy.a ../ext2/ext2.a ../core/core.a
 
 : foreach *.S |> $(CC) -c %f -o %o |> %B.o
 : foreach *.c |> $(CC) $(CFLAGS) -O2 -c %f -o %o |> %B.o
+
+: *.o $(LIBS) |> $(LD) $(LDFLAGS) -T kernel.ld %f -o %o |> kernel.elf

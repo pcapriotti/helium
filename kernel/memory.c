@@ -1,7 +1,7 @@
-#include "debug.h"
+#include "core/debug.h"
+#include "core/v8086.h"
 #include "buddy/frames.h"
 #include "memory.h"
-#include "stage1.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -263,7 +263,7 @@ int memory_init(void *heap)
 {
   int num_chunks;
   chunk_t *chunks = memory_get_chunks(&num_chunks, heap);
-  if (!chunks || num_chunks <= 0) text_panic("memory");
+  if (!chunks || num_chunks <= 0) panic();
 
   /* reserve high kernel memory */
   memory_reserve_chunk(chunks, &num_chunks,
@@ -303,7 +303,7 @@ int memory_init(void *heap)
                              &mem_info, &chunk_info);
 
   if (!memory_frames) {
-    text_panic("could not initialise frame allocator\n");
+    panic();
   }
 
   uint32_t free_mem = frames_available_memory(memory_frames);

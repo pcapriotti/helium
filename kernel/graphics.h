@@ -1,7 +1,7 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
-#include "stage1.h"
+#include <stdint.h>
 
 typedef struct {
   uint8_t lines[16];

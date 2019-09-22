@@ -6,6 +6,8 @@
 #define DEBUG_EAX(x) __asm__ volatile("" : : "a"(x))
 #define DEBUG_REGS(a, b, c, d) __asm__ volatile("" : : "a"(a), "b"(b), "c"(c), "d"(d))
 
+extern volatile uint16_t *vga_text;
+
 typedef struct {
   int x, y;
   volatile uint16_t *p;

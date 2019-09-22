@@ -1,5 +1,5 @@
 #include "console.h"
-#include "debug.h"
+#include "core/debug.h"
 #include "graphics.h"
 #include "memory.h"
 

@@ -9,11 +9,11 @@ void loader_kfree(void *p);
 #  define MALLOC loader_kmalloc
 #  define FREE loader_kfree
 # else
-#  include "kmalloc.h"
+#  include "kernel/kmalloc.h"
 #  define MALLOC kmalloc
 #  define FREE kfree
 # endif /* _HELIUM_LOADER */
-# include "../loader/debug.h"
+# include "core/debug.h"
 # define TRACE kprintf
 #else
 # include <stdio.h>

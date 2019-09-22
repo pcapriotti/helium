@@ -23,7 +23,7 @@ stage0:
   mov $0x1, %al
   mov $0x24, %ah
   int $0x15
-  jc hang_system
+  jc hang
 
   /* reset floppy */
   xor %ax, %ax
@@ -132,8 +132,7 @@ load_loop_end:
   push %edx
   call _stage1
 
-.globl hang_system
-hang_system:
+hang:
   cli
   hlt
 1:

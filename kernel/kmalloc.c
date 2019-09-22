@@ -1,5 +1,5 @@
 #include "buddy/frames.h"
-#include "debug.h"
+#include "core/debug.h"
 #include "kmalloc.h"
 #include "memory.h"
 

@@ -1,17 +1,14 @@
-#include "console.h"
 #include "debug.h"
-#include "graphics.h"
-#include "math.h"
-#include "stdint.h"
 
 #include <stdarg.h>
+#include <math.h>
+
+#undef SERIAL_PORT_DEBUG
 
 volatile int debug_key_pressed = 0;
 int debug_paging = 0;
 
-#undef SERIAL_PORT_DEBUG
-
-void hang_system(void);
+void hang_system(void) {}
 
 void panic(void)
 {
@@ -21,6 +18,7 @@ void panic(void)
 
 #define VGA_TEXT ((volatile uint16_t*) 0xb8000)
 
+volatile uint16_t *vga_text = VGA_TEXT;
 debug_console_t debug_console = {0, 0, VGA_TEXT};
 
 void debug_print_char(char c)
@@ -50,39 +48,24 @@ void debug_print_char(char c)
   }
 }
 
+void debug_flush_output() {
+}
+
+void (*print_char_function)(char c) = debug_print_char;
+void (*flush_output_function)() = debug_flush_output;
+
+void print_char(char c) {
+  print_char_function(c);
+}
+
+void flush_output() {
+  flush_output_function();
+}
 
 int isdigit(char c)
 {
   return c >= '0' && c <= '9';
 }
-
-#ifdef SERIAL_PORT_DEBUG
-#include "io.h"
-void print_char(char c)
-{
-  if (c == '\n')
-    outb(0x3f8, '\r');
-  outb(0x3f8, c);
-}
-void flush_output(void) {}
-#else
-void print_char(char c)
-{
-  if (console.width > 0) {
-    console_print_char(c, 0x7);
-  }
-  else {
-    debug_print_char(c);
-  }
-}
-
-void flush_output(void)
-{
-  if (console.width > 0) {
-    console_render_buffer();
-  }
-}
-#endif
 
 int print_string(const char *s)
 {

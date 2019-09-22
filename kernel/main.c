@@ -1,6 +1,6 @@
 #include "ata.h"
 #include "console.h"
-#include "debug.h"
+#include "core/debug.h"
 #include "ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"
@@ -8,7 +8,6 @@
 #include "mbr.h"
 #include "memory.h"
 #include "pci.h"
-#include "stage1.h"
 #include "timer.h"
 
 #include <stdint.h>
@@ -43,7 +42,7 @@ void main()
 {
   __asm__ volatile("sti");
 
-  void *heap = _kernel_low_end;
+  void *heap = _kernel_end;
 
   if (timer_init() == -1) panic();
 
@@ -67,7 +66,7 @@ void main()
     mode.width = 800;
     mode.height = 600;
     mode.bpp = 32;
-    if (graphics_init(&mode) == -1) text_panic("graphics");
+    if (graphics_init(&mode) == -1) panic();
   }
 
   if (console_init() == -1) panic();

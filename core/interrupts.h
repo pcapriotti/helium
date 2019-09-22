@@ -1,7 +1,7 @@
 #ifndef INTERRUPTS_H
 #define INTERRUPTS_H
 
-#include "stage1.h"
+#include <stdint.h>
 
 enum {
   IDT_GP = 0xd,
@@ -14,7 +14,28 @@ enum {
   NUM_IRQ = 0x10,
 };
 
+typedef struct {
+  uint16_t offset_low;
+  uint16_t segment;
+  uint16_t flags;
+  uint16_t offset_high;
+} __attribute__((packed)) idt_entry_t;
+
 extern idt_entry_t kernel_idt[IDT_NUM_ENTRIES];
+
+typedef struct {
+  uint32_t prev;
+  uint32_t esp0, ss0;
+  uint32_t esp1, ss1;
+  uint32_t esp2, ss2;
+  uint32_t cr3, eip, eflags;
+  uint32_t eax, ecx, edx, ebx;
+  uint32_t esp, ebp, esi, edi;
+  uint32_t es, cs, ss, ds, fs, gs;
+  uint32_t ldt;
+  uint16_t trap;
+  uint16_t iomap_base;
+} __attribute__((packed)) tss_t;
 
 typedef struct {
   tss_t tss;
