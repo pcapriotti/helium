@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct vfs_file {
   void *data;
   int (*read)(void *data, void *buf, size_t size);
   int (*move)(void *data, size_t offset);

@@ -69,6 +69,9 @@ typedef struct
   uint32_t align;
 } __attribute__((packed)) elf_program_entry_t;
 
+struct vfs_file;
+
 int elf_test(unsigned char *buf, size_t size);
+void *elf_load_exe(struct vfs_file *file);
 
 #endif /* __ELF_H__ */

@@ -2,21 +2,25 @@
 #include "core/elf.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "core/vfs.h"
 #include "core/v8086.h"
 #include "stage1.h"
 
 #include "ext2/ext2.h"
+#include "ext2/ext2_fs.h"
 
 #include <string.h>
 
 static int vgax = 0, vgay = 0;
 
-static uint8_t heap[8192];
+#define LOADER_HEAP_SIZE 8192
+static uint8_t heap[LOADER_HEAP_SIZE];
 static uint8_t *heapp = heap;
 
 void *loader_kmalloc(size_t sz) {
   void *ret = heapp;
   heapp += sz;
+  if (heapp > heap + LOADER_HEAP_SIZE) panic();
   return ret;
 }
 void loader_kfree(void *p) { }
@@ -296,30 +300,10 @@ size_t load_kernel(unsigned int drive, unsigned int part_offset)
   }
 
   inode_t tmp = *inode;
-  inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
-  if (ext2_inode_iterator_end(it)) {
-    ext2_free_fs(fs);
-    loader_kfree(it);
-    return 0;
-  }
+  vfs_file_t *file = ext2_vfs_file_new(fs, &tmp);
+  elf_load_exe(file);
 
-  uint8_t *buf = ext2_inode_iterator_read(it);
-  size_t len = ext2_inode_iterator_block_size(it);
-
-  int ret = elf_test(buf, len);
-
-  /* while (!ext2_inode_iterator_end(it)) { */
-  /*   char *buf = ext2_inode_iterator_read(it); */
-  /*   int len = ext2_inode_iterator_block_size(it); */
-  /*   kprintf("kernel block of length %u\n", len); */
-
-  /*   for (int i = 0; i < len; i++) { */
-  /*     *dest++ = buf[i]; */
-  /*   } */
-
-  /*   ext2_inode_iterator_next(it); */
-  /* } */
-  loader_kfree(it);
+  ext2_vfs_file_del(file);
   ext2_free_fs(fs);
 
   return 0;

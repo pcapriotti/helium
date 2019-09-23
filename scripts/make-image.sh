@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 parse_size() {
     if [[ "$1" == *s ]]

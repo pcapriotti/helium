@@ -25,6 +25,16 @@ void *memmove(void *dst, const void *src, size_t n)
   return y;
 }
 
+void *memcpy(void *dst, const void *src, size_t n) {
+  const uint8_t *x = src;
+  uint8_t *y = dst;
+
+  for (size_t i = 0; i < n; i++) {
+    y[i] = x[i];
+  }
+  return y;
+}
+
 int memcmp(const void* a, const void* b, size_t n)
 {
   const unsigned char *x = a;
