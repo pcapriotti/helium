@@ -1,4 +1,5 @@
 #include "core/debug.h"
+#include "core/elf.h"
 #include "core/interrupts.h"
 #include "core/io.h"
 #include "core/v8086.h"
@@ -8,7 +9,6 @@
 
 #include <string.h>
 
-uint8_t *_kernel_start = (uint8_t *)0x100000;
 static int vgax = 0, vgay = 0;
 
 static uint8_t heap[8192];
@@ -280,6 +280,51 @@ void bios_read_closure(void *data, void *buf,
   }
 }
 
+size_t load_kernel(unsigned int drive, unsigned int part_offset)
+{
+  bios_read_info_t info;
+  info.drive = 0x80 | drive;
+  info.part_offset = part_offset;
+  get_drive_geometry(info.drive, &info.geom);
+
+  fs_t *fs = ext2_new_fs(&bios_read_closure, &info);
+  if (!fs) panic();
+  inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
+  if (!inode) {
+    ext2_free_fs(fs);
+    panic();
+  }
+
+  inode_t tmp = *inode;
+  inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
+  if (ext2_inode_iterator_end(it)) {
+    ext2_free_fs(fs);
+    loader_kfree(it);
+    return 0;
+  }
+
+  uint8_t *buf = ext2_inode_iterator_read(it);
+  size_t len = ext2_inode_iterator_block_size(it);
+
+  int ret = elf_test(buf, len);
+
+  /* while (!ext2_inode_iterator_end(it)) { */
+  /*   char *buf = ext2_inode_iterator_read(it); */
+  /*   int len = ext2_inode_iterator_block_size(it); */
+  /*   kprintf("kernel block of length %u\n", len); */
+
+  /*   for (int i = 0; i < len; i++) { */
+  /*     *dest++ = buf[i]; */
+  /*   } */
+
+  /*   ext2_inode_iterator_next(it); */
+  /* } */
+  loader_kfree(it);
+  ext2_free_fs(fs);
+
+  return 0;
+}
+
 void _stage1(uint32_t drive)
 {
   /* set bss to zero */
@@ -309,33 +354,8 @@ void _stage1(uint32_t drive)
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  bios_read_info_t info;
-  info.drive = 0x80;
-  info.part_offset = 72;
-  kprintf("drive = %#x\n", info.drive);
-  get_drive_geometry(info.drive, &info.geom);
-
-  fs_t *fs = ext2_new_fs(&bios_read_closure, &info);
-  if (!fs) panic();
-  inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
-  if (inode) {
-    inode_t tmp = *inode;
-    inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
-    while (!ext2_inode_iterator_end(it)) {
-      char *buf = ext2_inode_iterator_read(it);
-      int len = ext2_inode_iterator_block_size(it);
-
-      char *s = loader_kmalloc(len + 1);
-      strncpy(s, buf, len);
-      s[len] = '\0';
-      kprintf("%s\n", s);
-      loader_kfree(s);
-
-      ext2_inode_iterator_next(it);
-    }
-    loader_kfree(it);
-  }
-  ext2_free_fs(fs);
+  size_t ksize = load_kernel(0, 72);
+  kprintf("Loaded kernel: %u bytes\n", ksize);
 
   debug_str("Ok.\n");
   while(1);
