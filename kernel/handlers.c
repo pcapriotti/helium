@@ -23,7 +23,6 @@ int handle_irq(isr_stack_t *stack)
         debug_key_pressed = 1;
       break;
     }
-    __asm__ volatile("sti");
     kb_irq();
     break;
   }

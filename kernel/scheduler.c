@@ -82,3 +82,9 @@ void scheduler_spawn_task(task_entry_t entry)
   /* add it to the task list */
   list_add(&task->head, &tasks);
 }
+
+void scheduler_yield()
+{
+  if (!current) return;
+  current->ticks = 0;
+}

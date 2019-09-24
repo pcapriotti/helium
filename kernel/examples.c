@@ -1,22 +1,30 @@
 #include "core/debug.h"
 #include "console.h"
+#include "scheduler.h"
+#include "timer.h"
+
+void sleep(unsigned long ticks)
+{
+  unsigned long t1 = timer_get_tick() + ticks;
+  while (timer_get_tick() < t1) {
+    scheduler_yield();
+  }
+}
 
 void task_a()
 {
-  int i = 0;
+  unsigned long t0 = timer_get_tick();
   while (1) {
-    console.buffer[console.offset * console.width] = 0x400 | ('0' + i);
-    i = (i + 1) % 10;
-    console_render_buffer();
+    kprintf("A %lu\n", timer_get_tick() - t0);
+    sleep(3000);
   }
 }
 
 void task_b()
 {
-  int i = 0;
+  unsigned long t0 = timer_get_tick();
   while (1) {
-    console.buffer[console.offset * console.width + 1] = 0x200 | ('0' + i);
-    i = (i + 1) % 10;
-    console_render_buffer();
+    kprintf("B %lu\n", timer_get_tick() - t0);
+    sleep(5000);
   }
 }
