@@ -41,8 +41,6 @@ int timer_init(void)
 void timer_irq(void)
 {
   timer.count++;
-  if (timer.count % 100 == 0)
-    kprintf("%u.%u s\n", timer.count / 1000, (timer.count / 100) % 10);
 }
 
 unsigned long timer_get_tick(void)

@@ -68,13 +68,15 @@ void main()
 
   kprintf("Helium starting\n");
 
-  void *heap = _kernel_end;
+  /* set up a temporary heap in low memory */
+  void *heap = (void *)0x500;
 
   if (timer_init() == -1) panic();
   __asm__ volatile("sti");
-  hang_system();
 
   if (memory_init(heap) == -1) panic();
+  hang_system();
+
   if (kmalloc_init(memory_frames) == -1) panic();
 
   kprintf("entering graphic mode\n");

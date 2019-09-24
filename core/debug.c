@@ -16,6 +16,7 @@ void hang_system(void) {
 void panic(void)
 {
   kprintf("kernel panic\n");
+  __asm__ volatile("cli");
   hang_system();
 }
 
