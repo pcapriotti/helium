@@ -21,7 +21,22 @@ typedef struct {
   uint16_t offset_high;
 } __attribute__((packed)) idt_entry_t;
 
+void set_idt_entry(idt_entry_t *entry,
+                   uint32_t offset,
+                   uint16_t segment,
+                   uint8_t size32,
+                   uint8_t dpl);
+
 extern idt_entry_t kernel_idt[IDT_NUM_ENTRIES];
+
+typedef struct {
+  uint16_t size;
+  void *offset;
+} __attribute__((packed)) idtp_t;
+
+extern idtp_t kernel_idtp;
+
+void set_kernel_idt();
 
 typedef struct {
   uint32_t prev;
