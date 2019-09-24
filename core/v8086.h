@@ -46,4 +46,7 @@ enum {
   EFLAGS_VM = 1 << 17,
 };
 
+struct isr_stack;
+int v8086_manager(struct isr_stack *stack);
+
 #endif /* V8086_H */

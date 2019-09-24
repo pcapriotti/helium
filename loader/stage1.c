@@ -216,7 +216,7 @@ __asm__
  "mov %ax, %fs\n"
  "mov %ax, %gs\n"
  "push %esp\n"
- "call interrupt_handler\n"
+ "call v8086_interrupt_handler\n"
  "add $4, %esp\n"
  "popa\n"
  "add $8, %esp\n"

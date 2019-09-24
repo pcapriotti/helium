@@ -136,58 +136,61 @@ void v8086_gpf_handler(isr_stack_t *stack)
   }
 }
 
-void interrupt_handler(isr_stack_t *stack)
+int v8086_manager(isr_stack_t *stack)
 {
-  int v8086 = stack->eflags & EFLAGS_VM;
-  if (v8086) {
-    switch (stack->int_num) {
-    case IDT_GP:
-      v8086_gpf_handler(stack);
-      return;
-    }
+  if (!(stack->eflags & EFLAGS_VM)) return 0;
 
-    if (stack->int_num >= IDT_IRQ) {
-      int irq = stack->int_num - IDT_IRQ;
-
-      /* let the BIOS handle this interrupt */
-      stack->esp -= 6;
-      uint16_t *st = (uint16_t *)stack->esp;
-      st[0] = stack->eip;
-      st[1] = stack->cs;
-      st[2] = stack->eflags;
-
-      int mapped = irq < 8 ? irq + 8 : irq + 0x68;
-      struct { uint16_t off; uint16_t seg; } *iv = 0;
-      stack->eip = iv[mapped].off;
-      stack->cs = iv[mapped].seg;
-
-      return;
-    }
-
-    debug_str("Exception in v8086: ");
-    debug_byte(stack->int_num);
-    debug_str("\n");
+  switch (stack->int_num) {
+  case IDT_GP:
+    v8086_gpf_handler(stack);
+    return 1;
   }
 
-  debug_str("Unhandled exception: ");
-  debug_byte(stack->int_num);
-  debug_str("\n");
+  if (stack->int_num >= IDT_IRQ) {
+    int irq = stack->int_num - IDT_IRQ;
 
-  debug_str("flags: ");
-  debug_byte(stack->eflags >> 24);
-  debug_byte(stack->eflags >> 16);
-  debug_byte(stack->eflags >> 8);
-  debug_byte(stack->eflags);
-  debug_str(" eip: ");
-  debug_byte(stack->eip >> 24);
-  debug_byte(stack->eip >> 16);
-  debug_byte(stack->eip >> 8);
-  debug_byte(stack->eip);
-  debug_str(" cs: ");
-  debug_byte(stack->cs >> 8);
-  debug_byte(stack->cs);
-  debug_str("\n");
-  panic();
+    /* let the BIOS handle this interrupt */
+    stack->esp -= 6;
+    uint16_t *st = (uint16_t *)stack->esp;
+    st[0] = stack->eip;
+    st[1] = stack->cs;
+    st[2] = stack->eflags;
+
+    int mapped = irq < 8 ? irq + 8 : irq + 0x68;
+    struct { uint16_t off; uint16_t seg; } *iv = 0;
+    stack->eip = iv[mapped].off;
+    stack->cs = iv[mapped].seg;
+
+    return 1;
+  }
+
+  return 0;
+}
+
+void v8086_interrupt_handler(isr_stack_t *stack)
+{
+  int done = v8086_manager(stack);
+  if (!done) {
+    debug_str("Unhandled exception: ");
+    debug_byte(stack->int_num);
+    debug_str("\n");
+
+    debug_str("flags: ");
+    debug_byte(stack->eflags >> 24);
+    debug_byte(stack->eflags >> 16);
+    debug_byte(stack->eflags >> 8);
+    debug_byte(stack->eflags);
+    debug_str(" eip: ");
+    debug_byte(stack->eip >> 24);
+    debug_byte(stack->eip >> 16);
+    debug_byte(stack->eip >> 8);
+    debug_byte(stack->eip);
+    debug_str(" cs: ");
+    debug_byte(stack->cs >> 8);
+    debug_byte(stack->cs);
+    debug_str("\n");
+    panic();
+  }
 }
 
 typedef struct {

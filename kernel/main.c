@@ -66,13 +66,13 @@ void main()
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  kprintf("hello from kernel\n");
-
-  __asm__ volatile("sti");
+  kprintf("Helium starting\n");
 
   void *heap = _kernel_end;
 
   if (timer_init() == -1) panic();
+  __asm__ volatile("sti");
+  hang_system();
 
   if (memory_init(heap) == -1) panic();
   if (kmalloc_init(memory_frames) == -1) panic();
@@ -173,7 +173,7 @@ __asm__
  "mov %ax, %fs\n"
  "mov %ax, %gs\n"
  "push %esp\n"
- "call interrupt_handler\n"
+ "call handle_interrupt\n"
  "add $4, %esp\n"
  "popa\n"
  "add $8, %esp\n"
