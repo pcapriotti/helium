@@ -284,7 +284,7 @@ void bios_read_closure(void *data, void *buf,
   }
 }
 
-size_t load_kernel(unsigned int drive, unsigned int part_offset)
+void *load_kernel(unsigned int drive, unsigned int part_offset)
 {
   bios_read_info_t info;
   info.drive = 0x80 | drive;
@@ -301,13 +301,15 @@ size_t load_kernel(unsigned int drive, unsigned int part_offset)
 
   inode_t tmp = *inode;
   vfs_file_t *file = ext2_vfs_file_new(fs, &tmp);
-  elf_load_exe(file);
+  void *entry = elf_load_exe(file);
 
   ext2_vfs_file_del(file);
   ext2_free_fs(fs);
 
-  return 0;
+  return entry;
 }
+
+typedef void (*main_t)();
 
 void _stage1(uint32_t drive)
 {
@@ -338,8 +340,13 @@ void _stage1(uint32_t drive)
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  size_t ksize = load_kernel(0, 72);
-  kprintf("Loaded kernel: %u bytes\n", ksize);
+  main_t entry = load_kernel(0, 72);
+  kprintf("Jumping to kernel entry point at %p\n", entry);
+  for (int i = 0; i < 10; i++) {
+    kprintf("%02x ", ((uint8_t *)entry)[i]);
+  }
+  kprintf("\n");
+  entry();
 
   debug_str("Ok.\n");
   while(1);

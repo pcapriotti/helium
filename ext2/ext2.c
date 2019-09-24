@@ -267,7 +267,8 @@ uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it) {
   return 0;
 }
 
-void *ext2_inode_iterator_read(inode_iterator_t *it) {
+void *ext2_inode_iterator_read(inode_iterator_t *it)
+{
   uint32_t block = ext2_inode_iterator_datablock(it);
   return ext2_read_block(it->fs, block);
 }
@@ -280,7 +281,18 @@ void ext2_inode_iterator_read_into(inode_iterator_t *it, void *buffer)
   return ext2_read_block_into(it->fs, block, buffer);
 }
 
-void ext2_inode_iterator_next(inode_iterator_t *it) {
+int ext2_inode_iterator_index(inode_iterator_t *it)
+{
+  return it->index;
+}
+
+void ext2_inode_iterator_set_index(inode_iterator_t *it, int index)
+{
+  it->index = index;
+}
+
+void ext2_inode_iterator_next(inode_iterator_t *it)
+{
   it->index++;
 }
 

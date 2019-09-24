@@ -1,6 +1,8 @@
 #include "elf.h"
 #include "vfs.h"
 
+#include <string.h>
+
 #define DEBUG_ELF 1
 
 #define ELF_MAGIC 0x464c457f
@@ -19,15 +21,21 @@ void *elf_load_exe(vfs_file_t *file)
   if (!header.program_header_offset) return 0; /* no program header */
 
   elf_program_entry_t entry;
-  vfs_move(file, header.program_header_offset);
   for (int i = 0; i < header.program_entry_count; i++) {
+    vfs_move(file, header.program_header_offset + i * header.program_entry_size);
     vfs_read(file, &entry, sizeof(elf_program_entry_t));
-    kprintf("loading from offset %p to address %p\n",
-            entry.offset, entry.vaddr);
-    vfs_move_rel(file, header.program_entry_size - sizeof(elf_program_entry_t));
+    kprintf("loading %#x bytes from offset %p to address %p\n",
+            entry.file_size, entry.offset, entry.vaddr);
+    vfs_move(file, entry.offset);
+    vfs_read(file, entry.vaddr, entry.file_size);
+    kprintf("zeroing from %#x to %#x\n",
+            entry.vaddr + entry.file_size,
+            entry.vaddr + entry.mem_size);
+    memset(entry.vaddr + entry.file_size, 0,
+           entry.mem_size - entry.file_size);
   }
 
-  return 0;
+  return header.entry;
 }
 
 int elf_test(unsigned char *buf, size_t size)

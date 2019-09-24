@@ -40,6 +40,9 @@ void ata_read_closure(void *data, void *buf,
 
 void main()
 {
+  kprintf("hello from kernel\n");
+  hang_system();
+
   __asm__ volatile("sti");
 
   void *heap = _kernel_end;

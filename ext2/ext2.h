@@ -120,6 +120,8 @@ uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it);
 void *ext2_inode_iterator_read(inode_iterator_t *it);
 void ext2_inode_iterator_read_into(inode_iterator_t *it, void *buffer);
 void ext2_inode_iterator_next(inode_iterator_t *it);
+void ext2_inode_iterator_set_index(inode_iterator_t *it, int index);
+int ext2_inode_iterator_index(inode_iterator_t *it);
 uint32_t ext2_inode_iterator_block_size(inode_iterator_t *it);
 int ext2_inode_iterator_end(inode_iterator_t *it);
 

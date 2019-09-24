@@ -1,6 +1,7 @@
 #if _HELIUM
 #include "ext2_fs.h"
 
+#include "core/debug.h"
 #include "core/vfs.h"
 #include "ext2.h"
 
@@ -29,7 +30,7 @@ static int read(void *data, void *buf, size_t size)
     size_t loc_size = bs - loc_offset;
     if (loc_size > size) loc_size = size;
 
-    memcpy(dest, edata->buffer, loc_size);
+    memcpy(dest, edata->buffer + loc_offset, loc_size);
 
     dest += loc_size;
     size -= loc_size;
@@ -46,7 +47,12 @@ static int read(void *data, void *buf, size_t size)
 static int move(void *data, size_t offset)
 {
   ext2_vfs_data_t *edata = data;
+  const size_t bs = ext2_fs_block_size(edata->it->fs);
+  int index = ext2_inode_iterator_index(edata->it);
   edata->offset = offset;
+  ext2_inode_iterator_set_index(edata->it, offset / bs);
+  edata->dirty = edata->dirty ||
+    (index != ext2_inode_iterator_index(edata->it));
   return 0;
 }
 

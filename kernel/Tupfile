@@ -7,6 +7,7 @@ LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 LIBS=../libc/libc.a ../buddy/buddy.a ../ext2/ext2.a ../core/core.a
 LSCRIPT=kernel.ld
+LDFLAGS += -e main
 
 : foreach *.S |> !cc |>
 : foreach *.c |> !cc |>

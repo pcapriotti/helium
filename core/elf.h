@@ -45,7 +45,7 @@ typedef struct
   uint16_t type;
   uint16_t arch;
   uint32_t elf_version;
-  uint32_t entry;
+  void *entry;
   uint32_t program_header_offset;
   uint32_t section_header_offset;
   uint32_t flags;
@@ -61,7 +61,7 @@ typedef struct
 {
   uint32_t type;
   uint32_t offset;
-  uint32_t vaddr;
+  void *vaddr;
   uint32_t _undefined;
   uint32_t file_size;
   uint32_t mem_size;
