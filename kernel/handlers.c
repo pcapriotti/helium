@@ -3,7 +3,16 @@
 #include "core/io.h"
 #include "core/v8086.h"
 #include "handlers.h"
+#include "keyboard.h"
+#include "list.h"
 #include "timer.h"
+
+typedef struct {
+  list_t head;
+  void (*handle)();
+} handler_t;
+
+static list_t handlers = LIST_INIT(handlers);
 
 int handle_irq(isr_stack_t *stack)
 {
@@ -19,7 +28,10 @@ int handle_irq(isr_stack_t *stack)
       uint8_t scancode = inb(0x60);
       if ((scancode & 0x80) == 0)
         debug_key_pressed = 1;
+      break;
     }
+    __asm__ volatile("sti");
+    kb_irq();
     break;
   }
 

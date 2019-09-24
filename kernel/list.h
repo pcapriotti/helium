@@ -5,8 +5,8 @@ typedef struct list {
   struct list *next, *prev;
 } list_t;
 
-#define LIST_HEAD(name) \
-  list_t name = { &(name), &(name) }
+#define LIST_INIT(name) { &(name), &(name) }
+#define LIST_HEAD(name) list_t name = LIST_INIT(name)
 
 static inline void list_add(list_t *x, list_t *list)
 {
