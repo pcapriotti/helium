@@ -26,4 +26,6 @@ void console_print_char(char c, uint8_t colour);
 void console_render_char(uint32_t *pos, char c, uint32_t fg);
 void console_render_buffer(void);
 
+void console_debug_print_char(char c);
+
 #endif /* CONSOLE_H */

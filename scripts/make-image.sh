@@ -32,14 +32,14 @@ done
 shift $((OPTIND - 1))
 disk=$1
 src=$2
-[ -n "$disk" ] || usage
-[ -n "$src" ] || usage
 [ -z "$3" ] || usage
 
 : ${size:=$((10 * 1024 * 1024))}
 : ${offset:=$((72 * 512))}
+: ${disk:="disk.img"}
+: ${src:="image"}
 
 dd if=/dev/zero of="$disk" bs=1024 count=$(((size + 1023) / 1024)) >&2
 parted -m -s "$disk" -- mklabel msdos >&2
 parted -m -s "$disk" -- mkpart primary ext2 "${offset}B" "-1s" >&2
-mke2fs -d image -t ext2 -q -F -F -E offset="$offset",no_copy_xattrs "$disk" "$(((size - offset) / 1024))" >&2
+mke2fs -d "$src" -t ext2 -q -F -F -E offset="$offset",no_copy_xattrs "$disk" "$(((size - offset) / 1024))" >&2

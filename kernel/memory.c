@@ -1,12 +1,14 @@
-#include "debug.h"
+#include "core/debug.h"
+#include "core/v8086.h"
 #include "buddy/frames.h"
 #include "memory.h"
-#include "stage1.h"
 
 #include <stdint.h>
 #include <string.h>
 
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
+
+#define BIOS_MM_DEBUG 0
 
 frames_t *memory_frames;
 
@@ -61,15 +63,12 @@ void isort(void *base, size_t nmemb, size_t size,
 
 extern int v8086_tracing;
 
-/* Get memory map from BIOS. Since we don't know how much high memory
-we have yet, and in particular we have no way to allocate it, we have
-to assume that there is enough memory to at least store the memory
-map. */
-chunk_t *memory_get_chunks(int *count, void *heap)
+/* Get memory map from BIOS. Store chunks in the temporary heap */
+chunk_t *memory_get_chunks(int *count, void **heap)
 {
   regs16_t regs;
 
-  memory_map_entry_t *entry0 = (memory_map_entry_t *)heap;
+  memory_map_entry_t *entry0 = (memory_map_entry_t *)*heap;
   memory_map_entry_t *entry = entry0;
 
   regs.ebx = 0;
@@ -85,15 +84,19 @@ chunk_t *memory_get_chunks(int *count, void *heap)
     int flags = bios_int(0x15, &regs);
 
     if (flags & EFLAGS_CF || regs.eax != 0x534d4150) {
+#if BIOS_MM_DEBUG
       kprintf("memory map bios call failed\n  eax: %#x eflags: %#x\n",
               regs.eax, flags);
       int num = entry - entry0;
       kprintf("  num entries so far: %d\n", num);
+#endif /* BIOS_MM_DEBUG */
       return 0;
     }
 
+#if BIOS_MM_DEBUG
     kprintf("entry: %#016llx size: %#016llx type: %d\n",
             entry->base, entry->size, entry->type);
+#endif /* BIOS_MM_DEBUG */
     entry++;
   } while (regs.ebx);
 
@@ -103,7 +106,6 @@ chunk_t *memory_get_chunks(int *count, void *heap)
 
   /* allocate an array of chunks */
 
-  /* combine contiguous and overlapping entries */
   memory_map_entry_t *last_entry = entry0;
 
   chunk_t *chunk0 = (chunk_t *)entry;
@@ -170,10 +172,12 @@ chunk_t *memory_get_chunks(int *count, void *heap)
 
   int num_chunks = chunk - chunk0;
 
-  /* discard memory map and compact memory */
-  memmove(heap, chunk0, num_chunks * sizeof(chunk_t));
+  /* discard memory map and compact heap */
+  memmove(*heap, chunk0, num_chunks * sizeof(chunk_t));
   *count = num_chunks;
-  return (chunk_t *)heap;
+  chunk_t *ret = *heap;
+  *heap = ret + num_chunks;
+  return ret;
 }
 
 int memory_add_chunk(chunk_t *chunks, int *num_chunks, uint64_t base)
@@ -262,24 +266,12 @@ int mem_info(void *startp, size_t size, void *data)
 int memory_init(void *heap)
 {
   int num_chunks;
-  chunk_t *chunks = memory_get_chunks(&num_chunks, heap);
-  if (!chunks || num_chunks <= 0) text_panic("memory");
+  chunk_t *chunks = memory_get_chunks(&num_chunks, &heap);
+  if (!chunks || num_chunks <= 0) panic();
 
-  /* reserve high kernel memory */
+  /* ignore low memory for now */
   memory_reserve_chunk(chunks, &num_chunks,
-                       (unsigned long)_kernel_start,
-                       (unsigned long)_kernel_end);
-
-  /* reserve BIOS and low kernel memory */
-  heap += (num_chunks + 2) * sizeof(chunk_t);
-  memory_reserve_chunk(chunks, &num_chunks,
-                       0, (unsigned long) heap);
-
-  /* There are potentially a few other memory areas that we might use,
-  between 0x500 and 0x7c00, but note that the kernel stack is still at
-  0x7b00 at this point, and the area around 0x2000 is used for v8086,
-  so we just forget about any memory before the low kernel for
-  simplicity. */
+                       0, (unsigned long) _kernel_end);
 
   kprintf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
@@ -303,7 +295,7 @@ int memory_init(void *heap)
                              &mem_info, &chunk_info);
 
   if (!memory_frames) {
-    text_panic("could not initialise frame allocator\n");
+    panic();
   }
 
   uint32_t free_mem = frames_available_memory(memory_frames);

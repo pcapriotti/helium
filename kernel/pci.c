@@ -1,5 +1,5 @@
-#include "debug.h"
-#include "io.h"
+#include "core/debug.h"
+#include "core/io.h"
 #include "kmalloc.h"
 #include "pci.h"
 

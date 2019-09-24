@@ -1,10 +1,9 @@
 #include "ext2.h"
 
-#ifdef _HELIUM
-# include "kmalloc.h"
-# include "debug.h"
-# define MALLOC kmalloc
-# define FREE kfree
+#include <stddef.h>
+
+#if _HELIUM
+# include "core/debug.h"
 # define TRACE kprintf
 #else
 # include <stdio.h>
@@ -12,7 +11,7 @@
 # define MALLOC malloc
 # define FREE free
 # define TRACE printf
-#endif
+#endif /* _HELIUM */
 
 #include <stddef.h>
 #include <string.h>
@@ -25,18 +24,28 @@ struct fs_struct {
   ext2_disk_read_t *read;
   void *read_data;
   unsigned char *buf; /* must be at least as big as the block size */
-  uint32_t block_size;
-  uint32_t inode_size;
+  size_t block_size;
+  size_t inode_size;
   uint32_t inodes_per_group;
   uint32_t superblock_offset;
 };
 
-void* ext2_read_block(fs_t *fs, unsigned int offset)
+void ext2_read_block_into(fs_t *fs, unsigned int offset, void *buffer)
 {
-  fs->read(fs->read_data, fs->buf,
+  fs->read(fs->read_data, buffer,
            fs->block_size * offset,
            fs->block_size);
+}
+
+void* ext2_read_block(fs_t *fs, unsigned int offset)
+{
+  ext2_read_block_into(fs, offset, fs->buf);
   return fs->buf;
+}
+
+size_t ext2_fs_block_size(fs_t *fs)
+{
+  return fs->block_size;
 }
 
 int ext2_locate_superblock(ext2_disk_read_t *read, void *read_data, superblock_t *sb)
@@ -69,7 +78,7 @@ fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
   fs->buf = MALLOC(fs->block_size);
 
 #if EXT2_DEBUG
-  TRACE("block size: %#x inode size: %#x superblock offset: %#x\n",
+  TRACE("block size: %#lx inode size: %#lx superblock offset: %#x\n",
           fs->block_size, fs->inode_size, fs->superblock_offset);
 #endif
 
@@ -111,6 +120,7 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
   unsigned int index_in_group = index % fs->inodes_per_group;
   unsigned int inodes_per_block = fs->block_size / fs->inode_size;
   unsigned int block = index_in_group / inodes_per_block;
+
   void *table = ext2_read_block(fs, gdesc->inode_table_offset + block);
   unsigned int index_in_block = index_in_group % inodes_per_block;
   return table + fs->inode_size * index_in_block;
@@ -118,6 +128,7 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
 
 inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 {
+
   /* get root first */
   inode_t *inode = ext2_get_inode(fs, 2);
 
@@ -127,7 +138,7 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 
   int path_len = strlen(path);
   char *pbuf = MALLOC(path_len + 1);
-  strncpy(pbuf, path, path_len + 1);
+  strcpy(pbuf, path);
 
   char *saveptr = 0;
   char *token = strtok_r(pbuf, "/", &saveptr);
@@ -209,6 +220,11 @@ inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode)
   return it;
 }
 
+void ext2_inode_iterator_del(inode_iterator_t *it)
+{
+  FREE(it);
+}
+
 uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it) {
   uint32_t index, index1, index2, index3;
 
@@ -251,12 +267,32 @@ uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it) {
   return 0;
 }
 
-void *ext2_inode_iterator_read(inode_iterator_t *it) {
+void *ext2_inode_iterator_read(inode_iterator_t *it)
+{
   uint32_t block = ext2_inode_iterator_datablock(it);
   return ext2_read_block(it->fs, block);
 }
 
-void ext2_inode_iterator_next(inode_iterator_t *it) {
+/* read into a preallocated buffer, which must be at least as big as
+the block size */
+void ext2_inode_iterator_read_into(inode_iterator_t *it, void *buffer)
+{
+  uint32_t block = ext2_inode_iterator_datablock(it);
+  return ext2_read_block_into(it->fs, block, buffer);
+}
+
+int ext2_inode_iterator_index(inode_iterator_t *it)
+{
+  return it->index;
+}
+
+void ext2_inode_iterator_set_index(inode_iterator_t *it, int index)
+{
+  it->index = index;
+}
+
+void ext2_inode_iterator_next(inode_iterator_t *it)
+{
   it->index++;
 }
 

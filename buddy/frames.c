@@ -6,7 +6,7 @@
 #define FRAMES_DEBUG 0
 
 #if _HELIUM
-#include "../src/debug.h"
+#include "core/debug.h"
 #define FRAMES_PANIC(ret, ...) do { \
   kprintf("[frames] "); \
   kprintf(__VA_ARGS__); \

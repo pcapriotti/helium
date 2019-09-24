@@ -1,11 +1,11 @@
 #include "ata.h"
-#include "debug.h"
-#include "io.h"
+#include "core/debug.h"
+#include "core/io.h"
 #include "pci.h"
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
 
-#define ATA_DEBUG 1
+#define ATA_DEBUG 0
 
 struct channel_struct {
   /* base IO port */

@@ -1,9 +1,10 @@
 include_rules
 
 CFLAGS += $(CFLAGS_HELIUM)
-CFLAGS += -I..
+CFLAGS += -D_HELIUM_LOADER
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
+LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 : foreach *.c |> !cc |>
-: *.o |> !ar |> ext2.a
+: *.o |> !ar |> core.a

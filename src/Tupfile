@@ -1,8 +1,0 @@
-include_rules
-
-CFLAGS += $(CFLAGS_HELIUM)
-
-CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
-
-: foreach *.S |> $(CC) -c %f -o %o |> %B.o
-: foreach *.c |> $(CC) $(CFLAGS) -O2 -c %f -o %o |> %B.o

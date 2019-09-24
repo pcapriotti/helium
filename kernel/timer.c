@@ -1,4 +1,5 @@
-#include "io.h"
+#include "core/debug.h"
+#include "core/io.h"
 #include "timer.h"
 
 #define PIT_FREQ 1193182

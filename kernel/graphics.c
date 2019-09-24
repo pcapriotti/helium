@@ -1,5 +1,5 @@
-#include "debug.h"
-#include "stage1.h"
+#include "core/debug.h"
+#include "core/v8086.h"
 #include "graphics.h"
 
 font_t graphics_font;

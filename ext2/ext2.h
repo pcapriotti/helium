@@ -1,6 +1,7 @@
 #ifndef __EXT2_H__
 #define __EXT2_H__
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct {
@@ -43,7 +44,7 @@ typedef struct {
   uint8_t unused[14];
 } __attribute__((packed)) group_descriptor_t;
 
-typedef struct {
+typedef struct inode {
   uint16_t type;
   uint16_t user_id;
   uint32_t size_lo;
@@ -97,6 +98,7 @@ uint16_t ext2_inode_size(superblock_t *sb);
 
 fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data);
 void ext2_free_fs(fs_t *fs);
+size_t ext2_fs_block_size(fs_t *fs);
 
 /* inode API */
 /* note that the returned pointers are invalidated by further API calls */
@@ -113,10 +115,27 @@ typedef struct {
 } inode_iterator_t;
 
 inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode);
+void ext2_inode_iterator_del(inode_iterator_t *it);
 uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it);
 void *ext2_inode_iterator_read(inode_iterator_t *it);
+void ext2_inode_iterator_read_into(inode_iterator_t *it, void *buffer);
 void ext2_inode_iterator_next(inode_iterator_t *it);
+void ext2_inode_iterator_set_index(inode_iterator_t *it, int index);
+int ext2_inode_iterator_index(inode_iterator_t *it);
 uint32_t ext2_inode_iterator_block_size(inode_iterator_t *it);
 int ext2_inode_iterator_end(inode_iterator_t *it);
+
+#if _HELIUM
+# if _HELIUM_LOADER
+void *loader_kmalloc(size_t sz);
+void loader_kfree(void *p);
+#  define MALLOC loader_kmalloc
+#  define FREE loader_kfree
+# else
+#  include "kernel/kmalloc.h"
+#  define MALLOC kmalloc
+#  define FREE kfree
+# endif /* _HELIUM_LOADER */
+#endif /* _HELIUM */
 
 #endif /* __EXT2_H__ */

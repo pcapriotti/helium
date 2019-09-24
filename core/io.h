@@ -1,7 +1,7 @@
 #ifndef IO_H
 #define IO_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 #define PIC_MASTER_CMD 0x20
 #define PIC_MASTER_DATA 0x21
@@ -42,5 +42,8 @@ static inline uint32_t inl(uint16_t port) {
 static inline void io_wait() {
   outb(0x80, 0); /* write to an unused port */
 }
+
+void pic_setup();
+void pic_eoi(uint8_t irq);
 
 #endif /* IO_H */
