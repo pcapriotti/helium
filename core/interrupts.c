@@ -41,21 +41,6 @@ void isr_assemble(isr_t *isr, uint8_t number)
   *((int32_t *) p) = rel;
 }
 
-__asm__
-("isr_generic:"
- "pusha\n"
- "mov $0x10, %ax\n"
- "mov %ax, %ds\n"
- "mov %ax, %es\n"
- "mov %ax, %fs\n"
- "mov %ax, %gs\n"
- "push %esp\n"
- "call interrupt_handler\n"
- "add $4, %esp\n"
- "popa\n"
- "add $8, %esp\n"
- "iret\n");
-
 void set_kernel_idt()
 {
   /* set all entries to 0 */

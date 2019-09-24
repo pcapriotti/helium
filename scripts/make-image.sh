@@ -36,8 +36,8 @@ src=$2
 
 : ${size:=$((10 * 1024 * 1024))}
 : ${offset:=$((72 * 512))}
-: ${disk:="build/disk.img"}
-: ${src:="build/image"}
+: ${disk:="disk.img"}
+: ${src:="image"}
 
 dd if=/dev/zero of="$disk" bs=1024 count=$(((size + 1023) / 1024)) >&2
 parted -m -s "$disk" -- mklabel msdos >&2

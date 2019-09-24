@@ -206,3 +206,19 @@ void _stage1(uint32_t drive)
   debug_str("Ok.\n");
   while(1);
 }
+
+__asm__
+("isr_generic:"
+ "pusha\n"
+ "mov $0x10, %ax\n"
+ "mov %ax, %ds\n"
+ "mov %ax, %es\n"
+ "mov %ax, %fs\n"
+ "mov %ax, %gs\n"
+ "push %esp\n"
+ "call interrupt_handler\n"
+ "add $4, %esp\n"
+ "popa\n"
+ "add $8, %esp\n"
+ "iret\n"
+ ".globl isr_generic");

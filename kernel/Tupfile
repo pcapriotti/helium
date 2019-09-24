@@ -11,4 +11,4 @@ LDFLAGS += -e main
 
 : foreach *.S |> !cc |>
 : foreach *.c |> !cc |>
-: *.o $(LIBS) |> !ld |> ../image/boot/kernel
+: *.o $(LIBS) |> !ld |> kernel.elf

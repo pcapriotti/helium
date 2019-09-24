@@ -1,6 +1,10 @@
 #include "ata.h"
 #include "console.h"
+#include "core/gdt.h"
+#include "core/interrupts.h"
 #include "core/debug.h"
+#include "core/io.h"
+#include "core/v8086.h"
 #include "ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"
@@ -40,8 +44,29 @@ void ata_read_closure(void *data, void *buf,
 
 void main()
 {
+  set_gdt_entry(&kernel_gdt[GDT_TASK],
+                (uint32_t)&kernel_tss,
+                sizeof(kernel_tss),
+                0x89, 0);
+  __asm__ volatile("lgdt %0" : : "m"(kernel_gdtp));
+
+  kernel_tss.tss.ss0 = GDT_SEL(GDT_DATA);
+  kernel_tss.tss.iomap_base = sizeof(tss_t);
+  __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
+
+  set_kernel_idt();
+  pic_setup();
+  /* set text mode */
+  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  regs.eax = 0x2;
+  bios_int(0x10, &regs);
+
+  /* hide cursor */
+  regs.eax = 0x0100;
+  regs.ecx = 0x2000;
+  bios_int(0x10, &regs);
+
   kprintf("hello from kernel\n");
-  hang_system();
 
   __asm__ volatile("sti");
 
@@ -138,3 +163,19 @@ void main()
   kprintf("Ok.\n");
   hang_system();
 }
+
+__asm__
+("isr_generic:"
+ "pusha\n"
+ "mov $0x10, %ax\n"
+ "mov %ax, %ds\n"
+ "mov %ax, %es\n"
+ "mov %ax, %fs\n"
+ "mov %ax, %gs\n"
+ "push %esp\n"
+ "call interrupt_handler\n"
+ "add $4, %esp\n"
+ "popa\n"
+ "add $8, %esp\n"
+ "iret\n"
+ ".globl isr_generic");
