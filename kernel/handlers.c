@@ -4,15 +4,7 @@
 #include "core/v8086.h"
 #include "handlers.h"
 #include "keyboard.h"
-#include "list.h"
 #include "timer.h"
-
-typedef struct {
-  list_t head;
-  void (*handle)();
-} handler_t;
-
-static list_t handlers = LIST_INIT(handlers);
 
 int handle_irq(isr_stack_t *stack)
 {
