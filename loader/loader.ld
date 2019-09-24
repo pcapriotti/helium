@@ -20,8 +20,8 @@ SECTIONS
   .data : { *(.data*) *(.rodata*) }
   _loader_end = .;
 
-  ASSERT(_loader_end - _loader0_start < 512 * 64,
-    "Loader should be smaller than 64 kB")
+  ASSERT(_loader_end - _loader0_start < 512 * 72,
+    "Loader should be smaller than 72 sectors (36 kB)")
 
   _bss_start = .;
   .bss : { *(.bss*) }
