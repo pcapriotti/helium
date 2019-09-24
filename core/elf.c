@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#define DEBUG_ELF 1
+#define DEBUG_ELF 0
 
 #define ELF_MAGIC 0x464c457f
 
@@ -24,13 +24,17 @@ void *elf_load_exe(vfs_file_t *file)
   for (int i = 0; i < header.program_entry_count; i++) {
     vfs_move(file, header.program_header_offset + i * header.program_entry_size);
     vfs_read(file, &entry, sizeof(elf_program_entry_t));
+#if DEBUG_ELF
     kprintf("loading %#x bytes from offset %p to address %p\n",
             entry.file_size, entry.offset, entry.vaddr);
+#endif
     vfs_move(file, entry.offset);
     vfs_read(file, entry.vaddr, entry.file_size);
+#if DEBUG_ELF
     kprintf("zeroing from %#x to %#x\n",
             entry.vaddr + entry.file_size,
             entry.vaddr + entry.mem_size);
+#endif
     memset(entry.vaddr + entry.file_size, 0,
            entry.mem_size - entry.file_size);
   }
@@ -38,28 +42,22 @@ void *elf_load_exe(vfs_file_t *file)
   return header.entry;
 }
 
+#if DEBUG_ELF
 int elf_test(unsigned char *buf, size_t size)
 {
   elf_header_t *header = (elf_header_t*)buf;
   if (size < sizeof(elf_header_t)) {
-#if DEBUG_ELF
     kprintf("ELF header does not fit in the given buffer\n");
-#endif
     return -1;
   }
   if (header->magic != ELF_MAGIC) {
-#if DEBUG_ELF
     kprintf("Not an ELF file\n");
-#endif
     return -1;
   } else if (header->arch != ELF_ARCH_X86) {
-#if DEBUG_ELF
     kprintf("Only x86 binaries are supported\n");
-#endif
     return -1;
   }
 
-#if DEBUG_ELF
   kprintf("header size: %#x\n", sizeof(elf_header_t));
   kprintf("program entry size: %#x\n", sizeof(elf_program_entry_t));
 
@@ -85,7 +83,6 @@ int elf_test(unsigned char *buf, size_t size)
   DEBUG(section_name_index);
 
 #undef DEBUG
-#endif
 
   elf_program_entry_t *table
     = (elf_program_entry_t*)(buf + header->program_header_offset);
@@ -95,7 +92,6 @@ int elf_test(unsigned char *buf, size_t size)
   }
   (void)table;
   for (int i = 0; i < header->program_entry_count; i++) {
-#if DEBUG_ELF
     kprintf("program entry %u\n", i);
 
 #define DEBUG(x) kprintf(#x ": %#x\n", table[i].x);
@@ -108,8 +104,8 @@ int elf_test(unsigned char *buf, size_t size)
     DEBUG(flags);
     DEBUG(align);
 #undef DEBUG
-#endif
   }
 
   return 0;
 }
+#endif
