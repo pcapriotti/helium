@@ -12,6 +12,7 @@
 #include "mbr.h"
 #include "memory.h"
 #include "pci.h"
+#include "scheduler.h"
 #include "timer.h"
 
 #include <stdint.h>
@@ -163,6 +164,11 @@ void kmain()
     kprintf("no drive 0\n");
   }
 
+  void task_a(void);
+  void task_b(void);
+
+  scheduler_spawn_task(task_a);
+  scheduler_spawn_task(task_b);
 
   kprintf("Ok.\n");
   hang_system();

@@ -59,8 +59,12 @@ typedef struct {
 
 extern tss_with_iomap_t kernel_tss;
 
+typedef struct {
+  uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
+} saved_regs_t;
+
 typedef struct isr_stack {
-  uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
+  saved_regs_t regs;
   uint32_t int_num, error;
   uint32_t eip, cs, eflags, esp, ss;
 

@@ -20,7 +20,13 @@ static inline void list_add(list_t *x, list_t *list)
 }
 
 #define list_entry(x, ty, member) \
-  (ty *)((uint8_t *)(x) - (uint8_t *)&((ty *)0)->member)
+  ((ty *)((uint8_t *)(x) - (uint8_t *)&((ty *)0)->member))
+
+#define list_first(x, ty, member) \
+  list_entry((x).next, ty, member)
+
+#define list_next(x, member) \
+  list_entry((x)->member.next, typeof(*x), member)
 
 #define list_foreach_entry(p, h, member) \
   for (p = list_entry((h)->next, typeof(*p), member);   \

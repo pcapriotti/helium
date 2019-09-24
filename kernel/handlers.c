@@ -4,6 +4,7 @@
 #include "core/v8086.h"
 #include "handlers.h"
 #include "keyboard.h"
+#include "scheduler.h"
 #include "timer.h"
 
 int handle_irq(isr_stack_t *stack)
@@ -14,6 +15,7 @@ int handle_irq(isr_stack_t *stack)
   switch (irq) {
   case 0:
     timer_irq();
+    scheduler_irq(stack);
     break;
   case 1:
     if (debug_paging) {
