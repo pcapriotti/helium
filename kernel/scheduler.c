@@ -87,4 +87,7 @@ void scheduler_yield()
 {
   if (!current) return;
   current->ticks = 0;
+
+  /* yield syscall */
+  __asm__ volatile("mov $0, %eax; int $0x80\n");
 }

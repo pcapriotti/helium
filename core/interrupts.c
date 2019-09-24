@@ -6,6 +6,7 @@ __attribute__((aligned(8))) idt_entry_t kernel_idt[IDT_NUM_ENTRIES];
 tss_with_iomap_t kernel_tss;
 
 isr_t kernel_isr[NUM_ISR + NUM_IRQ];
+isr_t kernel_syscall_isr;
 
 void set_idt_entry(idt_entry_t *entry,
                    uint32_t offset,
@@ -69,6 +70,13 @@ void set_kernel_idt()
                   GDT_CODE * sizeof(gdt_entry_t),
                   1, 0);
   }
+
+  /* syscall */
+  isr_assemble(&kernel_syscall_isr, 0x80);
+  set_idt_entry(&kernel_idt[0x80],
+                (uint32_t)&kernel_syscall_isr,
+                GDT_SEL(GDT_CODE),
+                1, 0);
 
   __asm__ volatile("lidt (%0)" : : "m"(kernel_idtp));
 }

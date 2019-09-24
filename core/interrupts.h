@@ -74,5 +74,6 @@ typedef struct {
 
 extern isr_t kernel_isr[NUM_ISR + NUM_IRQ];
 void isr_generic();
+void isr_assemble(isr_t *isr, uint8_t number);
 
 #endif /* INTERRUPTS_H */

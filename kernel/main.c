@@ -56,6 +56,10 @@ void kmain()
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   set_kernel_idt();
+
+  /* add idt entry for syscalls */
+
+
   pic_setup();
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
