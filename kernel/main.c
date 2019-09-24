@@ -126,6 +126,7 @@ void main()
     partition_table_t table;
     read_partition_table(drive, table);
     for (int i = 0; i < 4; i++) {
+      if (table[i].num_sectors == 0) continue;
       kprintf("part %u: %#x - %#x\n",
               i, table[i].lba_start,
               table[i].lba_start + table[i].num_sectors);

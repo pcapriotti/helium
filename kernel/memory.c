@@ -8,7 +8,7 @@
 
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
 
-#define BIOS_MM_DEBUG 1
+#define BIOS_MM_DEBUG 0
 
 frames_t *memory_frames;
 
@@ -202,14 +202,11 @@ void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
   if (start >= end) return;
 
   /* add chunks */
-  kprintf("reserving chunk %llp - %llp\n", start, end);
   int i = memory_add_chunk(chunks, num_chunks, start);
   int j = memory_add_chunk(chunks, num_chunks, end);
-  kprintf("  i = %u, j = %u\n", i, j);
 
   for (int k = i; k < j; k++) {
     chunks[k].type = MM_RESERVED;
-    kprintf("  reserve chunk %u\n", k);
   }
 }
 
