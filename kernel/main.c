@@ -75,8 +75,6 @@ void main()
   __asm__ volatile("sti");
 
   if (memory_init(heap) == -1) panic();
-  hang_system();
-
   if (kmalloc_init(memory_frames) == -1) panic();
 
   kprintf("entering graphic mode\n");
@@ -109,8 +107,11 @@ void main()
     }
   }
   ffree(debug_buf);
+  console_render_buffer();
   console.cur.x = debug_console.x;
   console.cur.y = debug_console.y;
+  print_char_function = &console_debug_print_char;
+  flush_output_function = &console_render_buffer;
 
   kprintf("console %dx%d\n",
           console.width, console.height);

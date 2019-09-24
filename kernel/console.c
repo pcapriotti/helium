@@ -45,6 +45,7 @@ int console_init(void)
   if (console.width <= 0 || console.height <= 0) return -1;
 
   console.buffer = (uint16_t *) falloc(console.width * console.height * sizeof(uint16_t));
+
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
   }
@@ -142,4 +143,9 @@ void console_print_str(const char *s, uint8_t colour)
   while ((c = *s++)) {
     console_print_char(c, colour);
   }
+}
+
+void console_debug_print_char(char c)
+{
+  console_print_char(c, 7);
 }

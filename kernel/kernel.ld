@@ -8,9 +8,10 @@ SECTIONS
   }
 
   .data : { *(.data*) *(.rodata*) }
-  _kernel_end = .;
 
   _bss_start = .;
   .bss : { *(.bss) }
   _bss_end = .;
+
+  _kernel_end = .;
 }

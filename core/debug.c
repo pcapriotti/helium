@@ -56,7 +56,7 @@ void debug_flush_output() {
 }
 
 void (*print_char_function)(char c) = debug_print_char;
-void (*flush_output_function)() = debug_flush_output;
+void (*flush_output_function)(void) = debug_flush_output;
 
 void print_char(char c) {
   print_char_function(c);
