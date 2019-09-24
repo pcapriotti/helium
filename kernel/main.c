@@ -42,7 +42,7 @@ void ata_read_closure(void *data, void *buf,
                  buf);
 }
 
-void main()
+void kmain()
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
