@@ -15,7 +15,6 @@ int handle_irq(isr_stack_t *stack)
   switch (irq) {
   case 0:
     timer_irq();
-    scheduler_irq(stack);
     break;
   case 1:
     if (debug_paging) {
@@ -30,6 +29,9 @@ int handle_irq(isr_stack_t *stack)
   }
 
   pic_eoi(irq);
+
+  /* run scheduler, and possibly longjmp to another task */
+  scheduler_schedule(stack);
   return 1;
 }
 
@@ -40,8 +42,8 @@ void handle_interrupt(isr_stack_t *stack)
     handle_irq(stack);
 
   if (!done) {
-    kprintf("Unhandled exception %#x\n");
-    kprintf("  eip: %#x flags: %#x", stack->eip, stack->eflags);
+    kprintf("Unhandled exception %#x (code: %#x)\n", stack->int_num, stack->error);
+    kprintf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
     panic();
   }
 }

@@ -1,4 +1,7 @@
+#include "core/debug.h"
+#include "core/gdt.h"
 #include "core/interrupts.h"
+#include "core/v8086.h"
 #include "list.h"
 #include "kmalloc.h"
 #include "memory.h"
@@ -7,14 +10,10 @@
 #define SCHEDULER_QUANTUM 20
 
 typedef struct {
-  saved_regs_t regs;
-  uint32_t eip, eflags, esp;
-} cpu_state_t;
-
-typedef struct {
   list_t head;
   unsigned int ticks; /* remaining ticks */
-  cpu_state_t cpu_state;
+  void *stack_top;
+  isr_stack_t *stack;
   int state;
 } task_t;
 
@@ -28,51 +27,57 @@ static list_t tasks = LIST_INIT(tasks);
 
 task_t *current = 0;
 
-void save_cpu_state(cpu_state_t *cpu, isr_stack_t *stack)
+static void context_switch(isr_stack_t *stack)
 {
-  cpu->regs = stack->regs;
-  cpu->eip = stack->eip;
-  cpu->eflags = stack->eflags;
-  cpu->esp = stack->esp;
+  __asm__ volatile
+    ("mov %0, %%esp\n"
+     "popa\n"
+     "add $8, %%esp\n"
+     "iret\n"
+     : : "m"(stack));
 }
 
-void restore_cpu_state(cpu_state_t *cpu, isr_stack_t *stack)
+void scheduler_schedule(isr_stack_t *stack)
 {
-  stack->regs = cpu->regs;
-  stack->eip = cpu->eip;
-  stack->eflags = cpu->eflags;
-  stack->esp = cpu->esp;
-}
+  if (current && current->ticks > 0) {
+    current->ticks--;
+    return;
+  }
 
-void scheduler_irq(isr_stack_t *stack)
-{
-  if (!current) current = list_first(tasks, task_t, head);
-  if (!current) return; /* no tasks */
-
-  if (current->ticks == 0) {
-    /* interrupt task */
-    save_cpu_state(&current->cpu_state, stack);
-    /* switch to next task */
-    current = list_next(current, head);
-    restore_cpu_state(&current->cpu_state, stack);
+  task_t *previous = current;
+  if (current) {
+    if (current->head.next == &tasks) {
+      current = list_entry(tasks.next, task_t, head);
+    }
+    else {
+      current = list_next(current, head);
+    }
   }
   else {
-    current->ticks--;
+    if (list_empty(&tasks)) return;
+    current = list_entry(tasks.next, task_t, head);
+  }
+  current->ticks = SCHEDULER_QUANTUM;
+
+  /* do context switch */
+  if (current != previous) {
+    if (previous) previous->stack = stack;
+    context_switch(current->stack);
   }
 }
 
 void scheduler_spawn_task(task_entry_t entry)
 {
   /* allocate a stack */
-  void *stack = falloc(0x4000);
-
-  /* create task structure */
   task_t *task = kmalloc(sizeof(task_t));
-  task->cpu_state.eip = (uint32_t) entry;
-  task->cpu_state.eflags = 0;
-  task->cpu_state.esp = (uint32_t) stack;
-  task->ticks = SCHEDULER_QUANTUM;
+  task->stack_top = falloc(0x4000);
+  task->stack = task->stack_top + 0x4000 - sizeof(isr_stack_t);
   task->state = TASK_RUNNING;
+  task->ticks = 0;
+
+  task->stack->eip = (uint32_t) entry;
+  task->stack->cs = GDT_SEL(GDT_CODE);
+  task->stack->eflags = EFLAGS_IF;
 
   /* add it to the task list */
   list_add(&task->head, &tasks);

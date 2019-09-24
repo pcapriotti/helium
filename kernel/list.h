@@ -19,6 +19,11 @@ static inline void list_add(list_t *x, list_t *list)
   x->next = next;
 }
 
+static inline int list_empty(list_t *list)
+{
+  return list->next == list;
+}
+
 #define list_entry(x, ty, member) \
   ((ty *)((uint8_t *)(x) - (uint8_t *)&((ty *)0)->member))
 

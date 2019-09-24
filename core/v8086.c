@@ -270,12 +270,12 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      : "%ebx", "%edx", "%edi", "%ebp");
 
   /* update regs structure */
-  regs->eax = ctx->regs.eax;
-  regs->ebx = ctx->regs.ebx;
-  regs->ecx = ctx->regs.ecx;
-  regs->edx = ctx->regs.edx;
-  regs->edi = ctx->regs.edi;
-  regs->ebp = ctx->regs.ebp;
+  regs->eax = ctx->eax;
+  regs->ebx = ctx->ebx;
+  regs->ecx = ctx->ecx;
+  regs->edx = ctx->edx;
+  regs->edi = ctx->edi;
+  regs->ebp = ctx->ebp;
   regs->es = ctx->es;
   regs->ds = ctx->ds;
   regs->fs = ctx->fs;
