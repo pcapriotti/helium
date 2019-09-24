@@ -89,8 +89,15 @@ void v8086_gpf_handler(isr_stack_t *stack)
     {
       uint16_t *st = (uint16_t *)stack->esp;
 
+      /* iret in the stack guard */
+      if (stack->eip == V8086_STACK_BASE + 4 &&
+          stack->cs == 0) {
+        v8086_exit(stack);
+        return;
+      }
+
       /* final iret from v8086 */
-      if (stack->esp >= V8086_STACK_BASE) {
+      if (stack->esp == V8086_STACK_BASE) {
         v8086_exit(stack);
         return;
       }
