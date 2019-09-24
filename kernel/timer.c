@@ -4,8 +4,12 @@
 
 #define PIT_FREQ 1193182
 
+typedef void (*scheduler_t)(unsigned long t);
+
 typedef struct {
   unsigned long count;
+  scheduler_t scheduler;
+  unsigned long quantum;
 } timer_t;
 
 static timer_t timer;
@@ -35,12 +39,19 @@ void timer_set_divider(uint16_t d)
 int timer_init(void)
 {
   timer_set_divider(PIT_FREQ / 1000);
+  timer.scheduler = 0;
+  timer.quantum = 25;
   return 0;
 }
 
 void timer_irq(void)
 {
   timer.count++;
+  if (timer.scheduler) {
+    if (timer.count % timer.quantum == 0) {
+      timer.scheduler(timer.count / timer.quantum);
+    }
+  }
 }
 
 unsigned long timer_get_tick(void)
