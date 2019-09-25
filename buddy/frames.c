@@ -125,19 +125,6 @@ struct frames {
   struct block_t *free[MAX_ORDER];
   unsigned int min_order, max_order;
 
-  /* This is bit vector divided into two sections:
-     (let N = 1 << (max_order - min_order - 1), i.e. half the number of blocks, rounded up)
-
-     - from 0 to N - 1:
-         free(block(2i)) xor free(block(2i+1))
-     - from N to 2N:
-         split(block(i - N))
-
-     Note how we only use 2N bits instead of 4N. I learned this trick from
-     <https://bitsquid.blogspot.com/2015/08/allocation-adventures-3-buddy-allocator.html>
-
-     At the beginning, metadata can be null. This is important when we
-     are allocating space for the metadata table itself. */
   uint32_t *metadata;
 };
 
