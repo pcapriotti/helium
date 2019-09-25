@@ -6,6 +6,7 @@
 enum {
   IDT_GP = 0xd,
   IDT_IRQ = 0x20,
+  IDT_SYSCALL = 0x80,
   IDT_NUM_ENTRIES = 0x100,
 };
 
@@ -13,6 +14,13 @@ enum {
   NUM_ISR = 0x14,
   NUM_IRQ = 0x10,
 };
+
+enum {
+  IRQ_TIMER = 0,
+  IRQ_KEYBOARD = 1,
+};
+
+#define IRQ_MASK(irq) (1 << (irq))
 
 typedef struct {
   uint16_t offset_low;
@@ -75,5 +83,20 @@ typedef struct {
 extern isr_t kernel_isr[NUM_ISR + NUM_IRQ];
 void isr_generic();
 void isr_assemble(isr_t *isr, uint8_t number);
+
+/* syscalls */
+
+enum {
+  SYSCALL_YIELD,
+};
+
+typedef int (*wait_condition_t)(void *);
+
+static inline void syscall_yield(unsigned long irqmask, wait_condition_t cond, void *data)
+{
+  __asm__ volatile
+    ("int %0\n"
+     : : "i"(IDT_SYSCALL), "a"(SYSCALL_YIELD), "b"(irqmask), "c"(cond), "d"(data));
+}
 
 #endif /* INTERRUPTS_H */

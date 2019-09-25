@@ -72,8 +72,8 @@ void set_kernel_idt()
   }
 
   /* syscall */
-  isr_assemble(&kernel_syscall_isr, 0x80);
-  set_idt_entry(&kernel_idt[0x80],
+  isr_assemble(&kernel_syscall_isr, IDT_SYSCALL);
+  set_idt_entry(&kernel_idt[IDT_SYSCALL],
                 (uint32_t)&kernel_syscall_isr,
                 GDT_SEL(GDT_CODE),
                 1, 0);

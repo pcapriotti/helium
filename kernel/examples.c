@@ -1,14 +1,20 @@
 #include "core/debug.h"
+#include "core/interrupts.h"
 #include "console.h"
 #include "scheduler.h"
 #include "timer.h"
 
+int sleep_condition(void *data)
+{
+  uint32_t *t1 = data;
+  return timer_get_tick() >= *t1;
+}
+
 void sleep(unsigned long ticks)
 {
   unsigned long t1 = timer_get_tick() + ticks;
-  while (timer_get_tick() < t1) {
-    scheduler_yield();
-  }
+  syscall_yield(IRQ_MASK(IRQ_TIMER),
+                sleep_condition, &t1);
 }
 
 void task_a()

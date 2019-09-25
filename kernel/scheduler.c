@@ -7,6 +7,8 @@
 #include "memory.h"
 #include "scheduler.h"
 
+#include <assert.h>
+
 #define SCHEDULER_QUANTUM 20
 
 typedef struct {
@@ -24,8 +26,14 @@ enum {
 };
 
 static list_t tasks = LIST_INIT(tasks);
+static list_t waiting = LIST_INIT(waiting);
 
+/* this can be set to a different task only by scheduler_schedule */
 task_t *current = 0;
+
+/* when this is set the current task cannot be preempted, and it has
+exclusive access to scheduler data structures */
+volatile int scheduler_lock = 0;
 
 static void context_switch(isr_stack_t *stack)
 {
@@ -37,12 +45,28 @@ static void context_switch(isr_stack_t *stack)
      : : "m"(stack));
 }
 
+void scheduler_yield(isr_stack_t *stack)
+{
+  assert(scheduler_lock);
+  current->ticks = 0;
+
+  unsigned long irqmask = stack->ebx;
+  wait_condition_t cond = (wait_condition_t) stack->ecx;
+  void *data = (void *) stack->edx;
+
+  /* todo: move to waiting queue */
+  scheduler_schedule(stack);
+}
+
 void scheduler_schedule(isr_stack_t *stack)
 {
   if (current && current->ticks > 0) {
     current->ticks--;
     return;
   }
+
+  /* no task switch if the scheduler is locked */
+  if (scheduler_lock) return;
 
   task_t *previous = current;
   if (current) {
@@ -68,6 +92,8 @@ void scheduler_schedule(isr_stack_t *stack)
 
 void scheduler_spawn_task(task_entry_t entry)
 {
+  scheduler_lock = 1;
+
   /* allocate a stack */
   task_t *task = kmalloc(sizeof(task_t));
   task->stack_top = falloc(0x4000);
@@ -81,13 +107,7 @@ void scheduler_spawn_task(task_entry_t entry)
 
   /* add it to the task list */
   list_add(&task->head, &tasks);
+
+  scheduler_lock = 0;
 }
 
-void scheduler_yield()
-{
-  if (!current) return;
-  current->ticks = 0;
-
-  /* yield syscall */
-  __asm__ volatile("mov $0, %eax; int $0x80\n");
-}
