@@ -173,7 +173,7 @@ void scheduler_spawn_task(task_entry_t entry)
 {
   scheduler_lock = 1;
 
-  /* allocate a stack */
+  /* allocate memory for the task */
   task_t *task = kmalloc(sizeof(task_t));
   task->stack_top = falloc(0x4000);
   task->stack = task->stack_top + 0x4000 - sizeof(isr_stack_t);
@@ -184,7 +184,6 @@ void scheduler_spawn_task(task_entry_t entry)
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;
 
-  kprintf("creating new task %p\n", task);
   task_list_push(&waiting, task);
 
   scheduler_lock = 0;
