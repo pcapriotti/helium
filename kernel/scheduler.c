@@ -2,7 +2,6 @@
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/v8086.h"
-#include "list.h"
 #include "kmalloc.h"
 #include "memory.h"
 #include "scheduler.h"
@@ -11,8 +10,10 @@
 
 #define SCHEDULER_QUANTUM 20
 
-typedef struct {
-  list_t head;
+typedef struct task {
+  struct task *next;
+  struct task *prev;
+
   unsigned int ticks; /* remaining ticks */
   void *stack_top;
   isr_stack_t *stack;
@@ -25,11 +26,12 @@ enum {
   TASK_WAITING
 };
 
-static list_t tasks = LIST_INIT(tasks);
-static list_t waiting = LIST_INIT(waiting);
-
-/* this can be set to a different task only by scheduler_schedule */
-task_t *current = 0;
+/* created, but not scheduled tasks */
+static task_t *new = 0;
+/* currently running tasks */
+static task_t *current = 0;
+/* tasks waiting on an event */
+static task_t *waiting = 0;
 
 /* when this is set the current task cannot be preempted, and it has
 exclusive access to scheduler data structures */
@@ -58,36 +60,77 @@ void scheduler_yield(isr_stack_t *stack)
   scheduler_schedule(stack);
 }
 
+void task_list_add(task_t **list, task_t *task)
+{
+  if (*list) {
+    task_t *prev = (*list)->prev;
+    prev->next = task;
+    task->prev = prev;
+
+    (*list)->prev = task;
+    task->next = *list;
+  }
+  else {
+    task->next = task;
+    task->prev = task;
+    *list = task;
+  }
+}
+
+task_t *task_list_take(task_t **list, task_t *task)
+{
+  if (task->next == task) {
+    *list = 0;
+    return task;
+  }
+
+  task_t *prev = task->prev;
+  task_t *next = task->next;
+  prev->next = next;
+  next->prev = prev;
+
+  if (task == *list) {
+    *list = next;
+  }
+  return task;
+}
+
 void scheduler_schedule(isr_stack_t *stack)
 {
-  if (current && current->ticks > 0) {
-    current->ticks--;
+  task_t *previous = current;
+
+  /* do nothing if the task still has time left */
+  if (previous && previous->ticks > 0) {
+    /* decrement tick count, but only we are processing a timer IRQ */
+    if (stack->int_num == IDT_IRQ + IRQ_TIMER) previous->ticks--;
     return;
   }
 
   /* no task switch if the scheduler is locked */
   if (scheduler_lock) return;
 
-  task_t *previous = current;
-  if (current) {
-    if (current->head.next == &tasks) {
-      current = list_entry(tasks.next, task_t, head);
-    }
-    else {
-      current = list_next(current, head);
-    }
+  /* copy new tasks */
+  while (new) {
+    task_t *task = task_list_take(&new, new);
+    task_list_add(&current, task);
+    kprintf("adding new task %p\n", task);
   }
-  else {
-    if (list_empty(&tasks)) return;
-    current = list_entry(tasks.next, task_t, head);
-  }
-  current->ticks = SCHEDULER_QUANTUM;
+
+  /* no tasks */
+  if (!current) return;
+
+  /* update current task */
+  if (previous) current = previous->next;
+
+  /* no need to switch if the task has not changed */
+  if (previous == current) return;
+
+  /* save current stack for previous task */
+  if (previous) previous->stack = stack;
 
   /* do context switch */
-  if (current != previous) {
-    if (previous) previous->stack = stack;
-    context_switch(current->stack);
-  }
+  current->ticks = SCHEDULER_QUANTUM;
+  context_switch(current->stack);
 }
 
 void scheduler_spawn_task(task_entry_t entry)
@@ -105,8 +148,8 @@ void scheduler_spawn_task(task_entry_t entry)
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;
 
-  /* add it to the task list */
-  list_add(&task->head, &tasks);
+  kprintf("creating new task %p\n", task);
+  task_list_add(&new, task);
 
   scheduler_lock = 0;
 }

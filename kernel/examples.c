@@ -22,7 +22,7 @@ void task_a()
   unsigned long t0 = timer_get_tick();
   while (1) {
     kprintf("A %lu\n", timer_get_tick() - t0);
-    sleep(3000);
+    /* sleep(3000); */
   }
 }
 
@@ -31,6 +31,6 @@ void task_b()
   unsigned long t0 = timer_get_tick();
   while (1) {
     kprintf("B %lu\n", timer_get_tick() - t0);
-    sleep(5000);
+    /* sleep(5000); */
   }
 }
