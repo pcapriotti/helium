@@ -46,29 +46,21 @@ static void context_switch(isr_stack_t *stack)
      : : "m"(stack));
 }
 
-void scheduler_yield(isr_stack_t *stack)
+void task_list_insert(task_t *list, task_t *task)
 {
-  assert(scheduler_lock);
-  current->timeout = timer_get_tick();
-
-  unsigned long irqmask = stack->ebx;
-  wait_condition_t cond = (wait_condition_t) stack->ecx;
-  void *data = (void *) stack->edx;
-
-  /* todo: move to waiting queue */
-  scheduler_schedule(stack);
+  assert(list);
+  task_t *prev = list->prev;
+  prev->next = task;
+  task->prev = prev;
+  list->prev = task;
+  task->next = list;
 }
 
 /* add at the end */
 void task_list_add(task_t **list, task_t *task)
 {
   if (*list) {
-    task_t *prev = (*list)->prev;
-    prev->next = task;
-    task->prev = prev;
-
-    (*list)->prev = task;
-    task->next = *list;
+    task_list_insert(*list, task);
   }
   else {
     task->next = task;
@@ -102,6 +94,47 @@ task_t *task_list_take(task_t **list, task_t *task)
   return task;
 }
 
+void scheduler_yield(isr_stack_t *stack)
+{
+  assert(!scheduler_lock);
+  assert(current);
+
+  unsigned long irqmask = stack->ebx;
+  wait_condition_t cond = (wait_condition_t) stack->ecx;
+  void *data = (void *) stack->edx;
+  unsigned long delay = stack->esi;
+
+  unsigned long ticks = timer_get_tick();
+
+  task_t *task = task_list_take(&current, current);
+  task->timeout = ticks + delay;
+  task->state = TASK_WAITING;
+  task->stack = stack;
+
+  /* insert in the list of waiting tasks in order of timeout */
+  if (!waiting || task->timeout <= waiting->timeout) {
+    /* insert at the beginning */
+    task_list_push(&waiting, task);
+  }
+  else {
+    /* insert before the first task with higher priority */
+    task_t *t = waiting->next;
+    while (t != waiting && t->timeout < task->timeout) {
+      t = t->next;
+    }
+    task_list_insert(t, task);
+  }
+
+  if (current) {
+    current->timeout = ticks + SCHEDULER_QUANTUM;
+    context_switch(current->stack);
+  }
+
+  /* no tasks, just idle */
+  __asm__ volatile("sti");
+  hang_system();
+}
+
 void scheduler_schedule(isr_stack_t *stack)
 {
   unsigned long ticks = timer_get_tick();
@@ -117,7 +150,6 @@ void scheduler_schedule(isr_stack_t *stack)
   while (waiting && waiting->timeout <= ticks) {
     task_t *task = task_list_take(&waiting, waiting);
     task_list_add(&current, task);
-    kprintf("adding new task %p\n", task);
   }
 
   /* no tasks */

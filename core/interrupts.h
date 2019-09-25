@@ -6,7 +6,7 @@
 enum {
   IDT_GP = 0xd,
   IDT_IRQ = 0x20,
-  IDT_SYSCALL = 0x80,
+  IDT_SYSCALL = 0x7f,
   IDT_NUM_ENTRIES = 0x100,
 };
 
@@ -92,11 +92,15 @@ enum {
 
 typedef int (*wait_condition_t)(void *);
 
-static inline void syscall_yield(unsigned long irqmask, wait_condition_t cond, void *data)
+static inline void syscall_yield(unsigned long irqmask,
+                   wait_condition_t cond,
+                   void *data,
+                   unsigned long delay)
 {
   __asm__ volatile
     ("int %0\n"
-     : : "i"(IDT_SYSCALL), "a"(SYSCALL_YIELD), "b"(irqmask), "c"(cond), "d"(data));
+     : : "i"(IDT_SYSCALL), "a"(SYSCALL_YIELD),
+       "b"(irqmask), "c"(cond), "d"(data), "S"(delay));
 }
 
 #endif /* INTERRUPTS_H */

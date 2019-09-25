@@ -8,6 +8,8 @@
 
 extern volatile uint16_t *vga_text;
 
+void hang_system(void);
+
 typedef struct {
   int x, y;
   volatile uint16_t *p;
