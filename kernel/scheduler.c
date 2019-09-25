@@ -5,6 +5,7 @@
 #include "kmalloc.h"
 #include "memory.h"
 #include "scheduler.h"
+#include "timer.h"
 
 #include <assert.h>
 
@@ -14,7 +15,7 @@ typedef struct task {
   struct task *next;
   struct task *prev;
 
-  unsigned int ticks; /* remaining ticks */
+  unsigned int timeout;
   void *stack_top;
   isr_stack_t *stack;
   int state;
@@ -26,8 +27,6 @@ enum {
   TASK_WAITING
 };
 
-/* created, but not scheduled tasks */
-static task_t *new = 0;
 /* currently running tasks */
 static task_t *current = 0;
 /* tasks waiting on an event */
@@ -50,7 +49,7 @@ static void context_switch(isr_stack_t *stack)
 void scheduler_yield(isr_stack_t *stack)
 {
   assert(scheduler_lock);
-  current->ticks = 0;
+  current->timeout = timer_get_tick();
 
   unsigned long irqmask = stack->ebx;
   wait_condition_t cond = (wait_condition_t) stack->ecx;
@@ -60,6 +59,7 @@ void scheduler_yield(isr_stack_t *stack)
   scheduler_schedule(stack);
 }
 
+/* add at the end */
 void task_list_add(task_t **list, task_t *task)
 {
   if (*list) {
@@ -75,6 +75,13 @@ void task_list_add(task_t **list, task_t *task)
     task->prev = task;
     *list = task;
   }
+}
+
+/* add at the front */
+void task_list_push(task_t **list, task_t *task)
+{
+  task_list_add(list, task);
+  *list = task;
 }
 
 task_t *task_list_take(task_t **list, task_t *task)
@@ -97,21 +104,18 @@ task_t *task_list_take(task_t **list, task_t *task)
 
 void scheduler_schedule(isr_stack_t *stack)
 {
+  unsigned long ticks = timer_get_tick();
   task_t *previous = current;
 
   /* do nothing if the task still has time left */
-  if (previous && previous->ticks > 0) {
-    /* decrement tick count, but only we are processing a timer IRQ */
-    if (stack->int_num == IDT_IRQ + IRQ_TIMER) previous->ticks--;
-    return;
-  }
+  if (previous && previous->timeout > ticks) return;
 
   /* no task switch if the scheduler is locked */
   if (scheduler_lock) return;
 
-  /* copy new tasks */
-  while (new) {
-    task_t *task = task_list_take(&new, new);
+  /* start waiting tasks */
+  while (waiting && waiting->timeout <= ticks) {
+    task_t *task = task_list_take(&waiting, waiting);
     task_list_add(&current, task);
     kprintf("adding new task %p\n", task);
   }
@@ -129,7 +133,7 @@ void scheduler_schedule(isr_stack_t *stack)
   if (previous) previous->stack = stack;
 
   /* do context switch */
-  current->ticks = SCHEDULER_QUANTUM;
+  current->timeout = ticks + SCHEDULER_QUANTUM;
   context_switch(current->stack);
 }
 
@@ -142,15 +146,14 @@ void scheduler_spawn_task(task_entry_t entry)
   task->stack_top = falloc(0x4000);
   task->stack = task->stack_top + 0x4000 - sizeof(isr_stack_t);
   task->state = TASK_RUNNING;
-  task->ticks = 0;
+  task->timeout = timer_get_tick(); /* start immediately */
 
   task->stack->eip = (uint32_t) entry;
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;
 
   kprintf("creating new task %p\n", task);
-  task_list_add(&new, task);
+  task_list_push(&waiting, task);
 
   scheduler_lock = 0;
 }
-
