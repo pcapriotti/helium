@@ -27,6 +27,7 @@ extern task_t *sched_runqueue;
 void task_list_insert(task_t *list, task_t *task);
 void task_list_add(task_t **list, task_t *task);
 void task_list_push(task_t **list, task_t *task);
+task_t *task_list_pop(task_t **list);
 task_t *task_list_take(task_t **list, task_t *task);
 
 void sched_schedule(struct isr_stack *stack);

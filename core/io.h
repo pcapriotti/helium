@@ -45,5 +45,7 @@ static inline void io_wait() {
 
 void pic_setup();
 void pic_eoi(uint8_t irq);
+void pic_mask(uint8_t irq);
+void pic_unmask(uint8_t irq);
 
 #endif /* IO_H */

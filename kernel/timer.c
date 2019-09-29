@@ -1,5 +1,6 @@
 #include "atomic.h"
 #include "core/debug.h"
+#include "core/interrupts.h"
 #include "core/io.h"
 #include "scheduler.h"
 #include "timer.h"
@@ -17,7 +18,6 @@ static timer_t timer;
 static task_t *waiting;
 
 static int timer_waiting_locked = 0;
-static int timer_waiting_postponed = 0;
 
 void timer_waiting_lock()
 {
@@ -30,8 +30,6 @@ void timer_waiting_unlock()
   timer_waiting_locked--;
   assert(timer_waiting_locked >= 0);
   if (timer_waiting_locked == 0) {
-    if (timer_waiting_postponed)
-      timer_irq();
     sti();
   }
 }
@@ -65,23 +63,23 @@ int timer_init(void)
   return 0;
 }
 
-void timer_irq(void)
+void timer_irq(isr_stack_t *stack)
 {
+  pic_eoi(0);
   timer.count++;
 
-  if (timer_waiting_locked) {
-    timer_waiting_postponed = 1;
-    return;
-  }
+  if (timer_waiting_locked) return;
   barrier();
-  timer_waiting_postponed = 0;
 
-  // wake sleeping tasks
+  /* wake sleeping tasks */
   while (waiting && waiting->timeout <= timer.count) {
     task_t *task = task_list_take(&waiting, waiting);
     task->state = TASK_RUNNING;
     task_list_add(&sched_runqueue, task);
   }
+
+  /* run scheduler */
+  sched_schedule(stack);
 }
 
 unsigned long timer_get_tick(void)

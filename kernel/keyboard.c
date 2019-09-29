@@ -1,8 +1,11 @@
 #include "keyboard.h"
 #include "core/debug.h"
 #include "core/io.h"
+#include "scheduler.h"
 
 #include <stddef.h>
+
+static task_t *kb_waiting = 0;
 
 enum {
   PS2_DATA = 0x60,
@@ -87,9 +90,31 @@ void kb_add_event(uint8_t scancode) {
   event->printable = keycode_to_char(kc);
   event->mods = kb_mods;
   kb_events.end = (kb_events.end + 1) % kb_events.size;
+
+  /* wake up all tasks waiting on keyboard events */
+  while (kb_waiting) {
+    task_t *task = task_list_pop(&kb_waiting);
+    task->state = TASK_RUNNING;
+    task_list_add(&sched_runqueue, task);
+  }
 }
 
 void kb_irq(void)
 {
-  kb_add_event(inb(PS2_DATA));
+  uint8_t scancode = inb(PS2_DATA);
+  pic_eoi(1);
+  kb_add_event(scancode);
+}
+
+void kb_wait(void)
+{
+  sched_disable_preemption();
+
+  /* TODO: do proper synchronization */
+  pic_mask(1);
+  sched_current->state = TASK_WAITING;
+  task_list_add(&kb_waiting, sched_current);
+  pic_unmask(1);
+
+  sched_yield();
 }

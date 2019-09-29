@@ -15,7 +15,7 @@ int handle_irq(isr_stack_t *stack)
 
   switch (irq) {
   case IRQ_TIMER:
-    timer_irq();
+    timer_irq(stack);
     break;
   case IRQ_KEYBOARD:
     if (debug_paging) {
@@ -26,11 +26,11 @@ int handle_irq(isr_stack_t *stack)
     }
     kb_irq();
     break;
+  default:
+    pic_eoi(irq);
+    break;
   }
 
-  pic_eoi(irq);
-
-  sched_schedule(stack);
   return 1;
 }
 

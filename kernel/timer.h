@@ -1,6 +1,8 @@
 #ifndef timer_H
 #define TIMER_H
 
+struct isr_stack;
+
 /* ports */
 enum {
   PIT_DATA0 = 0x40,
@@ -47,7 +49,7 @@ void timer_set_freq(unsigned int freq);
 int timer_init(void);
 
 /* handle IRQ */
-void timer_irq(void);
+void timer_irq();
 
 unsigned long timer_get_tick(void);
 

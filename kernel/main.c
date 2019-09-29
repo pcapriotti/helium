@@ -168,11 +168,8 @@ void kmain()
     kprintf("no drive 0\n");
   }
 
-  void task_a(void);
-  void task_b(void);
-
-  sched_spawn_task(task_a);
-  sched_spawn_task(task_b);
+  void task_kb(void);
+  sched_spawn_task(task_kb);
 
   kprintf("Ok.\n");
 

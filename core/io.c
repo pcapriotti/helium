@@ -24,3 +24,29 @@ void pic_setup() {
   outb(PIC_SLAVE_DATA, 0x01); io_wait();
   outb(PIC_SLAVE_DATA, 0x00);
 }
+
+void pic_mask(uint8_t irq)
+{
+  uint16_t port;
+  if (irq < 8) {
+    port = PIC_MASTER_DATA;
+  }
+  else {
+    port = PIC_SLAVE_DATA;
+    irq -= 8;
+  }
+  outb(port, inb(port) | (1 << irq));
+}
+
+void pic_unmask(uint8_t irq)
+{
+  uint16_t port;
+  if (irq < 8) {
+    port = PIC_MASTER_DATA;
+  }
+  else {
+    port = PIC_SLAVE_DATA;
+    irq -= 8;
+  }
+  outb(port, inb(port) & ~(1 << irq));
+}
