@@ -2,6 +2,8 @@
 #include "core/debug.h"
 #include "graphics.h"
 #include "memory.h"
+#include "scheduler.h"
+#include "timer.h"
 
 #include <string.h>
 
@@ -51,8 +53,19 @@ int console_init(void)
   }
 
   console.cur = (point_t){0, 0};
-  return 0;
+  console.dirty = 0;
 
+  sched_spawn_task(console_renderer);
+
+  return 0;
+}
+
+void console_renderer(void)
+{
+  while (1) {
+    console_render_buffer();
+    timer_sleep(16);
+  }
 }
 
 uint32_t *console_at(point_t p)
@@ -106,6 +119,8 @@ void console_render_buffer()
       pos += FONT_HEIGHT * console.pitch - FONT_WIDTH * console.width;
     }
   }
+
+  console.dirty = 0;
 }
 
 void console_clear_line(int y)
@@ -130,10 +145,12 @@ void console_print_char(char c, uint8_t colour)
   else if (console.cur.x < 80) {
     *p = col | c;
     console.cur.x++;
+    console.dirty = 1;
   }
   while (console.cur.y - console.offset >= console.height) {
     console_clear_line(console.offset + console.height);
     console.offset++;
+    console.dirty = 1;
   }
 }
 

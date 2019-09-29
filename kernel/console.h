@@ -9,6 +9,7 @@ typedef struct {
   uint32_t white, red, green, blue;
   uint32_t *fb;
   int pitch;
+  int dirty;
 
   int width, height;
   int offset;
@@ -23,6 +24,7 @@ uint32_t *console_at(point_t point);
 void console_print_str(const char *s, uint8_t colour);
 void console_print_char(char c, uint8_t colour);
 
+void console_renderer(void);
 void console_render_char(uint32_t *pos, char c, uint32_t fg);
 void console_render_buffer(void);
 

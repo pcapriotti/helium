@@ -52,18 +52,10 @@ void debug_print_char(char c)
   }
 }
 
-void debug_flush_output() {
-}
-
 void (*print_char_function)(char c) = debug_print_char;
-void (*flush_output_function)(void) = debug_flush_output;
 
 void print_char(char c) {
   print_char_function(c);
-}
-
-void flush_output() {
-  flush_output_function();
 }
 
 int isdigit(char c)
@@ -286,7 +278,6 @@ int kvprintf(const char *fmt, va_list list)
     }
   }
 
-  flush_output();
   return 0;
 }
 
