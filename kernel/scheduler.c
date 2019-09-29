@@ -1,3 +1,4 @@
+#include "atomic.h"
 #include "core/debug.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
@@ -9,32 +10,14 @@
 
 #include <assert.h>
 
-#define SCHEDULER_QUANTUM 20
+#define SCHED_QUANTUM 20
 
-typedef struct task {
-  struct task *next;
-  struct task *prev;
-
-  unsigned int timeout;
-  void *stack_top;
-  isr_stack_t *stack;
-  int state;
-} task_t;
-
-enum {
-  TASK_RUNNING,
-  TASK_STOPPED,
-  TASK_WAITING
-};
-
-/* currently running tasks */
-static task_t *current = 0;
-/* tasks waiting on an event */
-static task_t *waiting = 0;
+task_t *sched_runqueue = 0;
+task_t *sched_current = 0;
 
 /* when this is set the current task cannot be preempted, and it has
 exclusive access to scheduler data structures */
-volatile int scheduler_lock = 0;
+volatile int sched_locked = 1;
 
 static void context_switch(isr_stack_t *stack)
 {
@@ -76,6 +59,13 @@ void task_list_push(task_t **list, task_t *task)
   *list = task;
 }
 
+/* remove from the front */
+task_t *task_list_pop(task_t **list)
+{
+  if (*list == 0) return 0;
+  return task_list_take(list, *list);
+}
+
 task_t *task_list_take(task_t **list, task_t *task)
 {
   if (task->next == task) {
@@ -94,84 +84,51 @@ task_t *task_list_take(task_t **list, task_t *task)
   return task;
 }
 
-void scheduler_yield(isr_stack_t *stack)
+void sched_schedule(isr_stack_t *stack)
 {
-  assert(!scheduler_lock);
-  assert(current);
+  /* no task switch if the scheduler is locked */
+  if (sched_locked) return;
+  barrier();
 
-  unsigned long irqmask = stack->ebx;
-  wait_condition_t cond = (wait_condition_t) stack->ecx;
-  void *data = (void *) stack->edx;
-  unsigned long delay = stack->esi;
+  /* TODO: take the lock and reenable interrupts */
 
   unsigned long ticks = timer_get_tick();
-
-  task_t *task = task_list_take(&current, current);
-  task->timeout = ticks + delay;
-  task->state = TASK_WAITING;
-  task->stack = stack;
-
-  /* insert in the list of waiting tasks in order of timeout */
-  if (!waiting || task->timeout <= waiting->timeout) {
-    /* insert at the beginning */
-    task_list_push(&waiting, task);
-  }
-  else {
-    /* insert before the first task with higher priority */
-    task_t *t = waiting->next;
-    while (t != waiting && t->timeout < task->timeout) {
-      t = t->next;
-    }
-    task_list_insert(t, task);
-  }
-
-  if (current) {
-    current->timeout = ticks + SCHEDULER_QUANTUM;
-    context_switch(current->stack);
-  }
-
-  /* no tasks, just idle */
-  __asm__ volatile("sti");
-  hang_system();
-}
-
-void scheduler_schedule(isr_stack_t *stack)
-{
-  unsigned long ticks = timer_get_tick();
-  task_t *previous = current;
 
   /* do nothing if the task still has time left */
-  if (previous && previous->timeout > ticks) return;
+  if (sched_current &&
+      sched_current->state == TASK_RUNNING &&
+      sched_current->timeout > ticks) return;
 
-  /* no task switch if the scheduler is locked */
-  if (scheduler_lock) return;
-
-  /* start waiting tasks */
-  while (waiting && waiting->timeout <= ticks) {
-    task_t *task = task_list_take(&waiting, waiting);
-    task_list_add(&current, task);
+  /* put task back into runqueue */
+  if (sched_current) {
+    sched_current->stack = stack;
+    if (sched_current->state == TASK_RUNNING) {
+      task_list_add(&sched_runqueue, sched_current);
+    }
   }
 
-  /* no tasks */
-  if (!current) return;
-
   /* update current task */
-  if (previous) current = previous->next;
+  task_t *previous = sched_current;
+  sched_current = task_list_pop(&sched_runqueue);
 
-  /* no need to switch if the task has not changed */
-  if (previous == current) return;
+  /* same task, no switch necessary */
+  if (sched_current == previous) return;
 
-  /* save current stack for previous task */
-  if (previous) previous->stack = stack;
+  if (!sched_current) {
+    /* no more tasks, idle */
+    sti();
+    hang_system();
+    return;
+  }
 
   /* do context switch */
-  current->timeout = ticks + SCHEDULER_QUANTUM;
-  context_switch(current->stack);
+  sched_current->timeout = ticks + SCHED_QUANTUM;
+  context_switch(sched_current->stack);
 }
 
-void scheduler_spawn_task(task_entry_t entry)
+void sched_spawn_task(task_entry_t entry)
 {
-  scheduler_lock = 1;
+  sched_disable_preemption();
 
   /* allocate memory for the task */
   task_t *task = kmalloc(sizeof(task_t));
@@ -180,11 +137,37 @@ void scheduler_spawn_task(task_entry_t entry)
   task->state = TASK_RUNNING;
   task->timeout = timer_get_tick(); /* start immediately */
 
+  /* TODO set up a stack guard for when the task terminates */
   task->stack->eip = (uint32_t) entry;
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;
 
-  task_list_push(&waiting, task);
+  task_list_add(&sched_runqueue, task);
 
-  scheduler_lock = 0;
+  sched_enable_preemption();
+}
+
+void sched_enable_preemption(void)
+{
+  assert(sched_locked);
+  cli();
+  sched_locked--;
+  sti();
+}
+
+void sched_disable_preemption(void)
+{
+  cli();
+  sched_locked++;
+  sti();
+}
+
+/* only call this function while preemption is disabled */
+void sched_yield(void)
+{
+  assert(sched_locked == 1);
+  cli();
+  sched_locked = 0;
+  syscall_yield();
+  sti();
 }

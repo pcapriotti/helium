@@ -90,17 +90,12 @@ enum {
   SYSCALL_YIELD,
 };
 
-typedef int (*wait_condition_t)(void *);
-
-static inline void syscall_yield(unsigned long irqmask,
-                   wait_condition_t cond,
-                   void *data,
-                   unsigned long delay)
+static inline void syscall_yield(void)
 {
   __asm__ volatile
     ("int %0\n"
-     : : "i"(IDT_SYSCALL), "a"(SYSCALL_YIELD),
-       "b"(irqmask), "c"(cond), "d"(data), "S"(delay));
+     :
+     : "i"(IDT_SYSCALL), "a"(SYSCALL_YIELD));
 }
 
 #endif /* INTERRUPTS_H */

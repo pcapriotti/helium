@@ -30,7 +30,7 @@ int handle_irq(isr_stack_t *stack)
 
   pic_eoi(irq);
 
-  scheduler_schedule(stack);
+  sched_schedule(stack);
   return 1;
 }
 
@@ -40,7 +40,7 @@ int handle_syscall(isr_stack_t *stack)
 
   switch (stack->eax) {
   case SYSCALL_YIELD:
-    scheduler_yield(stack);
+    sched_schedule(stack);
     return 1;
   default:
     kprintf("Invalid syscall %#x\n", stack->eax);

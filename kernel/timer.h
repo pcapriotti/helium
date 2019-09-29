@@ -51,4 +51,6 @@ void timer_irq(void);
 
 unsigned long timer_get_tick(void);
 
+void timer_sleep(unsigned long delay);
+
 #endif /* TIMER_H */

@@ -5,10 +5,35 @@ struct isr_stack;
 
 typedef void (*task_entry_t)(void);
 
-void scheduler_schedule(struct isr_stack *stack);
+typedef struct task {
+  struct task *next;
+  struct task *prev;
 
-void scheduler_spawn_task(task_entry_t entry);
+  unsigned int timeout;
+  void *stack_top;
+  struct isr_stack *stack;
+  int state;
+} task_t;
 
-void scheduler_yield(struct isr_stack *stack);
+enum {
+  TASK_RUNNING,
+  TASK_STOPPED,
+  TASK_WAITING
+};
+
+extern task_t *sched_current;
+extern task_t *sched_runqueue;
+
+void task_list_insert(task_t *list, task_t *task);
+void task_list_add(task_t **list, task_t *task);
+void task_list_push(task_t **list, task_t *task);
+task_t *task_list_take(task_t **list, task_t *task);
+
+void sched_schedule(struct isr_stack *stack);
+void sched_spawn_task(task_entry_t entry);
+void sched_yield(void);
+
+void sched_disable_preemption();
+void sched_enable_preemption();
 
 #endif /* SCHEDULER_H */

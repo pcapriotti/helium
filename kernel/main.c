@@ -171,10 +171,13 @@ void kmain()
   void task_a(void);
   void task_b(void);
 
-  scheduler_spawn_task(task_a);
-  scheduler_spawn_task(task_b);
+  sched_spawn_task(task_a);
+  sched_spawn_task(task_b);
 
   kprintf("Ok.\n");
+
+  sched_enable_preemption();
+
   hang_system();
 }
 

@@ -1,18 +1,40 @@
+#include "atomic.h"
 #include "core/debug.h"
 #include "core/io.h"
+#include "scheduler.h"
 #include "timer.h"
+
+#include <assert.h>
 
 #define PIT_FREQ 1193182
 
-typedef void (*scheduler_t)(unsigned long t);
-
 typedef struct {
   unsigned long count;
-  scheduler_t scheduler;
   unsigned long quantum;
 } timer_t;
 
 static timer_t timer;
+static task_t *waiting;
+
+static int timer_waiting_locked = 0;
+static int timer_waiting_postponed = 0;
+
+void timer_waiting_lock()
+{
+  cli();
+  timer_waiting_locked++;
+}
+
+void timer_waiting_unlock()
+{
+  timer_waiting_locked--;
+  assert(timer_waiting_locked >= 0);
+  if (timer_waiting_locked == 0) {
+    if (timer_waiting_postponed)
+      timer_irq();
+    sti();
+  }
+}
 
 void timer_send_command(uint8_t cmd, uint16_t data)
 {
@@ -39,7 +61,6 @@ void timer_set_divider(uint16_t d)
 int timer_init(void)
 {
   timer_set_divider(PIT_FREQ / 1000);
-  timer.scheduler = 0;
   timer.quantum = 25;
   return 0;
 }
@@ -47,14 +68,48 @@ int timer_init(void)
 void timer_irq(void)
 {
   timer.count++;
-  if (timer.scheduler) {
-    if (timer.count % timer.quantum == 0) {
-      timer.scheduler(timer.count / timer.quantum);
-    }
+
+  if (timer_waiting_locked) {
+    timer_waiting_postponed = 1;
+    return;
+  }
+  barrier();
+  timer_waiting_postponed = 0;
+
+  // wake sleeping tasks
+  while (waiting && waiting->timeout <= timer.count) {
+    task_t *task = task_list_take(&waiting, waiting);
+    task->state = TASK_RUNNING;
+    task_list_add(&sched_runqueue, task);
   }
 }
 
 unsigned long timer_get_tick(void)
 {
   return timer.count;
+}
+
+void timer_sleep(unsigned long delay)
+{
+  sched_disable_preemption();
+  sched_current->state = TASK_WAITING;
+  sched_current->timeout = timer.count + delay;
+
+  timer_waiting_lock();
+  /* insert in the list of waiting tasks in order of timeout */
+  if (!waiting || sched_current->timeout <= waiting->timeout) {
+    /* insert at the beginning */
+    task_list_push(&waiting, sched_current);
+  }
+  else {
+    /* insert before the first task with higher priority */
+    task_t *task = waiting->next;
+    while (task != waiting && task->timeout < sched_current->timeout) {
+      task = task->next;
+    }
+    task_list_insert(task, sched_current);
+  }
+  timer_waiting_unlock();
+
+  sched_yield();
 }
