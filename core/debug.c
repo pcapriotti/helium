@@ -9,8 +9,9 @@ volatile int debug_key_pressed = 0;
 int debug_paging = 0;
 
 void hang_system(void) {
-  __asm__ volatile("hlt");
-  while(1);
+  while(1) {
+    __asm__ ("hlt");
+  }
 }
 
 void panic(void)

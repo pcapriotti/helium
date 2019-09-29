@@ -1,4 +1,5 @@
 #include "ata.h"
+#include "atomic.h"
 #include "console.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
@@ -77,7 +78,7 @@ void kmain()
   void *heap = (void *)0x500;
 
   if (timer_init() == -1) panic();
-  __asm__ volatile("sti");
+  sti();
 
   if (memory_init(heap) == -1) panic();
   if (kmalloc_init(memory_frames) == -1) panic();
