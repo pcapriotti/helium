@@ -29,7 +29,7 @@ void task_kb()
     kb_wait();
     /* TODO: synchronise */
     while (kb_events.start != kb_events.end) {
-      kb_event_t *event = &kb_events.events[kb_events.start];
+      kb_event_t *event = &((kb_event_t *)kb_events.items)[kb_events.start];
       if (event->pressed && event->printable) {
         kprintf("%c", event->printable);
       }

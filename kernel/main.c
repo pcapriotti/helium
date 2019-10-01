@@ -9,6 +9,7 @@
 #include "ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"
+#include "keyboard.h"
 #include "kmalloc.h"
 #include "mbr.h"
 #include "memory.h"
@@ -78,6 +79,7 @@ void kmain()
   void *heap = (void *)0x500;
 
   if (timer_init() == -1) panic();
+  if (kb_init() == -1) panic();
   sti();
 
   if (memory_init(heap) == -1) panic();
@@ -169,8 +171,8 @@ void kmain()
     kprintf("no drive 0\n");
   }
 
-  void task_kb(void);
-  sched_spawn_task(task_kb);
+  /* void task_kb(void); */
+  /* sched_spawn_task(task_kb); */
 
   kprintf("Ok.\n");
 

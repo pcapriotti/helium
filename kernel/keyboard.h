@@ -24,6 +24,7 @@ typedef enum {
   KC_NO, KC_CAP, KC_NUM, KC_SCR, KC_INS, KC_DEL, KC_TAB, KC_ESC, KC_BSP
 } kb_keycode_t;
 
+int kb_init(void);
 void kb_irq(void);
 
 typedef struct {
@@ -34,14 +35,15 @@ typedef struct {
   char printable;
 } kb_event_t;
 
+/* circular array */
 typedef struct {
   unsigned int size;
-  kb_event_t *events;
   unsigned int start;
   unsigned int end;
-} kb_event_queue_t;
+  void *items;
+} queue_t;
 
-extern kb_event_queue_t kb_events;
+extern queue_t kb_events;
 
 /* add a process to the keyboard waiting queue */
 void kb_wait(void);

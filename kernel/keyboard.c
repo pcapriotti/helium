@@ -1,11 +1,20 @@
+#include "atomic.h"
 #include "keyboard.h"
+#include "core/gdt.h"
 #include "core/debug.h"
+#include "core/interrupts.h"
 #include "core/io.h"
+#include "core/v8086.h"
 #include "scheduler.h"
 
 #include <stddef.h>
 
 static task_t *kb_waiting = 0;
+
+static uint32_t kb_tasklet_stack[256];
+static task_t kb_tasklet = {
+  .state = TASK_STOPPED,
+};
 
 enum {
   PS2_DATA = 0x60,
@@ -42,11 +51,19 @@ uint8_t kb_mods = 0;
 
 #define EVENT_BUFFER_SIZE 512
 kb_event_t kb_event_buffer[EVENT_BUFFER_SIZE];
-kb_event_queue_t kb_events = {
+queue_t kb_events = {
   .size = EVENT_BUFFER_SIZE,
-  .events = kb_event_buffer,
   .start = 0,
   .end = 0,
+  .items = (void *)kb_event_buffer,
+};
+
+uint8_t kb_scancode_buffer[EVENT_BUFFER_SIZE];
+queue_t kb_scancodes = {
+  .size = EVENT_BUFFER_SIZE,
+  .start = 0,
+  .end = 0,
+  .items = (void *)kb_scancode_buffer,
 };
 
 #define MOD_SET(pressed, mod) \
@@ -91,6 +108,10 @@ void kb_add_event(uint8_t scancode) {
   event->mods = kb_mods;
   kb_events.end = (kb_events.end + 1) % kb_events.size;
 
+  kprintf("%s: %c\n",
+          event->pressed ? "pressed" : "released",
+          event->printable ? event->printable : '?');
+
   /* wake up all tasks waiting on keyboard events */
   while (kb_waiting) {
     task_t *task = task_list_pop(&kb_waiting);
@@ -99,22 +120,73 @@ void kb_add_event(uint8_t scancode) {
   }
 }
 
+void kb_process_scancodes()
+{
+  while (1) {
+    pic_mask(IRQ_KEYBOARD);
+    while (kb_scancodes.start != kb_scancodes.end) {
+      uint8_t scancode = kb_scancode_buffer[kb_scancodes.start];
+      kb_scancodes.start = (kb_scancodes.start + 1) % kb_scancodes.size;
+      pic_unmask(IRQ_KEYBOARD);
+      kb_add_event(scancode);
+      pic_mask(IRQ_KEYBOARD);
+    }
+
+    sched_disable_preemption();
+    sched_current->state = TASK_WAITING;
+    pic_unmask(IRQ_KEYBOARD);
+
+    sched_yield();
+  }
+}
+
+int kb_init(void)
+{
+  isr_stack_t *stack = (void *)kb_tasklet_stack + sizeof(kb_tasklet_stack) - sizeof(isr_stack_t);
+  stack->eip = (uint32_t) kb_process_scancodes;
+  stack->eflags = EFLAGS_IF;
+  stack->cs = GDT_SEL(GDT_CODE);
+  kb_tasklet.stack = stack;
+  kb_tasklet.state = TASK_WAITING;
+
+  return 0;
+}
+
 void kb_irq(void)
 {
+  pic_mask(IRQ_KEYBOARD);
+  sti();
+
+  /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
-  pic_eoi(1);
-  kb_add_event(scancode);
+  pic_eoi(IRQ_KEYBOARD);
+
+  kb_scancode_buffer[kb_scancodes.end] = scancode;
+  kb_scancodes.end = (kb_scancodes.end + 1) % kb_scancodes.size;
+  if (kb_scancodes.end == kb_scancodes.start) {
+    /* drop old scancodes */
+    kb_scancodes.start++;
+  }
+
+  /* add tasklet to scheduler */
+  sched_disable_preemption();
+  if (kb_tasklet.state != TASK_RUNNING) {
+    kb_tasklet.state = TASK_RUNNING;
+    task_list_add(&sched_runqueue, &kb_tasklet);
+  }
+  sched_enable_preemption();
+
+  pic_unmask(IRQ_KEYBOARD);
 }
 
 void kb_wait(void)
 {
   sched_disable_preemption();
 
-  /* TODO: do proper synchronization */
-  pic_mask(1);
+  pic_mask(IRQ_KEYBOARD);
   sched_current->state = TASK_WAITING;
   task_list_add(&kb_waiting, sched_current);
-  pic_unmask(1);
+  pic_unmask(IRQ_KEYBOARD);
 
   sched_yield();
 }
