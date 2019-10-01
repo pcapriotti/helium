@@ -9,12 +9,13 @@
 
 #include <stddef.h>
 
-static task_t *kb_waiting = 0;
-
 static uint32_t kb_tasklet_stack[256];
 static task_t kb_tasklet = {
   .state = TASK_STOPPED,
 };
+
+void (*kb_on_event)(kb_event_t *event) = 0;
+static kb_event_t last_event;
 
 enum {
   PS2_DATA = 0x60,
@@ -50,14 +51,6 @@ static char kb_printable_1[] = ")!\"#$%^&*(ABCDEFGHIJKLMNOPQRSTUVWXYZ<>?|{}:*_++
 uint8_t kb_mods = 0;
 
 #define EVENT_BUFFER_SIZE 512
-kb_event_t kb_event_buffer[EVENT_BUFFER_SIZE];
-queue_t kb_events = {
-  .size = EVENT_BUFFER_SIZE,
-  .start = 0,
-  .end = 0,
-  .items = (void *)kb_event_buffer,
-};
-
 uint8_t kb_scancode_buffer[EVENT_BUFFER_SIZE];
 queue_t kb_scancodes = {
   .size = EVENT_BUFFER_SIZE,
@@ -82,7 +75,9 @@ char keycode_to_char(kb_keycode_t kc)
   return 0;
 }
 
-void kb_add_event(uint8_t scancode) {
+void kb_propagate_event(uint8_t scancode) {
+  if (!kb_on_event) return;
+
   kb_keycode_t kc = kb_us_layout[scancode & 0x7f];
   unsigned int pressed = (scancode & 0x80) == 0;
 
@@ -100,24 +95,15 @@ void kb_add_event(uint8_t scancode) {
     return;
   }
 
-  /* add event to queue */
-  kb_event_t *event = &kb_event_buffer[kb_events.end];
+  /* generate event */
+  kb_event_t *event = &last_event;
   event->pressed = pressed;
   event->keycode = kc;
   event->printable = keycode_to_char(kc);
   event->mods = kb_mods;
-  kb_events.end = (kb_events.end + 1) % kb_events.size;
 
-  kprintf("%s: %c\n",
-          event->pressed ? "pressed" : "released",
-          event->printable ? event->printable : '?');
-
-  /* wake up all tasks waiting on keyboard events */
-  while (kb_waiting) {
-    task_t *task = task_list_pop(&kb_waiting);
-    task->state = TASK_RUNNING;
-    task_list_add(&sched_runqueue, task);
-  }
+  /* call handler */
+  kb_on_event(event);
 }
 
 void kb_process_scancodes()
@@ -128,7 +114,7 @@ void kb_process_scancodes()
       uint8_t scancode = kb_scancode_buffer[kb_scancodes.start];
       kb_scancodes.start = (kb_scancodes.start + 1) % kb_scancodes.size;
       pic_unmask(IRQ_KEYBOARD);
-      kb_add_event(scancode);
+      kb_propagate_event(scancode);
       pic_mask(IRQ_KEYBOARD);
     }
 
@@ -179,14 +165,7 @@ void kb_irq(void)
   pic_unmask(IRQ_KEYBOARD);
 }
 
-void kb_wait(void)
+void kb_grab(void (*on_event)(kb_event_t *event))
 {
-  sched_disable_preemption();
-
-  pic_mask(IRQ_KEYBOARD);
-  sched_current->state = TASK_WAITING;
-  task_list_add(&kb_waiting, sched_current);
-  pic_unmask(IRQ_KEYBOARD);
-
-  sched_yield();
+  kb_on_event = on_event;
 }

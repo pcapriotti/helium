@@ -45,6 +45,13 @@ void ata_read_closure(void *data, void *buf,
                  buf);
 }
 
+void on_kb_event(kb_event_t *event)
+{
+  if (event->pressed && event->printable) {
+    kprintf("%c", event->printable);
+  }
+}
+
 void kmain()
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
@@ -171,8 +178,7 @@ void kmain()
     kprintf("no drive 0\n");
   }
 
-  /* void task_kb(void); */
-  /* sched_spawn_task(task_kb); */
+  kb_grab(on_kb_event);
 
   kprintf("Ok.\n");
 
