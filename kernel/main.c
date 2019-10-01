@@ -126,7 +126,6 @@ void kmain()
   console.cur.x = debug_console.x;
   console.cur.y = debug_console.y;
   print_char_function = &console_debug_print_char;
-  flush_output_function = &console_render_buffer;
 
   kprintf("console %dx%d\n",
           console.width, console.height);

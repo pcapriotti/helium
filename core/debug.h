@@ -27,6 +27,5 @@ void debug_byte(uint8_t x);
 int kprintf(const char *fmt, ...);
 
 void (*print_char_function)(char c);
-void (*flush_output_function)(void);
 
 #endif /* DEBUG_H */
