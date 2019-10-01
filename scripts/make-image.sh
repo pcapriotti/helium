@@ -23,10 +23,11 @@ usage() {
     exit 1
 }
 
-while getopts "s:o:" x; do
+while getopts "s:o:l:" x; do
     case $x in
         s) size=$(parse_size "$OPTARG");;
         o) offset=$(parse_size "$OPTARG");;
+        l) loader="$OPTARG";;
     esac
 done
 shift $((OPTIND - 1))
@@ -43,3 +44,10 @@ dd if=/dev/zero of="$disk" bs=1024 count=$(((size + 1023) / 1024)) >&2
 parted -m -s "$disk" -- mklabel msdos >&2
 parted -m -s "$disk" -- mkpart primary ext2 "${offset}B" "-1s" >&2
 mke2fs -d "$src" -t ext2 -q -F -F -E offset="$offset",no_copy_xattrs "$disk" "$(((size - offset) / 1024))" >&2
+
+if [[ -n "$loader" ]]; then
+    echo "writing mbr"
+    dd if="$loader" of="$disk" bs=1 count=440 conv=notrunc,nocreat
+    echo "copying loader"
+    dd if="$loader" of="$disk" bs=512 conv=notrunc,nocreat seek=1 skip=1
+fi
