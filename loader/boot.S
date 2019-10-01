@@ -15,9 +15,10 @@ stage0:
     6: num sectors for current read */
   sub $8, %sp
   mov %sp, %si
-  mov %dx, (%si) /* save drive information */
   xor %ax, %ax
   mov %ax, %es
+  mov %ax, %ds
+  mov %dx, (%si) /* save drive information */
 
   /* enable A20 gate */
   mov $0x1, %al
@@ -34,14 +35,14 @@ stage0:
   mov $0x800, %ax
   mov (%si), %dx
   xor %di, %di
+  mov %di, %es
   int $0x13
-  jc 1f
+  jc hang
   movzx %cl, %ax
   and $0x3f, %ax
   mov %ax, sectors_per_track
   inc %dh
   mov %dh, tracks_per_cylinder
-1:
 
   xor %ax, %ax
   mov %ax, %es
@@ -80,6 +81,7 @@ load_loop:
 
   xor %dx, %dx
   mov tracks_per_cylinder, %bx
+  and $0xf, %bx
   div %bx
 
   mov %dl, %dh /* dh = head */
@@ -130,12 +132,20 @@ load_loop_end:
 
   movzxw (%si), %edx
   push %edx
+
   call _stage1
+
+.code16
 
 hang:
   cli
-  hlt
+  pusha
+  mov $vga_segment, %ax
+  mov %ax, %ds
+  xor %di, %di
+  movw $(0x4000 | ' '), (%di)
 1:
+  hlt
   jmp 1b
 
 sectors_per_track: .short 18
