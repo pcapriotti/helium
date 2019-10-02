@@ -58,13 +58,14 @@ void pci_check_function(list_t *devices, uint8_t bus,
       device_t *dev = kmalloc(sizeof(device_t));
       dev->class = class;
       dev->subclass = subclass;
-      for (unsigned int i = 0; i < 4; i++) {
+      for (unsigned int i = 0; i < 6; i++) {
         dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i) & ~3;
       }
       list_add(&dev->head, devices);
 #if PCI_DEBUG
-      for (int i = 0; i < 4; i++) {
-        kprintf("  bar%d: %p\n", i, dev->bars[i]);
+      for (int i = 0; i < 6; i++) {
+        if (dev->bars[i])
+          kprintf("  bar%d: %p\n", i, dev->bars[i]);
       }
 #endif
     }
@@ -111,7 +112,7 @@ void pci_scan(list_t *devices)
   pci_scan_bus(devices, 0);
 #if PCI_DEBUG
   device_t *dev;
-  list_foreach_entry(dev, &devices, head) {
+  list_foreach_entry(dev, devices, head) {
     kprintf("found device %p class: %#x subclass: %#x\n",
             dev, dev->class, dev->subclass);
   }

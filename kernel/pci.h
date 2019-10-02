@@ -50,7 +50,7 @@ enum {
 
 typedef struct {
   list_t head;
-  uint32_t bars[4];
+  uint32_t bars[6];
   uint8_t class;
   uint8_t subclass;
 } device_t;
