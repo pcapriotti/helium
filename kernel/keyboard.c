@@ -109,19 +109,20 @@ void kb_propagate_event(uint8_t scancode) {
 void kb_process_scancodes()
 {
   while (1) {
+    sched_disable_preemption();
     pic_mask(IRQ_KEYBOARD);
     while (kb_scancodes.start != kb_scancodes.end) {
       uint8_t scancode = kb_scancode_buffer[kb_scancodes.start];
       kb_scancodes.start = (kb_scancodes.start + 1) % kb_scancodes.size;
       pic_unmask(IRQ_KEYBOARD);
+      sched_enable_preemption();
       kb_propagate_event(scancode);
+      sched_disable_preemption();
       pic_mask(IRQ_KEYBOARD);
     }
 
-    sched_disable_preemption();
     sched_current->state = TASK_WAITING;
     pic_unmask(IRQ_KEYBOARD);
-
     sched_yield();
   }
 }
@@ -140,9 +141,6 @@ int kb_init(void)
 
 void kb_irq(void)
 {
-  pic_mask(IRQ_KEYBOARD);
-  sti();
-
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
   pic_eoi(IRQ_KEYBOARD);
@@ -155,14 +153,10 @@ void kb_irq(void)
   }
 
   /* add tasklet to scheduler */
-  sched_disable_preemption();
   if (kb_tasklet.state != TASK_RUNNING) {
     kb_tasklet.state = TASK_RUNNING;
     task_list_add(&sched_runqueue, &kb_tasklet);
   }
-  sched_enable_preemption();
-
-  pic_unmask(IRQ_KEYBOARD);
 }
 
 void kb_grab(void (*on_event)(kb_event_t *event))
