@@ -19,6 +19,7 @@ static kb_event_t last_event;
 
 enum {
   PS2_DATA = 0x60,
+  PS2_STATUS = 0x64,
 };
 
 /* modifier bit offsets */
@@ -141,6 +142,14 @@ int kb_init(void)
 
 void kb_irq(void)
 {
+  /* wait for keyboard input */
+  uint8_t status = inb(PS2_STATUS);
+  while (status & 0x1) {
+    if ((status & (1 << 5)) == 0) break;
+    status = inb(PS2_STATUS);
+  }
+  if ((status & 0x1) == 0) return;
+
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
   pic_eoi(IRQ_KEYBOARD);
