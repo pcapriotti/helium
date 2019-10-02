@@ -133,50 +133,6 @@ void kmain()
   LIST_HEAD(devices);
   pci_scan(&devices);
 
-  if (ata_init(&devices) == -1) panic();
-
-  drive_t *drive = ata_get_drive(0);
-  if (drive->present) {
-    partition_table_t table;
-    read_partition_table(drive, table);
-    for (int i = 0; i < 4; i++) {
-      if (table[i].num_sectors == 0) continue;
-      kprintf("part %u: %#x - %#x\n",
-              i, table[i].lba_start,
-              table[i].lba_start + table[i].num_sectors);
-    }
-    ata_closure_data_t clo_data;
-    clo_data.drive = drive;
-    clo_data.part_offset = table[0].lba_start;
-
-    fs_t *fs = ext2_new_fs(ata_read_closure, &clo_data);
-
-    inode_t *inode = ext2_get_path_inode(fs, "hello");
-    if (inode) {
-      inode_t tmp = *inode;
-      inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
-      while (!ext2_inode_iterator_end(it)) {
-        char *buf = ext2_inode_iterator_read(it);
-        int len = ext2_inode_iterator_block_size(it);
-
-        char *s = kmalloc(len + 1);
-        strncpy(s, buf, len);
-        s[len] = '\0';
-        kprintf("%s", s);
-        kfree(s);
-
-        ext2_inode_iterator_next(it);
-      }
-      kfree(it);
-    }
-
-    ext2_free_fs(fs);
-
-  }
-  else {
-    kprintf("no drive 0\n");
-  }
-
   kb_grab(on_kb_event);
 
   kprintf("Ok.\n");
