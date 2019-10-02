@@ -1,7 +1,6 @@
 .code16
 
 .set vga_segment, 0xb800
-.set sectors_per_track, 18
 
 /* stage0 loader: this has to fit into 512 bytes */
 stage0:
@@ -20,6 +19,7 @@ stage0:
   mov %ax, %ds
   mov %dx, (%si) /* save drive information */
 
+
   /* enable A20 gate */
   mov $0x1, %al
   mov $0x24, %ah
@@ -31,6 +31,7 @@ stage0:
   mov $0, %dl
   int $0x13
 
+
   /* get drive geometry */
   mov $0x800, %ax
   mov (%si), %dx
@@ -41,8 +42,9 @@ stage0:
   movzx %cl, %ax
   and $0x3f, %ax
   mov %ax, sectors_per_track
-  inc %dh
-  mov %dh, tracks_per_cylinder
+  shr $8, %dx
+  inc %dx
+  mov %dx, tracks_per_cylinder
 
   xor %ax, %ax
   mov %ax, %es
@@ -81,7 +83,6 @@ load_loop:
 
   xor %dx, %dx
   mov tracks_per_cylinder, %bx
-  and $0xf, %bx
   div %bx
 
   mov %dl, %dh /* dh = head */
@@ -127,11 +128,13 @@ load_loop_end:
   mov %ax, %gs
   mov %ax, %ss
 
+
   xor %ebp, %ebp
   mov $_stack_base, %esp
 
   movzxw (%si), %edx
   push %edx
+
 
   call _stage1
 
