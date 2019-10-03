@@ -55,9 +55,12 @@ int console_init(void)
   console.cur = (point_t){0, 0};
   console.dirty = 0;
 
-  sched_spawn_task(console_renderer);
-
   return 0;
+}
+
+void console_start_background_task()
+{
+  sched_spawn_task(console_renderer);
 }
 
 void console_renderer(void)

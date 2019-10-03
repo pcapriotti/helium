@@ -23,7 +23,7 @@ typedef struct {
   uint16_t pitch;
   uint8_t *framebuffer;
   vbe_colour_info_t colour_info;
-} __attribute__((packed)) vbe_mode_t;
+} vbe_mode_t;
 
 int graphics_init(vbe_mode_t *req_mode);
 

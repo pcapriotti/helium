@@ -104,31 +104,47 @@ void kmain()
     }
   }
 
+  int graphics = 0;
   {
     vbe_mode_t mode;
-    mode.width = 800;
-    mode.height = 600;
+    mode.width = 1920;
+    mode.height = 1080;
     mode.bpp = 32;
-    if (graphics_init(&mode) == -1) panic();
-  }
-
-  if (console_init() == -1) panic();
-
-  for (int i = 0; i < 25; i++) {
-    int p = console.width * i;
-    int q = 80 * i;
-    for (int j = 0; j < 80; j++) {
-      console.buffer[p++] = debug_buf[q++];
+    mode.number = 0;
+    if (graphics_init(&mode) == -1) {
+      kprintf("ERROR: could not enter graphic mode\n");
     }
+    else {
+      graphics = 1;
+    }
+    (void) mode;
   }
-  ffree(debug_buf);
-  console_render_buffer();
-  console.cur.x = debug_console.x;
-  console.cur.y = debug_console.y;
-  print_char_function = &console_debug_print_char;
 
-  kprintf("console %dx%d\n",
-          console.width, console.height);
+  if (graphics) {
+    if (console_init() == -1) panic();
+    for (int i = 0; i < 25; i++) {
+      int p = console.width * i;
+      int q = 80 * i;
+      for (int j = 0; j < 80; j++) {
+        console.buffer[p++] = debug_buf[q++];
+      }
+    }
+    console_render_buffer();
+    console.cur.x = debug_console.x;
+    console.cur.y = debug_console.y;
+    print_char_function = &console_debug_print_char;
+    console_start_background_task();
+
+    kprintf("mode %#x: %ux%u %u bits\n",
+            (uint32_t) graphics_mode.number,
+            (uint32_t) graphics_mode.width,
+            (uint32_t) graphics_mode.height,
+            (uint32_t) graphics_mode.bpp);
+    kprintf("console %dx%d\n",
+            console.width, console.height);
+  }
+
+  ffree(debug_buf);
 
   LIST_HEAD(devices);
   pci_scan(&devices);

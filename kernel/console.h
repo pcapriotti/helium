@@ -29,5 +29,6 @@ void console_render_char(uint32_t *pos, char c, uint32_t fg);
 void console_render_buffer(void);
 
 void console_debug_print_char(char c);
+void console_start_background_task();
 
 #endif /* CONSOLE_H */

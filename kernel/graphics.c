@@ -22,24 +22,6 @@ typedef struct {
   uint8_t scratchpad[256];
 } __attribute__((packed)) vbe_info_t;
 
-int get_graphics_info(vbe_info_t *info)
-{
-  info->signature = 0x32454256;
-
-  regs16_t regs;
-  regs.eax = 0x4f00;
-  regs.es = 0;
-  regs.edi = (uint32_t) info;
-
-  bios_int(0x10, &regs);
-
-  if ((regs.eax & 0xff) != 0x4f) {
-    return -1;
-  }
-
-  return 0;
-}
-
 typedef struct vbe_mode_info_t {
   uint16_t attributes; uint8_t win_a_attrs; uint8_t win_b_attrs;
   uint16_t win_granularity; uint16_t win_size;
@@ -59,12 +41,46 @@ typedef struct vbe_mode_info_t {
   uint8_t reserved3[190];
 } __attribute__((packed)) vbe_mode_info_t;
 
+int get_graphics_info(vbe_info_t *info)
+{
+  info->signature = 0x32454256;
+
+  regs16_t regs;
+  regs.eax = 0x4f00;
+  regs.es = 0;
+  regs.edi = (uint32_t) info;
+
+  bios_int(0x10, &regs);
+
+  if ((regs.eax & 0xffff) != 0x004f)
+    return -1;
+
+  return 0;
+}
+
+int get_mode(uint16_t number, vbe_mode_info_t *info)
+{
+  if (number == 0) return -1;
+
+  regs16_t regs;
+
+  regs.eax = 0x4f01;
+  regs.ecx = number;
+  regs.es = 0;
+  regs.edi = (uint32_t) info;
+
+  bios_int(0x10, &regs);
+  if ((regs.eax & 0xffff) != 0x004f)
+    return -1;
+
+  return 0;
+}
+
 /* find the best matching mode among the supported ones */
 int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
 {
   vbe_mode_info_t info;
 
-  regs16_t regs;
   int num_modes = 0;
 
   int best_score = -1;
@@ -78,13 +94,7 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     num_modes++;
     if (best_score == 0) continue;
 
-    regs.eax = 0x4f01;
-    regs.ecx = modes[i];
-    regs.es = 0;
-    regs.edi = (uint32_t) &info;
-
-    bios_int(0x10, &regs);
-    if ((regs.eax & 0xff) != 0x4f) return -1;
+    if (get_mode(modes[i], &info) == -1) continue;
 
     int score = 0;
     if (req_width > 0) {
@@ -146,15 +156,40 @@ int graphics_init(vbe_mode_t *req_mode)
 {
   vbe_info_t graphics_info;
 
-  if (get_graphics_info(&graphics_info) == -1)
-    return -1;
+  if (req_mode->number != 0) {
+    vbe_mode_info_t info;
+    if (get_mode(req_mode->number, &info) == -1)
+      return -1;
 
-  uint16_t *modes = (uint16_t *)
-    ptr16_to_linear(graphics_info.modes);
+    req_mode->index = 0;
+    req_mode->width = info.width;
+    req_mode->height = info.height;
+    req_mode->bpp = info.bpp;
+    req_mode->pitch = info.pitch;
+    req_mode->framebuffer = info.framebuffer;
+    req_mode->colour_info = info.colour_info;
+  }
+  else {
+    if (get_graphics_info(&graphics_info) == -1)
+      return -1;
 
-  /* find best matching mode */
-  if (find_mode(req_mode, modes) == -1)
+    uint16_t *modes = (uint16_t *)
+      ptr16_to_linear(graphics_info.modes);
+
+    /* find best matching mode */
+    if (find_mode(req_mode, modes) == -1)
+      return -1;
+  }
+
+
+  if (req_mode->bpp != 32) {
+    kprintf("unsupported mode %#x: %ux%u %u bits\n",
+            (uint32_t) req_mode->number,
+            (uint32_t) req_mode->width,
+            (uint32_t) req_mode->height,
+            (uint32_t) req_mode->bpp);
     return -1;
+  }
 
   /* enable mode */
   regs16_t regs;
