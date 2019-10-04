@@ -15,6 +15,7 @@
 #include "memory.h"
 #include "pci.h"
 #include "scheduler.h"
+#include "shell.h"
 #include "timer.h"
 
 #include <stdint.h>
@@ -47,14 +48,6 @@ void ata_read_closure(void *data, void *buf,
                  buf);
 }
 
-void on_kb_event(kb_event_t *event)
-{
-  if (event->pressed && event->printable) {
-    serial_printf("pressed: %c\n", event->printable);
-    kprintf("%c", event->printable);
-  }
-}
-
 void root_task()
 {
   if (graphics) {
@@ -70,7 +63,7 @@ void root_task()
   LIST_HEAD(devices);
   pci_scan(&devices);
 
-  kb_grab(on_kb_event);
+  sched_spawn_task(shell_main);
 
   kprintf("Ok.\n");
 }

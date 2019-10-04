@@ -19,7 +19,8 @@ static task_t kb_tasklet = {
 /* whether the tasklet is already processing a keyboard event */
 static int kb_tasklet_running = 0;
 
-void (*kb_on_event)(kb_event_t *event) = 0;
+void (*kb_on_event)(kb_event_t *event, void *data) = 0;
+void *kb_on_event_data = 0;
 static kb_event_t last_event;
 
 enum {
@@ -115,7 +116,7 @@ void kb_propagate_event(uint8_t scancode)
 {
   if (!kb_on_event) return;
   kb_event_t *event = kb_generate_event(scancode);
-  if (event) kb_on_event(event);
+  if (event) kb_on_event(event, kb_on_event_data);
 }
 
 void kb_process_scancodes()
@@ -192,7 +193,8 @@ void kb_irq(void)
   pic_eoi(IRQ_KEYBOARD);
 }
 
-void kb_grab(void (*on_event)(kb_event_t *event))
+void kb_grab(void (*on_event)(kb_event_t *event, void *data), void *data)
 {
   kb_on_event = on_event;
+  kb_on_event_data = data;
 }

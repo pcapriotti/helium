@@ -47,6 +47,6 @@ typedef struct {
 extern queue_t kb_events;
 
 /* add a process to the keyboard waiting queue */
-void kb_grab(void (*)(kb_event_t *event));
+void kb_grab(void (*on_event)(kb_event_t *event, void *data), void *data);
 
 #endif /* KEYBOARD_H */
