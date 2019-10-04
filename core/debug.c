@@ -4,6 +4,10 @@
 #include <stdarg.h>
 #include <math.h>
 
+enum {
+  COM1_PORT = 0x3f8
+};
+
 volatile int debug_key_pressed = 0;
 int debug_paging = 0;
 
@@ -24,6 +28,16 @@ void panic(void)
 
 volatile uint16_t *vga_text = VGA_TEXT;
 debug_console_t debug_console = {0, 0, VGA_TEXT};
+
+void serial_port_init() {
+  outb(COM1_PORT + 1, 0x00); /* Disable all interrupts */
+  outb(COM1_PORT + 3, 0x80); /* Enable DLAB (set baud rate divisor) */
+  outb(COM1_PORT + 0, 0x03); /* Set divisor to 3 (lo byte) 38400 baud */
+  outb(COM1_PORT + 1, 0x00); /*                  (hi byte) */
+  outb(COM1_PORT + 3, 0x03); /* 8 bits, no parity, one stop bit */
+  outb(COM1_PORT + 2, 0xC7); /* Enable FIFO, clear them, with 14-byte threshold */
+  outb(COM1_PORT + 4, 0x0B); /* IRQs enabled, RTS/DSR set */
+}
 
 void debug_print_char(char c)
 {
@@ -54,8 +68,14 @@ void debug_print_char(char c)
 
 void serial_print_char(char c)
 {
+  static int serial_port_initialised = 0;
+  if (!serial_port_initialised) {
+    serial_port_init();
+    serial_port_initialised = 1;
+  }
   if (c == '\n')
-    outb(0x3f8, '\r');
+    serial_print_char('\r');
+  while ((inb(COM1_PORT + 5) & 0x20) == 0);
   outb(0x3f8, c);
 }
 
