@@ -201,6 +201,13 @@ void console_print_char(char c, uint8_t colour)
   if (redraw) sem_signal(&console.paint_sem);
 }
 
+void console_delete_char(point_t c)
+{
+  uint16_t *p = console.buffer + c.x +
+    (c.y % console.height) * console.width;
+  *p = 0;
+}
+
 void console_print_str(const char *s, uint8_t colour)
 {
   int redraw = 0;
@@ -214,6 +221,7 @@ void console_print_str(const char *s, uint8_t colour)
 
   if (redraw) sem_signal(&console.paint_sem);
 }
+
 
 void console_debug_print_char(char c)
 {

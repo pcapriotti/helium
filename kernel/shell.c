@@ -1,3 +1,4 @@
+#include "console.h"
 #include "core/debug.h"
 #include "keyboard.h"
 #include "semaphore.h"
@@ -36,6 +37,20 @@ void on_kb_event(kb_event_t *event, void *data)
     shell_process_command(shell, shell->input);
     shell->input_len = 0;
     shell_draw_prompt(shell);
+  }
+  else if (event->keycode == KC_BSP) {
+    if (shell->input_len > 0) {
+      sem_wait(&console.write_sem);
+      point_t p = console.cur;
+      if (p.x > 0) p.x--;
+      console_delete_char(p);
+      console.cur = p;
+      console.dirty = 1;
+      sem_signal(&console.write_sem);
+      sem_signal(&console.paint_sem);
+
+      shell->input_len--;
+    }
   }
   else if (event->printable) {
     if (shell->input_len < INPUT_BUF_SIZE - 1) {
