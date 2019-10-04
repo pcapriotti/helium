@@ -10,6 +10,13 @@
 
 #include <assert.h>
 
+#define SCHED_DEBUG 0
+#if SCHED_DEBUG
+#define TRACE(...) serial_printf(__VA_ARGS__)
+#else
+#define TRACE(...) do {} while(0)
+#endif
+
 #define SCHED_QUANTUM 20
 
 task_t *sched_runqueue = 0;
@@ -115,7 +122,7 @@ void sched_schedule(isr_stack_t *stack)
   sched_current = task_list_pop(&sched_runqueue);
 
   if (previous || sched_current) {
-    serial_printf("switch %p => %p\n", previous, sched_current);
+    TRACE("switch %p => %p\n", previous, sched_current);
   }
 
   /* same task, no switch necessary */
@@ -135,7 +142,7 @@ void sched_schedule(isr_stack_t *stack)
 
 void task_terminate()
 {
-  serial_printf("task %p terminating\n", sched_current);
+  TRACE("task %p terminating\n", sched_current);
   sched_disable_preemption();
   sched_current->state = TASK_TERMINATED;
   sched_yield();
@@ -168,7 +175,7 @@ void sched_spawn_task(task_entry_t entry)
   task->stack->eflags = EFLAGS_IF;
 
   task_list_add(&sched_runqueue, task);
-  serial_printf("spawned %p\n", task);
+  TRACE("spawned %p\n", task);
 
   sched_enable_preemption();
 }
@@ -194,7 +201,7 @@ void sched_yield(void)
   assert(sched_locked == 1);
   cli();
   sched_locked = 0;
-  serial_printf("%p yield (state = %u)\n", sched_current, sched_current ? sched_current->state : 0);
+  TRACE("%p yield (state = %u)\n", sched_current, sched_current ? sched_current->state : 0);
   syscall_yield();
   sti();
 }

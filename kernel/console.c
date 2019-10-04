@@ -7,6 +7,13 @@
 
 #include <string.h>
 
+#define CONSOLE_DEBUG 0
+#if CONSOLE_DEBUG
+#define TRACE(...) serial_printf(__VA_ARGS__)
+#else
+#define TRACE(...) do {} while(0)
+#endif
+
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
@@ -116,7 +123,7 @@ uint32_t palette[8] = {
 void console_render_buffer()
 {
   if (!console.dirty) return;
-  serial_printf("start rendering\n");
+  TRACE("start rendering\n");
   uint32_t *pos = at((point_t) {0, 0});
   int coffset = console.offset * console.width;
   int num_chars = console.height * console.width;
@@ -131,7 +138,7 @@ void console_render_buffer()
     }
   }
   console.dirty = 0;
-  serial_printf("done rendering\n");
+  TRACE("done rendering\n");
 }
 
 void console_clear_line(int y)
