@@ -105,11 +105,18 @@ void sched_schedule(isr_stack_t *stack)
     if (sched_current->state == TASK_RUNNING) {
       task_list_add(&sched_runqueue, sched_current);
     }
+    else if (sched_current->state == TASK_TERMINATED) {
+      ffree(sched_current->stack_top);
+    }
   }
 
   /* update current task */
   task_t *previous = sched_current;
   sched_current = task_list_pop(&sched_runqueue);
+
+  if (previous || sched_current) {
+    serial_printf("switch %p => %p\n", previous, sched_current);
+  }
 
   /* same task, no switch necessary */
   if (sched_current == previous) return;
@@ -143,6 +150,7 @@ void sched_spawn_task(task_entry_t entry)
   task->stack->eflags = EFLAGS_IF;
 
   task_list_add(&sched_runqueue, task);
+  serial_printf("spawned %p\n", task);
 
   sched_enable_preemption();
 }
@@ -168,6 +176,7 @@ void sched_yield(void)
   assert(sched_locked == 1);
   cli();
   sched_locked = 0;
+  serial_printf("%p yield (state = %u)\n", sched_current, sched_current ? sched_current->state : 0);
   syscall_yield();
   sti();
 }

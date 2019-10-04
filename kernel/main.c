@@ -23,6 +23,8 @@
 
 void hang_system(void);
 
+static int graphics = 0;
+
 typedef struct {
   drive_t *drive;
   uint32_t part_offset;
@@ -48,8 +50,33 @@ void ata_read_closure(void *data, void *buf,
 void on_kb_event(kb_event_t *event)
 {
   if (event->pressed && event->printable) {
+    serial_printf("pressed: %c\n", event->printable);
     kprintf("%c", event->printable);
   }
+}
+
+void root_task()
+{
+  if (graphics) {
+    kprintf("mode %#x: %ux%u %u bits\n",
+            (uint32_t) graphics_mode.number,
+            (uint32_t) graphics_mode.width,
+            (uint32_t) graphics_mode.height,
+            (uint32_t) graphics_mode.bpp);
+    kprintf("console %dx%d\n",
+            console.width, console.height);
+  }
+
+  LIST_HEAD(devices);
+  pci_scan(&devices);
+
+  kb_grab(on_kb_event);
+
+  kprintf("Ok.\n");
+
+  sched_disable_preemption();
+  sched_current->state = TASK_TERMINATED;
+  sched_yield();
 }
 
 void kmain()
@@ -85,6 +112,8 @@ void kmain()
   /* set up a temporary heap in low memory */
   void *heap = (void *)0x500;
 
+  /* initialise serial port */
+
   if (timer_init() == -1) panic();
   if (kb_init() == -1) panic();
   sti();
@@ -104,7 +133,6 @@ void kmain()
     }
   }
 
-  int graphics = 0;
   {
     vbe_mode_t mode;
     mode.width = 1920;
@@ -133,29 +161,14 @@ void kmain()
     console.cur.x = debug_console.x;
     console.cur.y = debug_console.y;
     print_char_function = &console_debug_print_char;
+    serial_printf("background task:\n");
     console_start_background_task();
-
-    kprintf("mode %#x: %ux%u %u bits\n",
-            (uint32_t) graphics_mode.number,
-            (uint32_t) graphics_mode.width,
-            (uint32_t) graphics_mode.height,
-            (uint32_t) graphics_mode.bpp);
-    kprintf("console %dx%d\n",
-            console.width, console.height);
   }
-
   ffree(debug_buf);
 
-  LIST_HEAD(devices);
-  pci_scan(&devices);
-
-  kb_grab(on_kb_event);
-
-  kprintf("Ok.\n");
-
-  sched_enable_preemption();
-
-  hang_system();
+  serial_printf("root task:\n");
+  sched_spawn_task(root_task);
+  sched_yield();
 }
 
 __asm__

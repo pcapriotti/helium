@@ -18,7 +18,8 @@ typedef struct task {
 enum {
   TASK_RUNNING,
   TASK_STOPPED,
-  TASK_WAITING
+  TASK_WAITING,
+  TASK_TERMINATED,
 };
 
 extern task_t *sched_current;

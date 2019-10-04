@@ -11,7 +11,7 @@
 #define FONT_WIDTH 8
 #define FONT_HEIGHT 16
 
-console_t console;
+console_t console = {0};
 
 static inline uint32_t mask(uint8_t size, uint8_t position)
 {
@@ -55,6 +55,9 @@ int console_init(void)
   console.cur = (point_t){0, 0};
   console.dirty = 0;
 
+  sem_init(&console.write_sem, 1);
+  sem_init(&console.paint_sem, 0);
+
   return 0;
 }
 
@@ -66,8 +69,11 @@ void console_start_background_task()
 void console_renderer(void)
 {
   while (1) {
+    sem_wait(&console.write_sem);
     console_render_buffer();
-    timer_sleep(16);
+    sem_signal(&console.write_sem);
+
+    sem_wait(&console.paint_sem);
   }
 }
 
@@ -109,6 +115,8 @@ uint32_t palette[8] = {
 
 void console_render_buffer()
 {
+  if (!console.dirty) return;
+  serial_printf("start rendering\n");
   uint32_t *pos = at((point_t) {0, 0});
   int coffset = console.offset * console.width;
   int num_chars = console.height * console.width;
@@ -122,8 +130,8 @@ void console_render_buffer()
       pos += FONT_HEIGHT * console.pitch - FONT_WIDTH * console.width;
     }
   }
-
   console.dirty = 0;
+  serial_printf("done rendering\n");
 }
 
 void console_clear_line(int y)
@@ -134,8 +142,11 @@ void console_clear_line(int y)
   memset(p, 0, console.width * sizeof(uint16_t));
 }
 
-void console_print_char(char c, uint8_t colour)
+/* print a character, return whether a redraw is needed */
+int _console_print_char(char c, uint8_t colour)
 {
+  int dirty0 = console.dirty;
+
   uint16_t *p = console.buffer +
     console.cur.x +
     (console.cur.y % console.height) *
@@ -155,14 +166,31 @@ void console_print_char(char c, uint8_t colour)
     console.offset++;
     console.dirty = 1;
   }
+
+  return console.dirty ^ dirty0;
+}
+
+void console_print_char(char c, uint8_t colour)
+{
+  sem_wait(&console.write_sem);
+  int redraw = _console_print_char(c, colour);
+  sem_signal(&console.write_sem);
+
+  if (redraw) sem_signal(&console.paint_sem);
 }
 
 void console_print_str(const char *s, uint8_t colour)
 {
+  int redraw = 0;
+
   char c;
   while ((c = *s++)) {
-    console_print_char(c, colour);
+    sem_wait(&console.write_sem);
+    redraw = redraw || _console_print_char(c, colour);
+    sem_signal(&console.write_sem);
   }
+
+  if (redraw) sem_signal(&console.paint_sem);
 }
 
 void console_debug_print_char(char c)

@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <math.h>
 
+#define SERIAL_DEBUG 0
+
 enum {
   COM1_PORT = 0x3f8
 };
@@ -322,6 +324,7 @@ int kprintf(const char *fmt, ...)
 
 int serial_printf(const char *fmt, ...)
 {
+#if SERIAL_DEBUG
   va_list list;
   va_start(list, fmt);
 
@@ -330,6 +333,9 @@ int serial_printf(const char *fmt, ...)
   va_end(list);
 
   return ret;
+#else
+  return 0;
+#endif
 }
 
 void debug_str(const char *s)

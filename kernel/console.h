@@ -1,7 +1,9 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#include "stdint.h"
+#include <stdint.h>
+
+#include "semaphore.h"
 
 typedef struct { int x, y; } point_t;
 
@@ -15,6 +17,9 @@ typedef struct {
   int offset;
   uint16_t *buffer;
   point_t cur;
+
+  semaphore_t write_sem;
+  semaphore_t paint_sem;
 } console_t;
 
 extern console_t console;

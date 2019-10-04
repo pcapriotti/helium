@@ -16,6 +16,8 @@ static uint32_t kb_tasklet_stack[256];
 static task_t kb_tasklet = {
   .state = TASK_STOPPED,
 };
+/* whether the tasklet is already processing a keyboard event */
+static int kb_tasklet_running = 0;
 
 void (*kb_on_event)(kb_event_t *event) = 0;
 static kb_event_t last_event;
@@ -132,6 +134,7 @@ void kb_process_scancodes()
     }
 
     sched_current->state = TASK_WAITING;
+    kb_tasklet_running = 0;
     pic_unmask(IRQ_KEYBOARD);
     sched_yield();
   }
@@ -162,7 +165,7 @@ void kb_irq(void)
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
 
-#ifdef KB_TASKLET
+#if KB_TASKLET
   kb_scancode_buffer[kb_scancodes.end] = scancode;
   kb_scancodes.end = (kb_scancodes.end + 1) % kb_scancodes.size;
   if (kb_scancodes.end == kb_scancodes.start) {
@@ -171,9 +174,13 @@ void kb_irq(void)
   }
 
   /* add tasklet to scheduler */
-  if (kb_tasklet.state != TASK_RUNNING) {
+  if (!kb_tasklet_running) {
+    /* note that we can't just check the task state to deterine if the
+    tasklet is running, because it may be blocked on a semaphore, in
+    which case we don't want to wake it prematurely */
     kb_tasklet.state = TASK_RUNNING;
     task_list_add(&sched_runqueue, &kb_tasklet);
+    kb_tasklet_running = 1;
   }
 #else
   kb_event_t *event = kb_generate_event(scancode);
