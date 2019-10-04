@@ -25,6 +25,7 @@ void debug_str(const char *msg);
 void debug_byte(uint8_t x);
 
 int kprintf(const char *fmt, ...);
+int serial_printf(const char *fmt, ...);
 
 void (*print_char_function)(char c);
 

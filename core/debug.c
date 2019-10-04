@@ -1,9 +1,8 @@
 #include "debug.h"
+#include "io.h"
 
 #include <stdarg.h>
 #include <math.h>
-
-#undef SERIAL_PORT_DEBUG
 
 volatile int debug_key_pressed = 0;
 int debug_paging = 0;
@@ -53,18 +52,23 @@ void debug_print_char(char c)
   }
 }
 
+void serial_print_char(char c)
+{
+  if (c == '\n')
+    outb(0x3f8, '\r');
+  outb(0x3f8, c);
+}
+
 void (*print_char_function)(char c) = debug_print_char;
 
-void print_char(char c) {
-  print_char_function(c);
-}
+typedef void (*print_char_t)(char);
 
 int isdigit(char c)
 {
   return c >= '0' && c <= '9';
 }
 
-int print_string(const char *s)
+int print_string(print_char_t print_char, const char *s)
 {
   char c;
   int i = 0;
@@ -75,7 +79,7 @@ int print_string(const char *s)
   return i;
 }
 
-void print_digit(uint8_t d)
+void print_digit(print_char_t print_char, uint8_t d)
 {
   if (d < 10) {
     print_char(d + '0');
@@ -85,7 +89,7 @@ void print_digit(uint8_t d)
   }
 }
 
-void print_digit_X(uint8_t d)
+void print_digit_X(print_char_t print_char, uint8_t d)
 {
   if (d < 10) {
     print_char(d + '0');
@@ -95,7 +99,8 @@ void print_digit_X(uint8_t d)
   }
 }
 
-int print_uint(uintmax_t n, unsigned int base, int X, int alt, int padded, int width)
+int print_uint(print_char_t print_char, uintmax_t n, unsigned int base,
+               int X, int alt, int padded, int width)
 {
   uint8_t str[256];
 
@@ -138,26 +143,27 @@ int print_uint(uintmax_t n, unsigned int base, int X, int alt, int padded, int w
   }
   for (int i = 0; i < digits; i++) {
     if (X)
-      print_digit_X(str[i]);
+      print_digit_X(print_char, str[i]);
     else
-      print_digit(str[i]);
+      print_digit(print_char, str[i]);
   }
 
   return digits;
 }
 
-static inline int print_int(intmax_t n, int base, int X, int alt, int padded, int width)
+static inline int print_int(print_char_t print_char, intmax_t n, int base,
+                            int X, int alt, int padded, int width)
 {
   if (n < 0) {
     print_char('-');
-    return print_uint(-n, base, X, alt, padded, width);
+    return print_uint(print_char, -n, base, X, alt, padded, width);
   }
   else {
-    return print_uint(n, base, X, alt, padded, width);
+    return print_uint(print_char, n, base, X, alt, padded, width);
   }
 }
 
-int kvprintf(const char *fmt, va_list list)
+int kvprintf(print_char_t print_char, const char *fmt, va_list list)
 {
   int count = 0;
   for (int i = 0; fmt[i]; i++) {
@@ -232,7 +238,7 @@ int kvprintf(const char *fmt, va_list list)
       case 's':
         {
           const char *s = va_arg(list, const char *);
-          count += print_string(s);
+          count += print_string(print_char, s);
         }
         break;
       case 'd':
@@ -248,7 +254,7 @@ int kvprintf(const char *fmt, va_list list)
           else {
             n = va_arg(list, int);
           }
-          count += print_int(n, 10, 0, alt, padded, width);
+          count += print_int(print_char, n, 10, 0, alt, padded, width);
         }
         break;
       case 'o':
@@ -270,7 +276,7 @@ int kvprintf(const char *fmt, va_list list)
           else {
             n = va_arg(list, unsigned int);
           }
-          count += print_uint(n, base, 0, alt, padded, width);
+          count += print_uint(print_char, n, base, 0, alt, padded, width);
         }
       }
     }
@@ -287,7 +293,19 @@ int kprintf(const char *fmt, ...)
   va_list list;
   va_start(list, fmt);
 
-  int ret = kvprintf(fmt, list);
+  int ret = kvprintf(print_char_function, fmt, list);
+
+  va_end(list);
+
+  return ret;
+}
+
+int serial_printf(const char *fmt, ...)
+{
+  va_list list;
+  va_start(list, fmt);
+
+  int ret = kvprintf(serial_print_char, fmt, list);
 
   va_end(list);
 
@@ -296,11 +314,11 @@ int kprintf(const char *fmt, ...)
 
 void debug_str(const char *s)
 {
-  print_string(s);
+  print_string(debug_print_char, s);
 }
 
 void debug_byte(uint8_t x)
 {
-  print_digit(x >> 4);
-  print_digit(x & 0xf);
+  print_digit(debug_print_char, x >> 4);
+  print_digit(debug_print_char, x & 0xf);
 }
