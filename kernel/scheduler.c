@@ -133,6 +133,14 @@ void sched_schedule(isr_stack_t *stack)
   context_switch(sched_current->stack);
 }
 
+void task_terminate()
+{
+  serial_printf("task %p terminating\n", sched_current);
+  sched_disable_preemption();
+  sched_current->state = TASK_TERMINATED;
+  sched_yield();
+}
+
 void sched_spawn_task(task_entry_t entry)
 {
   sched_disable_preemption();
@@ -140,7 +148,17 @@ void sched_spawn_task(task_entry_t entry)
   /* allocate memory for the task */
   task_t *task = kmalloc(sizeof(task_t));
   task->stack_top = falloc(0x4000);
-  task->stack = task->stack_top + 0x4000 - sizeof(isr_stack_t);
+
+  void *stack = task->stack_top + 0x4000;
+  /* add stack guard */
+  stack -= sizeof(void *);
+  {
+    void **guard = (void **)stack;
+    *guard = task_terminate;
+  }
+
+  stack -= sizeof(isr_stack_t);
+  task->stack = stack;
   task->state = TASK_RUNNING;
   task->timeout = timer_get_tick(); /* start immediately */
 

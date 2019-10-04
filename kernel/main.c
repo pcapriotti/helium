@@ -73,10 +73,6 @@ void root_task()
   kb_grab(on_kb_event);
 
   kprintf("Ok.\n");
-
-  sched_disable_preemption();
-  sched_current->state = TASK_TERMINATED;
-  sched_yield();
 }
 
 void kmain()
