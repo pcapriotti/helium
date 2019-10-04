@@ -1,3 +1,4 @@
+#include "core/debug.h"
 #include "scheduler.h"
 #include "semaphore.h"
 
@@ -21,19 +22,25 @@ void sem_wait(semaphore_t *sem)
 {
   spin_lock(&sem->lock);
 
-  if (--sem->value <= 0) {
+  if (--sem->value < 0) {
+    serial_printf("sem (%p): sleeping\n", sched_current);
     sched_current->state = TASK_WAITING;
     task_list_add(&sem->waiting, sched_current);
+    spin_unlock(&sem->lock);
+    sched_disable_preemption();
+    sched_yield();
   }
-
-  spin_unlock(&sem->lock);
+  else {
+    spin_unlock(&sem->lock);
+  }
 }
 
 void sem_signal(semaphore_t *sem)
 {
   spin_lock(&sem->lock);
 
-  if (sem->value++ <= 0 && sem->waiting) {
+  if (sem->value++ < 0 && sem->waiting) {
+    serial_printf("sem (%p): waking %p\n", sched_current, sem->waiting);
     task_t *task = task_list_pop(&sem->waiting);
     task->state = TASK_RUNNING;
     task_list_add(&sched_runqueue, task);
