@@ -46,6 +46,7 @@ void v8086_gpf_handler(v8086_isr_stack_t *stack)
     if (v8086_tracing) debug_str("[v8086] opsize\n");
     addr++;
     stack->eip++;
+    op32 = 1;
   }
   else if (*addr == 0x67) {
     if (v8086_tracing) debug_str("[v8086] adsize\n");
