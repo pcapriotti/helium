@@ -270,7 +270,7 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
 
      : "=m"(kernel_tss.tss.esp0), "=a"(ctx)
      : "a"(&stack), "c"(regs)
-     : "%ebx", "%edx", "%edi", "%ebp");
+     : "%ebx", "%edx", "%edi", "%ebp", "%esi");
 
   /* update regs structure */
   regs->eax = ctx->eax;
