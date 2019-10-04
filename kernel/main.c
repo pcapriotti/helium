@@ -24,8 +24,6 @@
 
 void hang_system(void);
 
-static int graphics = 0;
-
 typedef struct {
   drive_t *drive;
   uint32_t part_offset;
@@ -50,7 +48,7 @@ void ata_read_closure(void *data, void *buf,
 
 void root_task()
 {
-  if (graphics) {
+  if (graphics_mode.number) {
     kprintf("mode %#x: %ux%u %u bits\n",
             (uint32_t) graphics_mode.number,
             (uint32_t) graphics_mode.width,
@@ -69,7 +67,7 @@ void root_task()
   kprintf("Ok.\n");
 }
 
-void kmain()
+void kernel_start(uint32_t magic, void *multiboot_info)
 {
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
@@ -82,9 +80,6 @@ void kmain()
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   set_kernel_idt();
-
-  /* add idt entry for syscalls */
-
 
   pic_setup();
   /* set text mode */
@@ -125,20 +120,17 @@ void kmain()
 
   {
     vbe_mode_t mode;
-    mode.width = 1920;
-    mode.height = 1080;
+    mode.width = 800;
+    mode.height = 600;
     mode.bpp = 32;
     mode.number = 0;
     if (graphics_init(&mode) == -1) {
       kprintf("ERROR: could not enter graphic mode\n");
     }
-    else {
-      graphics = 1;
-    }
     (void) mode;
   }
 
-  if (graphics) {
+  if (graphics_mode.number) {
     if (console_init() == -1) panic();
     for (int i = 0; i < 25; i++) {
       int p = console.width * i;

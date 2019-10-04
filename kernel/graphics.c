@@ -2,8 +2,10 @@
 #include "core/v8086.h"
 #include "graphics.h"
 
+#define GRAPHICS_DEBUG 0
+
 font_t graphics_font;
-vbe_mode_t graphics_mode;
+vbe_mode_t graphics_mode = {0};
 
 typedef struct {
   uint32_t signature;
@@ -44,13 +46,31 @@ typedef struct vbe_mode_info_t {
 int get_graphics_info(vbe_info_t *info)
 {
   info->signature = 0x32454256;
+  ptr16_t infop = linear_to_ptr16((uint32_t) info);
 
   regs16_t regs;
   regs.eax = 0x4f00;
-  regs.es = 0;
-  regs.edi = (uint32_t) info;
+  regs.es = infop.segment;
+  regs.edi = infop.offset;
 
+#if GRAPHICS_DEBUG
+  kprintf("get_graphics_info at %04x:%#04x (%p)\n",
+          infop.segment, infop.offset, info);
+#endif
   bios_int(0x10, &regs);
+#if GRAPHICS_DEBUG
+  {
+    int count = 0;
+    uint16_t *modes0 = (uint16_t *)ptr16_to_linear(info->modes);
+    uint16_t *modes = modes0;
+    while (*modes != 0xffff) {
+      count++;
+      modes++;
+    }
+    kprintf("found %d modes at %#04x:%#04x (%p)\n", count,
+            info->modes.segment, info->modes.offset, modes0);
+  }
+#endif
 
   if ((regs.eax & 0xffff) != 0x004f)
     return -1;
@@ -63,11 +83,12 @@ int get_mode(uint16_t number, vbe_mode_info_t *info)
   if (number == 0) return -1;
 
   regs16_t regs;
+  ptr16_t infop = linear_to_ptr16((uint32_t) info);
 
   regs.eax = 0x4f01;
   regs.ecx = number;
-  regs.es = 0;
-  regs.edi = (uint32_t) info;
+  regs.es = infop.segment;
+  regs.edi = infop.offset;
 
   bios_int(0x10, &regs);
   if ((regs.eax & 0xffff) != 0x004f)
@@ -94,7 +115,17 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     num_modes++;
     if (best_score == 0) continue;
 
+#if GRAPHICS_DEBUG
+    kprintf("requesting info for mode %#x\n", modes[i]);
+#endif
     if (get_mode(modes[i], &info) == -1) continue;
+#if GRAPHICS_DEBUG
+    kprintf("results for %#x: %ux%u %u bits\n",
+            (uint32_t) modes[i],
+            (uint32_t) info.width,
+            (uint32_t) info.height,
+            (uint32_t) info.bpp);
+#endif
 
     int score = 0;
     if (req_width > 0) {
@@ -114,6 +145,9 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
       score += x;
     }
 
+/* #if GRAPHICS_DEBUG */
+/*     kprintf("score: %u\n", score); */
+/* #endif */
 
     if (best == -1 || score < best_score) {
       best_score = score;
@@ -190,6 +224,10 @@ int graphics_init(vbe_mode_t *req_mode)
             (uint32_t) req_mode->bpp);
     return -1;
   }
+
+#if GRAPHICS_DEBUG
+  return -1;
+#endif
 
   /* enable mode */
   regs16_t regs;

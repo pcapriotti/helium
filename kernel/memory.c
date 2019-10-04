@@ -234,15 +234,12 @@ int mem_info(void *startp, size_t size, void *data)
   uint64_t start = (uint32_t) startp;
   uint64_t length = size ? size : 1ULL << 32;
 
-  /* kprintf("[mi] start = %#llx, length = %#llx\n", start, length); */
-
   int i = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start);
   int j = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start + length);
   if (i < 0) {
     i = 0;
     reserved = 1;
   }
-  /* kprintf("[mi] i = %d, j = %d\n", i, j); */
 
   for (int k = i; k <= j; k++) {
     if (chunk_info->chunks[k].type == MM_AVAILABLE) {

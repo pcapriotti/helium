@@ -1,6 +1,8 @@
 #ifndef V8086_H
 #define V8086_H
 
+#include <assert.h>
+
 #define V8086_STACK_BASE 0x2000
 #define V8086_HEAP 0x2800
 
@@ -29,6 +31,7 @@ static inline uint32_t ptr16_to_linear(ptr16_t ptr)
 
 static inline void linear_to_seg_off(uint32_t p, uint16_t *seg, uint16_t *off)
 {
+  assert(p < 0x100000);
   *seg = (p >> 4) & 0xf000;
   *off = p;
 }
