@@ -28,8 +28,8 @@ static inline uint32_t mask(uint8_t size, uint8_t position)
 static inline uint32_t *at(point_t p)
 {
   return console.fb +
-    p.x * 8 +
-    p.y * console.pitch;
+    p.x * FONT_WIDTH +
+    p.y * console.pitch * FONT_HEIGHT;
 }
 
 int console_init(void)
@@ -89,9 +89,22 @@ uint32_t *console_at(point_t p)
   return at(p);
 }
 
+void console_render_cursor(uint32_t fg)
+{
+  uint32_t *pos = at(console.cur);
+  static const int cursor_height = 2;
+  pos += (FONT_HEIGHT - cursor_height) * console.pitch;
+  for (int i = 0; i < cursor_height; i++) {
+    for (int x = 0; x < FONT_WIDTH; x++) {
+      *pos++ = fg;
+    }
+    pos += console.pitch - FONT_WIDTH;
+  }
+}
+
 void console_render_char(uint32_t *pos, char c, uint32_t fg)
 {
-  int pitch = console.pitch - 8;
+  int pitch = console.pitch - FONT_WIDTH;
 
   if (!c) {
     /* just draw background */
@@ -137,6 +150,8 @@ void console_render_buffer()
       pos += FONT_HEIGHT * console.pitch - FONT_WIDTH * console.width;
     }
   }
+  console_render_cursor(0x00ffffff);
+
   console.dirty = 0;
   TRACE("done rendering\n");
 }
