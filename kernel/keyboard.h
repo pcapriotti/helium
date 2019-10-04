@@ -33,6 +33,7 @@ typedef struct {
   uint8_t mods;
   uint8_t scancode;
   char printable;
+  unsigned long timestamp;
 } kb_event_t;
 
 /* circular array */

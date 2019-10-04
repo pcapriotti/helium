@@ -6,8 +6,11 @@
 #include "core/io.h"
 #include "core/v8086.h"
 #include "scheduler.h"
+#include "timer.h"
 
 #include <stddef.h>
+
+#define KB_TASKLET 1
 
 static uint32_t kb_tasklet_stack[256];
 static task_t kb_tasklet = {
@@ -76,35 +79,41 @@ char keycode_to_char(kb_keycode_t kc)
   return 0;
 }
 
-void kb_propagate_event(uint8_t scancode) {
-  if (!kb_on_event) return;
-
+kb_event_t *kb_generate_event(uint8_t scancode)
+{
   kb_keycode_t kc = kb_us_layout[scancode & 0x7f];
   unsigned int pressed = (scancode & 0x80) == 0;
 
   /* update modifiers */
   if (kc == KC_LSH || kc == KC_RSH) {
     MOD_SET(pressed, MOD_SHIFT);
-    return;
+    return 0;
   }
   if (kc == KC_CTR) {
     MOD_SET(pressed, MOD_CTRL);
-    return;
+    return 0;
   }
   if (kc == KC_ALT) {
     MOD_SET(pressed, MOD_ALT);
-    return;
+    return 0;
   }
 
-  /* generate event */
+  /* create event structure */
   kb_event_t *event = &last_event;
   event->pressed = pressed;
   event->keycode = kc;
   event->printable = keycode_to_char(kc);
   event->mods = kb_mods;
+  event->timestamp = timer_get_tick();
 
-  /* call handler */
-  kb_on_event(event);
+  return event;
+}
+
+void kb_propagate_event(uint8_t scancode)
+{
+  if (!kb_on_event) return;
+  kb_event_t *event = kb_generate_event(scancode);
+  if (event) kb_on_event(event);
 }
 
 void kb_process_scancodes()
@@ -152,8 +161,8 @@ void kb_irq(void)
 
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
-  pic_eoi(IRQ_KEYBOARD);
 
+#ifdef KB_TASKLET
   kb_scancode_buffer[kb_scancodes.end] = scancode;
   kb_scancodes.end = (kb_scancodes.end + 1) % kb_scancodes.size;
   if (kb_scancodes.end == kb_scancodes.start) {
@@ -166,6 +175,14 @@ void kb_irq(void)
     kb_tasklet.state = TASK_RUNNING;
     task_list_add(&sched_runqueue, &kb_tasklet);
   }
+#else
+  kb_event_t *event = kb_generate_event(scancode);
+  if (event->pressed && event->printable) {
+    kprintf("%c", event->printable);
+  }
+#endif
+
+  pic_eoi(IRQ_KEYBOARD);
 }
 
 void kb_grab(void (*on_event)(kb_event_t *event))
