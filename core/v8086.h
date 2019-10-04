@@ -47,6 +47,6 @@ enum {
 };
 
 struct isr_stack;
-int v8086_manager(struct isr_stack *stack);
+int v8086_manager(struct isr_stack *stack_);
 
 #endif /* V8086_H */

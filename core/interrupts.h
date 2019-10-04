@@ -70,11 +70,15 @@ extern tss_with_iomap_t kernel_tss;
 typedef struct isr_stack {
   uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
   uint32_t int_num, error;
-  uint32_t eip, cs, eflags, esp, ss;
-
-  /* these are only present when returning from v8086 */
-  uint32_t es, ds, fs, gs;
+  uint32_t eip, cs, eflags;
 } __attribute__((packed)) isr_stack_t;
+
+typedef struct v8086_isr_stack {
+  uint32_t edi, esi, ebp, esp_, ebx, edx, ecx, eax;
+  uint32_t int_num, error;
+  uint32_t eip, cs, eflags, esp, ss;
+  uint32_t es, ds, fs, gs;
+} __attribute__((packed)) v8086_isr_stack_t;
 
 typedef struct {
   uint8_t code[10];

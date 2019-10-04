@@ -4,7 +4,7 @@
 
 int v8086_tracing = 0;
 
-void v8086_debug_dump(const char *s, isr_stack_t *stack)
+void v8086_debug_dump(const char *s, v8086_isr_stack_t *stack)
 {
   debug_str("[v8086] ");
   debug_str(s);
@@ -37,7 +37,7 @@ void v8086_debug_dump(const char *s, isr_stack_t *stack)
   debug_str("\n");
 }
 
-void v8086_gpf_handler(isr_stack_t *stack)
+void v8086_gpf_handler(v8086_isr_stack_t *stack)
 {
   uint8_t *addr = (uint8_t *)seg_off_to_linear(stack->cs, stack->eip);
   int op32 = 0;
@@ -143,8 +143,10 @@ void v8086_gpf_handler(isr_stack_t *stack)
   }
 }
 
-int v8086_manager(isr_stack_t *stack)
+int v8086_manager(isr_stack_t *stack_)
 {
+  v8086_isr_stack_t *stack = (void *)stack_;
+
   if (!(stack->eflags & EFLAGS_VM)) return 0;
 
   switch (stack->int_num) {
@@ -212,7 +214,7 @@ from v8086 to protected mode, and issuing an iret instruction, which
 will jump to the given entry point. */
 uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
 {
-  isr_stack_t *ctx;
+  v8086_isr_stack_t *ctx;
   uint32_t eflags;
 
   /* set up a stack guard, in case some BIOS code attempts to return

@@ -121,12 +121,12 @@ void sched_schedule(isr_stack_t *stack)
   task_t *previous = sched_current;
   sched_current = task_list_pop(&sched_runqueue);
 
+  /* same task, no switch necessary */
+  if (sched_current == previous) return;
+
   if (previous || sched_current) {
     TRACE("switch %p => %p\n", previous, sched_current);
   }
-
-  /* same task, no switch necessary */
-  if (sched_current == previous) return;
 
   if (!sched_current) {
     /* no more tasks, idle */
