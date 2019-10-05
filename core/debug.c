@@ -41,29 +41,34 @@ void serial_port_init() {
   outb(COM1_PORT + 4, 0x0B); /* IRQs enabled, RTS/DSR set */
 }
 
+#define DEBUG_CONSOLE_WIDTH 80
+#define DEBUG_CONSOLE_HEIGHT 25
+
 void debug_print_char(char c)
 {
   if (c == '\n') {
-    debug_console.p += 80 - debug_console.x;
+    debug_console.p += DEBUG_CONSOLE_WIDTH - debug_console.x;
     debug_console.y++;
     debug_console.x = 0;
   }
-  else if (debug_console.x < 80) {
+  else if (debug_console.x < DEBUG_CONSOLE_WIDTH) {
     *debug_console.p++ = 0x700 | c;
     debug_console.x++;
   }
-  if (debug_console.y == 25) {
+  if (debug_console.y == DEBUG_CONSOLE_HEIGHT) {
     if (debug_paging) {
-      while (!debug_key_pressed);
+      while (!debug_key_pressed) {
+        __asm__("hlt");
+      }
       debug_key_pressed = 0;
     }
-    for (int i = 0; i < 80 * 24; i++) {
-      vga_text[i] = vga_text[i + 80];
+    for (int i = 0; i < DEBUG_CONSOLE_WIDTH * (DEBUG_CONSOLE_HEIGHT - 1); i++) {
+      vga_text[i] = vga_text[i + DEBUG_CONSOLE_WIDTH];
     }
-    for (int i = 0; i < 80; i++) {
-      vga_text[80 * 24 + i] = 0;
+    for (int i = 0; i < DEBUG_CONSOLE_WIDTH; i++) {
+      vga_text[DEBUG_CONSOLE_WIDTH * (DEBUG_CONSOLE_HEIGHT - 1) + i] = 0;
     }
-    debug_console.p -= 80;
+    debug_console.p -= DEBUG_CONSOLE_WIDTH;
     debug_console.y--;
   }
 }
