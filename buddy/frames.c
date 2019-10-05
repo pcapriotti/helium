@@ -230,8 +230,7 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
 /* Create an allocated block of the given order.
 
    If the metadata is invalid, this function can still be used, but it
-   does not make any changes: it just returns the address of the block
-   that would be returned by a real allocation. */
+   does not update the metadata. */
 void *take_block(frames_t *frames, unsigned int order)
 {
   if (order > frames->max_order) return 0;
@@ -323,7 +322,7 @@ frames_t *frames_new(void *start,
 
   /* execute metadata changes for the metadata block allocation */
   {
-    TRACE("replaying metadata for %#lx order %u\n",
+    TRACE("replaying metadata for %p order %u\n",
           frames.metadata, meta_order);
     unsigned int index = frames_block_index(&frames, frames.metadata, meta_order);
     while (index < frames.max_order) {
