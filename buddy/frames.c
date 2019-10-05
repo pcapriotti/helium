@@ -110,8 +110,8 @@ set the metadata bit of the returned block.
 Deallocation is more complicated. First, it needs to determine the
 order of the block being deallocated, given just its offset. Every
 block has a maximum order it can have, determined by the alignment of
-its offset. The correct order is then the maximum one such that the
-all the blocks with that offset of smaller orders are *not* allocated.
+its offset. The correct order is then the maximum one such that all
+the blocks with that offset of smaller orders are *not* allocated.
 
 Now observe that if the buddy of an allocated block is not available,
 then its metadata bit must be set (because no containing block can be
@@ -213,12 +213,16 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
                  int (*mem_info)(void *start, size_t size, void *data),
                  void *data)
 {
-  int info = mem_info(start, 1 << order, data);
+  int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
+  TRACE("mark block %#lx order %u info %d\n",
+        start - frames->start, order, info);
   if (info == MEM_INFO_USABLE) return;
 
   if (order < frames->max_order) {
     unsigned int index = frames_block_index(frames, start, order);
     SET_BIT(frames->metadata, index);
+    TRACE("set bit for block %#lx order %u index %d\n",
+          start - frames->start, order, index);
   }
 
   if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
@@ -319,13 +323,15 @@ frames_t *frames_new(void *start,
   /* synchronise metadata with initial blocks */
   mark_blocks(&frames, start, frames.max_order, mem_info, data);
 
+  TRACE("  done\n");
 
   /* execute metadata changes for the metadata block allocation */
   {
     TRACE("replaying metadata for %p order %u\n",
           frames.metadata, meta_order);
-    unsigned int index = frames_block_index(&frames, frames.metadata, meta_order);
-    while (index < frames.max_order) {
+    int index = frames_block_index(&frames, frames.metadata, meta_order);
+    while (index > 0) {
+      TRACE("setting bit for index %d\n", index);
       SET_BIT(frames.metadata, index);
       index = (index >> 1) - 1;
     }
