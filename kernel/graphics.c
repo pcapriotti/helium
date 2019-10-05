@@ -85,12 +85,27 @@ int get_mode(uint16_t number, vbe_mode_info_t *info)
   regs16_t regs;
   ptr16_t infop = linear_to_ptr16((uint32_t) info);
 
+#if GRAPHICS_DEBUG
+    kprintf("requesting info for mode %#x at %#04x:%#04x\n",
+            number, infop.segment, infop.offset);
+#endif
+
   regs.eax = 0x4f01;
   regs.ecx = number;
   regs.es = infop.segment;
   regs.edi = infop.offset;
 
   bios_int(0x10, &regs);
+
+#if GRAPHICS_DEBUG
+    kprintf("results for %#x: %ux%u %u bits, eax = %x\n",
+            (uint32_t) number,
+            (uint32_t) info->width,
+            (uint32_t) info->height,
+            (uint32_t) info->bpp,
+            regs.eax);
+#endif
+
   if ((regs.eax & 0xffff) != 0x004f)
     return -1;
 
@@ -115,17 +130,8 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     num_modes++;
     if (best_score == 0) continue;
 
-#if GRAPHICS_DEBUG
-    kprintf("requesting info for mode %#x\n", modes[i]);
-#endif
     if (get_mode(modes[i], &info) == -1) continue;
-#if GRAPHICS_DEBUG
-    kprintf("results for %#x: %ux%u %u bits\n",
-            (uint32_t) modes[i],
-            (uint32_t) info.width,
-            (uint32_t) info.height,
-            (uint32_t) info.bpp);
-#endif
+    if (!(info.attributes & 0x1)) continue; /* mode not supported */
 
     int score = 0;
     if (req_width > 0) {
