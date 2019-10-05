@@ -117,7 +117,7 @@ void console_render_char(uint32_t *pos, char c, uint32_t fg)
     return;
   }
 
-  glyph_t *glyph = &graphics_font[(int) c];
+  glyph_t *glyph = &graphics_font.glyphs[(int) c];
   for (int i = 0; i < FONT_HEIGHT; i++) {
     uint8_t line = glyph->lines[i];
     for (int j = 0; j < FONT_WIDTH; j++) {

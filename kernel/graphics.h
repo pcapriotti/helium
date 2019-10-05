@@ -6,7 +6,10 @@
 typedef struct {
   uint8_t lines[16];
 } __attribute__((packed)) glyph_t;
-typedef glyph_t font_t[512];
+
+typedef struct {
+  glyph_t glyphs[512];
+} __attribute__((aligned(4), packed)) font_t;
 
 typedef struct {
   uint8_t red_mask; uint8_t red_field;

@@ -29,17 +29,20 @@ static inline uint32_t ptr16_to_linear(ptr16_t ptr)
   return seg_off_to_linear(ptr.segment, ptr.offset);
 }
 
+#define LINEAR_TO_SEG_OFF(p, seg, off) do { \
+  assert(p < 0x100000); \
+  seg = (((p) >> 4) & 0xf000); \
+  off = ((p) & 0xffff); } while (0)
+
 static inline void linear_to_seg_off(uint32_t p, uint16_t *seg, uint16_t *off)
 {
-  assert(p < 0x100000);
-  *seg = (p >> 4) & 0xf000;
-  *off = p;
+  LINEAR_TO_SEG_OFF(p, *seg, *off);
 }
 
 static inline ptr16_t linear_to_ptr16(uint32_t p)
 {
   ptr16_t p16;
-  linear_to_seg_off(p, &p16.segment, &p16.offset);
+  LINEAR_TO_SEG_OFF(p, p16.segment, p16.offset);
   return p16;
 }
 

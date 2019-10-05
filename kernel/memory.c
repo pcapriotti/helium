@@ -16,7 +16,7 @@ typedef struct {
   uint64_t base;
   uint64_t size;
   uint64_t type;
-} __attribute__((packed)) memory_map_entry_t;
+} __attribute__((aligned(8), packed)) memory_map_entry_t;
 
 int mm_compare(const void *x1, const void *x2)
 {
@@ -64,7 +64,7 @@ void isort(void *base, size_t nmemb, size_t size,
 extern int v8086_tracing;
 
 /* Get memory map from BIOS. Store chunks in the temporary heap */
-chunk_t *memory_get_chunks(int *count, void **heap)
+chunk_t *memory_get_chunks(int *count, uint32_t **heap)
 {
   regs16_t regs;
 
@@ -175,8 +175,8 @@ chunk_t *memory_get_chunks(int *count, void **heap)
   /* discard memory map and compact heap */
   memmove(*heap, chunk0, num_chunks * sizeof(chunk_t));
   *count = num_chunks;
-  chunk_t *ret = *heap;
-  *heap = ret + num_chunks;
+  chunk_t *ret = (chunk_t *)*heap;
+  *heap = (void *)(ret + num_chunks);
   return ret;
 }
 
@@ -260,7 +260,7 @@ int mem_info(void *startp, size_t size, void *data)
   return 0;
 }
 
-int memory_init(void *heap)
+int memory_init(uint32_t *heap)
 {
   int num_chunks;
   chunk_t *chunks = memory_get_chunks(&num_chunks, &heap);
