@@ -50,3 +50,9 @@ void pic_unmask(uint8_t irq)
   }
   outb(port, inb(port) & ~(1 << irq));
 }
+
+uint16_t pic_get_mask(void)
+{
+  return inb(PIC_MASTER_DATA) |
+    inb(PIC_SLAVE_DATA) << 8;
+}
