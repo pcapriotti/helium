@@ -9,6 +9,7 @@
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
 
 #define BIOS_MM_DEBUG 0
+#define MM_DEBUG 0
 
 frames_t *memory_frames;
 
@@ -63,20 +64,36 @@ void isort(void *base, size_t nmemb, size_t size,
 
 extern int v8086_tracing;
 
+uint32_t cpu_flags()
+{
+  uint32_t flags;
+  __asm__
+    ("pushf\n"
+     "pop %0\n"
+     : "=r"(flags));
+  return flags;
+}
+
 /* Get memory map from BIOS. Store chunks in the temporary heap */
 chunk_t *memory_get_chunks(int *count, uint32_t **heap)
 {
   regs16_t regs;
 
+#if BIOS_MM_DEBUG
+  kprintf("flags: %#08x\n", cpu_flags());
+#endif
+
   memory_map_entry_t *entry0 = (memory_map_entry_t *)*heap;
   memory_map_entry_t *entry = entry0;
 
   regs.ebx = 0;
+
   do {
+    ptr16_t entry16 = linear_to_ptr16((uint32_t) entry);
     regs.eax = 0xe820;
     regs.edx = 0x534d4150;
-    regs.es = 0;
-    regs.edi = (uint32_t) entry;
+    regs.es = entry16.segment;
+    regs.edi = entry16.offset;
     regs.ecx = sizeof(memory_map_entry_t);
     entry->type = MM_AVAILABLE;
 
@@ -270,24 +287,30 @@ int memory_init(uint32_t *heap)
   memory_reserve_chunk(chunks, &num_chunks,
                        0, (unsigned long) _kernel_end);
 
+#if MM_DEBUG
   kprintf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
     kprintf("type: %d base: %#016llx\n",
             chunks[i].type,
             chunks[i].base);
   }
+#endif
 
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
   if (total_memory_size > 0xffffffff)
     total_memory_size = 0xffffffff;
+#if MM_DEBUG
   kprintf("memory size: %#x\n", total_memory_size);
+#endif
 
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
   chunk_info.num_chunks = num_chunks;
 
   unsigned int max_order = ORDER_OF(total_memory_size);
+#if MM_DEBUG
   kprintf("max_order = %u\n", max_order);
+#endif
   memory_frames = frames_new(0, FRAMES_MIN_ORDER, max_order,
                              &mem_info, &chunk_info);
 
@@ -296,7 +319,9 @@ int memory_init(uint32_t *heap)
   }
 
   uint32_t free_mem = frames_available_memory(memory_frames);
+#if MM_DEBUG
   kprintf("free memory: %#x\n", free_mem);
+#endif
 
   return 0;
 }
