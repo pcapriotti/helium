@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "v8086.h"
 #include "interrupts.h"
+#include "io.h"
 
 int v8086_tracing = 0;
 
@@ -134,6 +135,107 @@ void v8086_gpf_handler(v8086_isr_stack_t *stack)
 
       stack->cs = iv.segment;
       stack->eip = iv.offset;
+      return;
+    }
+  case 0xe6: /* outb imm */
+    if (v8086_tracing) v8086_debug_dump("outb imm", stack);
+    {
+      uint8_t *port = (uint8_t *)stack->eip + 1;
+      uint8_t value = stack->eax & 0xff;
+      /* kprintf("outb %#x, %#x\n", (uint32_t) port, (uint32_t) value); */
+      outb(*port, value);
+      stack->eip += 2;
+      return;
+    }
+  case 0xe7: /* outw/l imm */
+    if (v8086_tracing) v8086_debug_dump("outw/l imm", stack);
+    {
+      uint8_t *port = (uint8_t *)stack->eip + 1;
+      if (op32) {
+        uint32_t value = stack->eax;
+        /* kprintf("outl %#x, %#x\n", (uint32_t) port, value); */
+        outl(*port, value);
+      }
+      else {
+        uint16_t value = stack->eax & 0xffff;
+        /* kprintf("outw %#x, %#x\n", (uint32_t) port, (uint32_t) value); */
+        outw(*port, value);
+      }
+      stack->eip += 2;
+      return;
+    }
+  case 0xee: /* outb */
+    if (v8086_tracing) v8086_debug_dump("outb", stack);
+    {
+      uint16_t port = stack->edx & 0xffff;
+      uint8_t value = stack->eax & 0xff;
+      /* kprintf("outb %#x, %#x\n", (uint32_t) port, (uint32_t) value); */
+      outb(port, value);
+      stack->eip++;
+      return;
+    }
+  case 0xef: /* outw */
+    if (v8086_tracing) v8086_debug_dump("outw", stack);
+    {
+      uint16_t port = stack->edx & 0xffff;
+      if (op32) {
+        uint32_t value = stack->eax;
+        outl(port, value);
+      }
+      else {
+        uint16_t value = stack->eax & 0xffff;
+        outw(port, value);
+      }
+      stack->eip++;
+      return;
+    }
+  case 0xe4: /* inb imm */
+    if (v8086_tracing) v8086_debug_dump("inb imm", stack);
+    {
+      uint8_t *port = (uint8_t *)stack->eip + 1;
+      uint8_t value = inb(*port);
+      /* kprintf("inb %#x\n", (uint32_t) (*port)); */
+      stack->eax = (stack->eax & 0xffffff00) | value;
+      stack->eip += 2;
+      return;
+    }
+  case 0xe5: /* inw/l imm */
+    if (v8086_tracing) v8086_debug_dump("inw/l imm", stack);
+    {
+      uint8_t *port = (uint8_t *)stack->eip + 1;
+      /* kprintf("in%c %#x\n", op32 ? 'l' : 'w', (uint32_t) (*port)); */
+      if (op32) {
+        stack->eax = inl(*port);
+      }
+      else {
+        uint16_t value = inw(*port);
+        stack->eax = (stack->eax & 0xffff0000) | value;
+      }
+      stack->eip += 2;
+      return;
+    }
+  case 0xec: /* inb */
+    if (v8086_tracing) v8086_debug_dump("inb", stack);
+    {
+      uint16_t port = stack->edx & 0xffff;
+      /* kprintf("inb %#x\n", (uint32_t) port); */
+      uint8_t value = inb(port);
+      stack->eax = (stack->eax & 0xffffff00) | value;
+      stack->eip++;
+      return;
+    }
+  case 0xed: /* inw */
+    if (v8086_tracing) v8086_debug_dump("inw", stack);
+    {
+      uint16_t port = stack->edx & 0xffff;
+      if (op32) {
+        stack->eax = inl(port);
+      }
+      else {
+        uint16_t value = inw(port);
+        stack->eax = (stack->eax & 0xffff0000) | value;
+      }
+      stack->eip++;
       return;
     }
   default:
