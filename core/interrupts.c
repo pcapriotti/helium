@@ -44,15 +44,6 @@ void isr_assemble(isr_t *isr, uint8_t number)
 
 void set_kernel_idt()
 {
-  /* set all entries to 0 */
-  for (int i = 0; i < IDT_NUM_ENTRIES; i++) {
-    idt_entry_t *entry = &kernel_idt[i];
-    entry->offset_low = 0;
-    entry->offset_high = 0;
-    entry->segment = 0;
-    entry->flags = 0;
-  }
-
   /* isr */
   for (int i = 0; i < NUM_ISR; i++) {
     isr_assemble(&kernel_isr[i], i);
