@@ -102,7 +102,7 @@ void console_render_cursor(uint32_t fg)
   }
 }
 
-void console_render_char(uint32_t *pos, char c, uint32_t fg)
+void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg)
 {
   int pitch = console.pitch - FONT_WIDTH;
 
@@ -110,7 +110,7 @@ void console_render_char(uint32_t *pos, char c, uint32_t fg)
     /* just draw background */
     for (int i = 0; i < FONT_HEIGHT; i++) {
       for (int j = 0; j < FONT_WIDTH; j++) {
-        *pos++ = 0;
+        *pos++ = bg;
       }
       pos += pitch;
     }
@@ -121,7 +121,7 @@ void console_render_char(uint32_t *pos, char c, uint32_t fg)
   for (int i = 0; i < FONT_HEIGHT; i++) {
     uint8_t line = glyph->lines[i];
     for (int j = 0; j < FONT_WIDTH; j++) {
-      *pos++ = (line & 0x80) ? fg : 0;
+      *pos++ = (line & 0x80) ? fg : bg;
       line <<= 1;
     }
     pos += pitch;
@@ -143,7 +143,8 @@ void console_render_buffer()
   for (int i = 0; i < num_chars; i++) {
     uint16_t c = console.buffer[(i + coffset) % num_chars];
     uint32_t fg = palette[(c >> 8) & 0x7];
-    console_render_char(pos, c, fg);
+    uint32_t bg = palette[(c >> 12) & 0x7];
+    console_render_char(pos, c, fg, bg);
 
     pos += FONT_WIDTH;
     if (i % console.width == console.width - 1) {
