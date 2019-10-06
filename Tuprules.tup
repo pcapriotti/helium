@@ -13,6 +13,7 @@ CFLAGS_HELIUM += -fomit-frame-pointer
 CFLAGS_HELIUM += -I.. -isystem ../libc
 CFLAGS_HELIUM += -D_HELIUM
 
+!as = |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> %B.S.o
 !cc = |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> %B.o
 !ar = |> ^ AR %o^ ar rcs %o %f |>
 !ld = |> ^ LD %o^ $(LD) $(LDFLAGS) -T $(LSCRIPT) %f -o %o |>

@@ -3,7 +3,7 @@
 .globl kmain
 kmain:
   /* set main kernel stack */
-  mov $0x7b00, %esp
+  mov $kernel_stack, %esp
 
   /* read arguments from multiboot */
   push %eax
@@ -15,10 +15,17 @@ kmain:
 .section .multiboot
 
 #define MB_MAGIC 0X1badb002
-#define MB_FLAGS 0x1
+#define MB_FLAGS 0x3
 #define MB_CHECKSUM -(MB_MAGIC + MB_FLAGS)
 
 multiboot_header:
   .long MB_MAGIC
   .long MB_FLAGS
   .long MB_CHECKSUM
+
+.section .bss
+
+.balign 16
+kernel_stack_base:
+  .skip 0x1000
+kernel_stack:

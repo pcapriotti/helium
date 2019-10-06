@@ -28,24 +28,9 @@ typedef struct {
   vbe_colour_info_t colour_info;
 } vbe_mode_t;
 
-int graphics_init(vbe_mode_t *req_mode);
+int graphics_init(void *low_heap, vbe_mode_t *req_mode);
 
 extern vbe_mode_t graphics_mode;
 extern font_t graphics_font;
-
-static inline void graphics_plot(uint8_t *pos, uint32_t colour)
-{
-  switch (graphics_mode.bpp) {
-  case 8:
-    *pos = colour;
-    break;
-  case 16:
-    *((uint16_t *)pos) = colour;
-    break;
-  case 32:
-    *((uint32_t *)pos) = colour;
-    break;
-  }
-}
 
 #endif /* GRAPHICS_H */

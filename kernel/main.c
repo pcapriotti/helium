@@ -67,8 +67,9 @@ void root_task()
   kprintf("Ok.\n");
 }
 
-void kernel_start(uint32_t magic, void *multiboot_info)
+void kernel_start(void *multiboot_info, uint32_t magic)
 {
+
   set_gdt_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
                 sizeof(kernel_tss),
@@ -124,7 +125,7 @@ void kernel_start(uint32_t magic, void *multiboot_info)
     mode.height = 1000;
     mode.bpp = 32;
     mode.number = 0;
-    if (graphics_init(&mode) == -1) {
+    if (graphics_init(heap, &mode) == -1) {
       kprintf("ERROR: could not enter graphic mode\n");
     }
     (void) mode;

@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #define V8086_STACK_BASE 0x2000
-#define V8086_HEAP 0x2800
 
 typedef struct {
   uint32_t eax, ebx, ecx, edx, edi, ebp;

@@ -8,7 +8,7 @@
 
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
 
-#define BIOS_MM_DEBUG 0
+#define BIOS_MM_DEBUG 1
 #define MM_DEBUG 0
 
 frames_t *memory_frames;

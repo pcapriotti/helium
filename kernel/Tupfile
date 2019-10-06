@@ -9,6 +9,6 @@ LIBS=../libc/libc.a ../buddy/buddy.a ../ext2/ext2.a ../core/core.a
 LSCRIPT=kernel.ld
 LDFLAGS += -e kmain
 
-: foreach *.S |> !cc |>
+: foreach *.S |> !as |>
 : foreach *.c |> !cc |>
 : *.o $(LIBS) |> !ld |> kernel.elf

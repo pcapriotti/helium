@@ -113,9 +113,9 @@ int get_mode(uint16_t number, vbe_mode_info_t *info)
 }
 
 /* find the best matching mode among the supported ones */
-int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
+int find_mode(void *low_heap, vbe_mode_t *req_mode, uint16_t *modes)
 {
-  vbe_mode_info_t info;
+  vbe_mode_info_t *info = low_heap;
 
   int num_modes = 0;
 
@@ -130,22 +130,22 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
     num_modes++;
     if (best_score == 0) continue;
 
-    if (get_mode(modes[i], &info) == -1) continue;
-    if (!(info.attributes & 0x1)) continue; /* mode not supported */
+    if (get_mode(modes[i], info) == -1) continue;
+    if (!(info->attributes & 0x1)) continue; /* mode not supported */
 
     int score = 0;
     if (req_width > 0) {
-      int x = req_width - info.width;
+      int x = req_width - info->width;
       x *= x;
       score += x;
     }
     if (req_height > 0) {
-      int x = req_height - info.height;
+      int x = req_height - info->height;
       x *= x;
       score += x;
     }
     if (req_bpp > 0) {
-      int x = req_bpp - info.bpp;
+      int x = req_bpp - info->bpp;
       x *= 200;
       x *= x;
       score += x;
@@ -160,12 +160,12 @@ int find_mode(vbe_mode_t *req_mode, uint16_t *modes)
       best = i;
       req_mode->index = i;
       req_mode->number = modes[i];
-      req_mode->width = info.width;
-      req_mode->height = info.height;
-      req_mode->bpp = info.bpp;
-      req_mode->pitch = info.pitch;
-      req_mode->framebuffer = info.framebuffer;
-      req_mode->colour_info = info.colour_info;
+      req_mode->width = info->width;
+      req_mode->height = info->height;
+      req_mode->bpp = info->bpp;
+      req_mode->pitch = info->pitch;
+      req_mode->framebuffer = info->framebuffer;
+      req_mode->colour_info = info->colour_info;
     }
   }
 
@@ -192,9 +192,10 @@ int get_font(font_t *font)
   return 0;
 }
 
-int graphics_init(vbe_mode_t *req_mode)
+int graphics_init(void *low_heap, vbe_mode_t *req_mode)
 {
-  vbe_info_t graphics_info;
+  vbe_info_t *graphics_info = low_heap;
+  low_heap = graphics_info + 1;
 
   if (req_mode->number != 0) {
     vbe_mode_info_t info;
@@ -210,14 +211,14 @@ int graphics_init(vbe_mode_t *req_mode)
     req_mode->colour_info = info.colour_info;
   }
   else {
-    if (get_graphics_info(&graphics_info) == -1)
+    if (get_graphics_info(graphics_info) == -1)
       return -1;
 
     uint16_t *modes = (uint16_t *)
-      ptr16_to_linear(graphics_info.modes);
+      ptr16_to_linear(graphics_info->modes);
 
     /* find best matching mode */
-    if (find_mode(req_mode, modes) == -1)
+    if (find_mode(low_heap, req_mode, modes) == -1)
       return -1;
   }
 
