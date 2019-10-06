@@ -143,6 +143,9 @@ void kb_process_scancodes()
 
 int kb_init(void)
 {
+  /* flush PS2 buffer */
+  inb(PS2_DATA);
+
   isr_stack_t *stack = (void *)kb_tasklet_stack + sizeof(kb_tasklet_stack) - sizeof(isr_stack_t);
   stack->eip = (uint32_t) kb_process_scancodes;
   stack->eflags = EFLAGS_IF;
@@ -159,6 +162,7 @@ void kb_irq(void)
   uint8_t status = inb(PS2_STATUS);
   while (status & 0x1) {
     if ((status & (1 << 5)) == 0) break;
+    inb(PS2_DATA);
     status = inb(PS2_STATUS);
   }
   if ((status & 0x1) == 0) return;

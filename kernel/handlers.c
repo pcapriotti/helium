@@ -22,6 +22,7 @@ int handle_irq(isr_stack_t *stack)
       uint8_t scancode = inb(0x60);
       if ((scancode & 0x80) == 0)
         debug_key_pressed = 1;
+      pic_eoi(irq);
       break;
     }
     kb_irq();
