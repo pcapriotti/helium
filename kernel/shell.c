@@ -40,16 +40,13 @@ void on_kb_event(kb_event_t *event, void *data)
   }
   else if (event->keycode == KC_BSP) {
     if (shell->input_len > 0) {
-      sem_wait(&console.write_sem);
-      point_t p = console.cur;
-      if (p.x > 0) p.x--;
-      console_delete_char(p);
-      console.cur = p;
-      console.dirty = 1;
-      sem_signal(&console.write_sem);
-      sem_signal(&console.paint_sem);
+      if (console.cur.x > 0) {
+        console_set_cursor((point_t) { console.cur.x - 1, console.cur.y });
+        console_delete_char(console.cur);
+      }
 
       shell->input_len--;
+      shell->input[shell->input_len] = '\0';
     }
   }
   else if (event->printable) {

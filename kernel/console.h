@@ -6,12 +6,13 @@
 #include "semaphore.h"
 
 typedef struct { int x, y; } point_t;
+typedef struct { point_t start, end; } span_t;
 
 typedef struct {
   uint32_t white, red, green, blue;
   uint32_t *fb;
   int pitch;
-  int dirty;
+  span_t dirty;
 
   int width, height;
   int offset;
@@ -29,6 +30,7 @@ uint32_t *console_at(point_t point);
 void console_print_str(const char *s, uint8_t colour);
 void console_print_char(char c, uint8_t colour);
 void console_delete_char(point_t p);
+void console_set_cursor(point_t c);
 
 void console_renderer(void);
 void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg);

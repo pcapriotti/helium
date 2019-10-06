@@ -20,6 +20,58 @@
 
 console_t console = {0};
 
+int point_equal(point_t p, point_t q)
+{
+  return p.x == q.x && p.y == q.y;
+}
+
+int point_le(point_t p, point_t q)
+{
+  if (p.y == q.y) {
+    return p.x < q.x;
+  }
+  else {
+    return p.y < q.y;
+  }
+}
+
+point_t point_next(point_t p)
+{
+  if (p.x >= console.width - 1) {
+    return (point_t) { 0, p.y + 1 };
+  }
+  else {
+    return (point_t) { p.x + 1, p.y };
+  }
+}
+
+int span_is_empty(span_t *span)
+{
+  return point_equal(span->start, span->end);
+}
+
+int span_equal(span_t *a, span_t *b)
+{
+  return point_equal(a->start, b->start) &&
+    point_equal(a->end, b->end);
+}
+
+void span_include_point(span_t *s, point_t p)
+{
+  if (span_is_empty(s)) {
+    s->start = p;
+    s->end = point_next(p);
+    return;
+  }
+
+  if (point_le(p, s->start)) {
+    s->start = p;
+  }
+  else if (point_le(s->end, p)) {
+    s->end = p;
+  }
+}
+
 static inline uint32_t mask(uint8_t size, uint8_t position)
 {
   return ((~0u) << position) & ((~0u) >> size);
@@ -59,8 +111,7 @@ int console_init(void)
     console.buffer[i] = 0;
   }
 
-  console.cur = (point_t){0, 0};
-  console.dirty = 0;
+  console.dirty.end.y = console.height;
 
   sem_init(&console.write_sem, 1);
   sem_init(&console.paint_sem, 0);
@@ -135,94 +186,135 @@ uint32_t palette[8] = {
 
 void console_render_buffer()
 {
-  if (!console.dirty) return;
   TRACE("start rendering\n");
-  uint32_t *pos = at((point_t) {0, 0});
   int coffset = console.offset * console.width;
   int num_chars = console.height * console.width;
-  for (int i = 0; i < num_chars; i++) {
-    uint16_t c = console.buffer[(i + coffset) % num_chars];
+
+  point_t p = console.dirty.start;
+  point_t p1 = console.dirty.end;
+  uint32_t *pos = at(p);
+
+  while (point_le(p, p1)) {
+    uint16_t c = console.buffer
+      [(p.x + p.y * console.width) % num_chars];
     uint32_t fg = palette[(c >> 8) & 0x7];
     uint32_t bg = palette[(c >> 12) & 0x7];
     console_render_char(pos, c, fg, bg);
 
     pos += FONT_WIDTH;
-    if (i % console.width == console.width - 1) {
+    if (p.x == console.width - 1) {
       pos += FONT_HEIGHT * console.pitch - FONT_WIDTH * console.width;
     }
+    p = point_next(p);
   }
   console_render_cursor(0x00ffffff);
 
-  console.dirty = 0;
+  console.dirty.start = console.cur;
+  console.dirty.end = console.cur;
   TRACE("done rendering\n");
 }
 
 void console_clear_line(int y)
 {
   uint16_t *p = console.buffer +
-    console.cur.x +
     (y % console.height) * console.width;
   memset(p, 0, console.width * sizeof(uint16_t));
 }
 
 /* print a character, return whether a redraw is needed */
-int _console_print_char(char c, uint8_t colour)
+static inline void _console_putchar_at(point_t p, char c, uint8_t colour)
 {
-  int dirty0 = console.dirty;
+  if (c < 0x20 || c > 0x7e) return;
 
-  uint16_t *p = console.buffer +
-    console.cur.x +
-    (console.cur.y % console.height) *
-    console.width;
+  uint16_t *dst = console.buffer +
+    p.x + (p.y % console.height) * console.width;
   uint16_t col = colour << 8;
-  if (c == '\n') {
-    console.cur.y++;
-    console.cur.x = 0;
+  if (p.x < 80) {
+    *dst = col | c;
+    span_include_point(&console.dirty, p);
   }
-  else if (console.cur.x < 80) {
-    *p = col | c;
-    console.cur.x++;
-    console.dirty = 1;
-  }
+}
+
+void _console_set_cursor(point_t p)
+{
+  span_include_point(&console.dirty, console.cur);
+  console.cur = p;
+  span_include_point(&console.dirty, console.cur);
   while (console.cur.y - console.offset >= console.height) {
     console_clear_line(console.offset + console.height);
     console.offset++;
-    console.dirty = 1;
+    console.dirty.start.x = 0;
+    console.dirty.start.y = console.offset;
+    console.dirty.end.x = 0;
+    console.dirty.end.y = console.offset + console.height;
   }
-
-  return console.dirty ^ dirty0;
 }
+
+void _console_advance_cursor(void)
+{
+  _console_set_cursor(point_next(console.cur));
+}
+
+void _console_print_char(char c, uint8_t colour)
+{
+  _console_putchar_at(console.cur, c, colour);
+  if (c == '\n') {
+    _console_set_cursor((point_t) { 0, console.cur.y + 1 });
+  }
+  else {
+    _console_advance_cursor();
+  }
+}
+
+#define CONSOLE_LOCK_BEGIN() \
+  sem_wait(&console.write_sem); \
+  span_t _dirty = console.dirty; \
+  do { } while(0)
+#define CONSOLE_LOCK_END() do { \
+  sem_signal(&console.write_sem); \
+  if (!span_equal(&_dirty, &console.dirty)) \
+    sem_signal(&console.paint_sem); \
+  } while (0)
 
 void console_print_char(char c, uint8_t colour)
 {
-  sem_wait(&console.write_sem);
-  int redraw = _console_print_char(c, colour);
-  sem_signal(&console.write_sem);
+  CONSOLE_LOCK_BEGIN();
 
-  if (redraw) sem_signal(&console.paint_sem);
+  _console_print_char(c, colour);
+
+  CONSOLE_LOCK_END();
 }
 
 void console_delete_char(point_t c)
 {
+  CONSOLE_LOCK_BEGIN();
+
   uint16_t *p = console.buffer + c.x +
     (c.y % console.height) * console.width;
   *p = 0;
+  span_include_point(&console.dirty, c);
+
+  CONSOLE_LOCK_END();
+}
+
+void console_set_cursor(point_t c) {
+  CONSOLE_LOCK_BEGIN();
+  _console_set_cursor(c);
+  CONSOLE_LOCK_END();
 }
 
 void console_print_str(const char *s, uint8_t colour)
 {
-  int redraw = 0;
+  CONSOLE_LOCK_BEGIN();
 
-  char c;
-  while ((c = *s++)) {
-    sem_wait(&console.write_sem);
-    redraw = redraw || _console_print_char(c, colour);
-    sem_signal(&console.write_sem);
+  while (1) {
+    char c = *s++;
+    if (!c) break;
+    _console_print_char(c, colour);
   }
 
-  if (redraw) sem_signal(&console.paint_sem);
+  CONSOLE_LOCK_END();
 }
-
 
 void console_debug_print_char(char c)
 {
