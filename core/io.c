@@ -9,7 +9,7 @@ void pic_eoi(uint8_t irq) {
   outb(PIC_MASTER_CMD, PIC_EOI);
 }
 
-void pic_setup() {
+void pic_init(void) {
   /* initialise master at offset 0x20 */
   outb(PIC_MASTER_CMD, 0x11); io_wait();
   outb(PIC_MASTER_DATA, 0x20); io_wait();

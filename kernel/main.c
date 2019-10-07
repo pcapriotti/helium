@@ -71,7 +71,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
 {
   gdt_init();
   idt_init();
-  pic_setup();
+  pic_init();
 
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

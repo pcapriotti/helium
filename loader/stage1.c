@@ -183,7 +183,7 @@ void _stage1(uint32_t drive)
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
   idt_init();
-  pic_setup();
+  pic_init();
 
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
