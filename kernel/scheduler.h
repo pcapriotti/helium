@@ -28,12 +28,6 @@ enum {
 extern task_t *sched_current;
 extern list_t *sched_runqueue;
 
-void task_list_insert(list_t *list, task_t *task);
-void task_list_add(list_t **list, task_t *task);
-void task_list_push(list_t **list, task_t *task);
-task_t *task_list_pop(list_t **list);
-task_t *task_list_take(list_t **list, task_t *task);
-
 void sched_schedule(struct isr_stack *stack);
 void sched_spawn_task(task_entry_t entry);
 void sched_yield(void);

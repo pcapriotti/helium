@@ -32,7 +32,7 @@ void sem_wait(semaphore_t *sem)
   if (--sem->value < 0) {
     TRACE("sem (%p): sleeping\n", sched_current);
     sched_current->state = TASK_WAITING;
-    task_list_add(&sem->waiting, sched_current);
+    list_add(&sem->waiting, &sched_current->head);
     spin_unlock(&sem->lock);
     sched_disable_preemption();
     sched_yield();
@@ -48,9 +48,9 @@ void sem_signal(semaphore_t *sem)
 
   if (sem->value++ < 0 && sem->waiting) {
     TRACE("sem (%p): waking %p\n", sched_current, sem->waiting);
-    task_t *task = task_list_pop(&sem->waiting);
+    task_t *task = TASK_LIST_ENTRY(list_pop(&sem->waiting));
     task->state = TASK_RUNNING;
-    task_list_add(&sched_runqueue, task);
+    list_add(&sched_runqueue, &task->head);
   }
 
   spin_unlock(&sem->lock);

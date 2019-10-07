@@ -74,9 +74,9 @@ void timer_irq(isr_stack_t *stack)
   /* wake sleeping tasks */
   while (waiting &&
          TASK_LIST_ENTRY(waiting)->timeout <= timer.count) {
-    task_t *task = task_list_pop(&waiting);
+    task_t *task = TASK_LIST_ENTRY(list_pop(&waiting));
     task->state = TASK_RUNNING;
-    task_list_add(&sched_runqueue, task);
+    list_add(&sched_runqueue, &task->head);
   }
 
   /* run scheduler */
@@ -100,7 +100,7 @@ void timer_sleep(unsigned long delay)
   /* insert in the list of waiting tasks in order of timeout */
   if (!waiting || sched_current->timeout <= task->timeout) {
     /* insert at the beginning */
-    task_list_push(&waiting, sched_current);
+    list_push(&waiting, &sched_current->head);
   }
   else {
     /* insert before the first task with higher priority */
@@ -110,7 +110,7 @@ void timer_sleep(unsigned long delay)
            TASK_LIST_ENTRY(p)->timeout < sched_current->timeout) {
       p = p->next;
     }
-    task_list_insert(p, sched_current);
+    list_insert(p, &sched_current->head);
   }
   timer_waiting_unlock();
 

@@ -217,7 +217,7 @@ void kb_irq(void)
     tasklet is running, because it may be blocked on a semaphore, in
     which case we don't want to wake it prematurely */
     kb_tasklet.state = TASK_RUNNING;
-    task_list_add(&sched_runqueue, &kb_tasklet);
+    list_add(&sched_runqueue, &kb_tasklet.head);
     kb_tasklet_running = 1;
   }
 #else

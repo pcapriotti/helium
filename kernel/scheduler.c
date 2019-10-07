@@ -36,34 +36,6 @@ static void context_switch(isr_stack_t *stack)
      : : "m"(stack));
 }
 
-void task_list_insert(list_t *list, task_t *task)
-{
-  list_insert(list, &task->head);
-}
-
-/* add at the end */
-void task_list_add(list_t **list, task_t *task)
-{
-  list_add(list, &task->head);
-}
-
-/* add at the front */
-void task_list_push(list_t **list, task_t *task)
-{
-  list_push(list, &task->head);
-}
-
-/* remove from the front */
-task_t *task_list_pop(list_t **list)
-{
-  return TASK_LIST_ENTRY(list_pop(list));
-}
-
-task_t *task_list_take(list_t **list, task_t *task)
-{
-  return TASK_LIST_ENTRY(list_take(list, &task->head));
-}
-
 void sched_schedule(isr_stack_t *stack)
 {
   /* no task switch if the scheduler is locked */
@@ -83,7 +55,7 @@ void sched_schedule(isr_stack_t *stack)
   if (sched_current) {
     sched_current->stack = stack;
     if (sched_current->state == TASK_RUNNING) {
-      task_list_add(&sched_runqueue, sched_current);
+      list_add(&sched_runqueue, &sched_current->head);
     }
     else if (sched_current->state == TASK_TERMINATED) {
       ffree(sched_current->stack_top);
@@ -92,7 +64,7 @@ void sched_schedule(isr_stack_t *stack)
 
   /* update current task */
   task_t *previous = sched_current;
-  sched_current = task_list_pop(&sched_runqueue);
+  sched_current = TASK_LIST_ENTRY(list_pop(&sched_runqueue));
 
   /* same task, no switch necessary */
   if (sched_current == previous) return;
@@ -147,7 +119,7 @@ void sched_spawn_task(task_entry_t entry)
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;
 
-  task_list_add(&sched_runqueue, task);
+  list_add(&sched_runqueue, &task->head);
   TRACE("spawned %p\n", task);
 
   sched_enable_preemption();
