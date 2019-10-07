@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define LOADER_MAGIC 0x1fc9b736
+
 extern uint8_t _loader0_start[];
 extern uint8_t _loader0_end[];
 extern uint8_t _loader_start[];

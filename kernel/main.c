@@ -83,7 +83,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  kprintf("Helium starting\n");
+  kprintf("Helium starting (magic = %#x)\n", magic);
 
   /* set up a temporary heap in low memory */
   void *heap = (void *)0x500;

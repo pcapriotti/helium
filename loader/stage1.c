@@ -201,7 +201,10 @@ void loader_start(uint32_t drive)
     kprintf("%02x ", ((uint8_t *)entry)[i]);
   }
   kprintf("\n");
-  entry();
+  __asm__
+    ("call %0"
+     : :
+       "r"(entry), "a"(LOADER_MAGIC), "b"(0));
 
   debug_str("Ok.\n");
   while(1);
