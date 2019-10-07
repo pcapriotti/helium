@@ -1,4 +1,4 @@
-#include "buddy/frames.h"
+#include "frames.h"
 #include "heap.h"
 #include "memory.h"
 

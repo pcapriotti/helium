@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "buddy/frames.h"
+#include "../kernel/frames.h"
 
 #define ASSERT_MSG(x, msg, ...) do {\
   if (!(x)) { \

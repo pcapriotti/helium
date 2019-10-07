@@ -1,9 +1,0 @@
-include_rules
-
-CFLAGS += $(CFLAGS_HELIUM)
-CFLAGS += -I..
-
-CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
-
-: foreach *.c |> !cc |>
-: *.o |> !ar |> buddy.a

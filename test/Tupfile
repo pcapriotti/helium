@@ -4,8 +4,8 @@ CC=gcc
 
 CFLAGS += -g -I..
 
-# recompile buddy library for the host
-: foreach ../buddy/*.c |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
+# recompile frames allocator for the host
+: ../kernel/frames.c |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
 
 : foreach *.c |> !cc |>
 : *.o buddy/*.o |> ^ LINK %o^ $(CC) $(LDFLAGS) %f -o %o |> test
