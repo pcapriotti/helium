@@ -18,9 +18,9 @@ typedef struct block {
     struct {
       struct block *next;
       struct block *prev;
-    } links;
+    };
     unsigned char memory[0];
-  } data;
+  };
 } block_t;
 
 #define MIN_ALLOC_SIZE sizeof(block_t)
@@ -46,8 +46,8 @@ heap_t *heap_new(frames_t *frames)
   heap->free_blocks = (block_t *)(heap + 1);
 
   heap->free_blocks->size = size - sizeof(heap_t);
-  heap->free_blocks->data.links.prev = 0;
-  heap->free_blocks->data.links.next = 0;
+  heap->free_blocks->prev = 0;
+  heap->free_blocks->next = 0;
   heap->frames = frames;
   return heap;
 }
@@ -65,18 +65,18 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       kprintf("  splitting block of size %u\n", b->size);
 #endif
       /* split */
-      void *mem = b->data.memory;
+      void *mem = b->memory;
       block_t *b1 = mem + bytes;
-      if (b->data.links.prev) {
-        b->data.links.prev->data.links.next = b1;
+      if (b->prev) {
+        b->prev->next = b1;
       } else {
         heap->free_blocks = b1;
       }
       b1->size = b->size - ((void*)b1 - (void*)b);
-      b1->data.links.prev = b->data.links.prev;
-      b1->data.links.next = b->data.links.next;
-      if (b1->data.links.next)
-        b1->data.links.next->data.links.prev = b1;
+      b1->prev = b->prev;
+      b1->next = b->next;
+      if (b1->next)
+        b1->next->prev = b1;
       b->size = bytes;
       return mem;
     } else if (b->size >= bytes) {
@@ -84,18 +84,18 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       kprintf("  taking whole block of size %u\n", b->size);
 #endif
       /* just take the whole block */
-      block_t *prev = b->data.links.prev;
-      block_t *next = b->data.links.next;
+      block_t *prev = b->prev;
+      block_t *next = b->next;
       if (prev)
-        prev->data.links.next = b->data.links.next;
+        prev->next = b->next;
       else
-        heap->free_blocks = b->data.links.next;
+        heap->free_blocks = b->next;
 
       if (next)
-        next->data.links.prev = b->data.links.prev;
-      return b->data.memory;
+        next->prev = b->prev;
+      return b->memory;
     }
-    if (!b->data.links.next) {
+    if (!b->next) {
 #if KMALLOC_DEBUG
       kprintf("  no more blocks, requesting a new one\n");
 #endif
@@ -104,18 +104,18 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       if (num_pages < PAGE_GROWTH) num_pages = PAGE_GROWTH;
       unsigned long size = num_pages << PAGE_BITS;
       block_t *block = frames_alloc(heap->frames, size);
-      b->data.links.next = block;
+      b->next = block;
       if (block) {
         block->size = size;
-        block->data.links.prev = b;
-        block->data.links.next = 0;
+        block->prev = b;
+        block->next = 0;
 #if KMALLOC_DEBUG
         kprintf("  got block of size %u\n", block->size);
 #endif
       }
       b = block;
     } else {
-      b = b->data.links.next;
+      b = b->next;
     }
   }
   return 0;
@@ -125,21 +125,21 @@ void heap_free(heap_t *heap, void *address)
 {
   block_t *block = address - sizeof(uint32_t);
   if (block < heap->free_blocks) {
-    block->data.links.next = heap->free_blocks;
-    block->data.links.prev = 0;
-    heap->free_blocks->data.links.prev = block;
+    block->next = heap->free_blocks;
+    block->prev = 0;
+    heap->free_blocks->prev = block;
     heap->free_blocks = block;
     return;
   }
   block_t *b = heap->free_blocks;
   while (b && b < block) {
-    block_t *next = b->data.links.next;
+    block_t *next = b->next;
     if (next >= block) {
-      b->data.links.next = block;
-      block->data.links.prev = b;
-      block->data.links.next = next;
+      b->next = block;
+      block->prev = b;
+      block->next = next;
       if (next)
-        next->data.links.prev = block;
+        next->prev = block;
       return;
     }
     else {
@@ -147,13 +147,13 @@ void heap_free(heap_t *heap, void *address)
     }
   }
   if (b) {
-    b->data.links.next = block;
-    block->data.links.prev = b;
-    block->data.links.next = 0;
+    b->next = block;
+    block->prev = b;
+    block->next = 0;
   } else {
     heap->free_blocks = block;
-    block->data.links.prev = 0;
-    block->data.links.next = 0;
+    block->prev = 0;
+    block->next = 0;
   }
 }
 
@@ -162,6 +162,6 @@ void heap_print_diagnostics(heap_t *heap)
   block_t *b = heap->free_blocks;
   while (b) {
     kprintf("block size: %d at %#x\n");
-    b = b->data.links.next;
+    b = b->next;
   }
 }
