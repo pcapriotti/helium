@@ -16,8 +16,8 @@ struct channel_struct {
   uint8_t last_drive;
 };
 
-channel_t ata_channels[2];
-drive_t drives[4];
+channel_t ata_channels[2] = {0};
+drive_t drives[4] = {0};
 static int ata_initialised = 0;
 
 static inline uint16_t reg_port(uint8_t channel, uint8_t reg)
@@ -213,8 +213,33 @@ device_t *ata_find_ide_controller(list_t *devices)
         dev->subclass == PCI_STORAGE_IDE) {
       return dev;
     }
+    p = p->next;
   }
   return 0;
+}
+
+void ata_list_drives(void)
+{
+  for (int i = 0; i < 4; i++) {
+    drive_t *drive = &drives[i];
+    if (drive->present) {
+      kprintf("drive %d: %s ", i, drive->model);
+
+      uint32_t kb = drives[i].lba_sectors >> 1;
+      uint32_t mb = kb >> 10;
+      uint32_t gb = mb >> 10;
+      if (gb) {
+        kprintf("%u GB", gb);
+      }
+      else if (mb) {
+        kprintf("%u MB", mb);
+      } else {
+        kprintf("%u kB", kb);
+      }
+
+      kprintf("\n");
+    }
+  }
 }
 
 int ata_init(list_t *devices)

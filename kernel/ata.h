@@ -125,5 +125,6 @@ int ata_init(struct list *devices);
 drive_t *ata_get_drive(uint8_t drive);
 void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf);
 void *ata_read_lba(drive_t *drive, uint32_t lba, uint8_t count, void *buf);
+void ata_list_drives(void);
 
 #endif /* ATA_H */

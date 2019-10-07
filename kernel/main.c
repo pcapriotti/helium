@@ -61,6 +61,9 @@ void root_task()
   }
 
   list_t *devices = pci_scan();
+  if (ata_init(devices) == -1) {
+    kprintf("ERROR: could not initialise ATA\n");
+  }
 
   serial_printf("spawning shell\n");
   sched_spawn_task(shell_main);

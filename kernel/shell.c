@@ -1,3 +1,4 @@
+#include "ata.h"
 #include "console.h"
 #include "core/debug.h"
 #include "core/x86.h"
@@ -24,6 +25,9 @@ void shell_process_command(shell_t *shell, const char *cmd)
 
   if (!strcmp("reboot", shell->input)) {
     kb_reset_system();
+  }
+  else if (!strcmp("drives", shell->input)) {
+    ata_list_drives();
   }
   else if (!strcmp("cpuid", shell->input)) {
     if (cpuid_is_supported()) {
