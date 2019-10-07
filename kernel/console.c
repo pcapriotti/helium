@@ -81,7 +81,7 @@ static inline uint32_t *at(point_t p)
 {
   return console.fb +
     p.x * FONT_WIDTH +
-    p.y * console.pitch * FONT_HEIGHT;
+    (p.y - console.offset) * console.pitch * FONT_HEIGHT;
 }
 
 int console_init(void)
@@ -187,16 +187,13 @@ uint32_t palette[8] = {
 void console_render_buffer()
 {
   TRACE("start rendering\n");
-  int coffset = console.offset * console.width;
-  int num_chars = console.height * console.width;
-
   point_t p = console.dirty.start;
   point_t p1 = console.dirty.end;
   uint32_t *pos = at(p);
 
   while (point_le(p, p1)) {
     uint16_t c = console.buffer
-      [(p.x + p.y * console.width) % num_chars];
+      [(p.x + (p.y % console.height) * console.width)];
     uint32_t fg = palette[(c >> 8) & 0x7];
     uint32_t bg = palette[(c >> 12) & 0x7];
     console_render_char(pos, c, fg, bg);
@@ -209,8 +206,7 @@ void console_render_buffer()
   }
   console_render_cursor(0x00ffffff);
 
-  console.dirty.start = console.cur;
-  console.dirty.end = console.cur;
+  console.dirty.end = console.dirty.start;
   TRACE("done rendering\n");
 }
 
