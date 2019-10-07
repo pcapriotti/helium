@@ -182,7 +182,7 @@ void _stage1(uint32_t drive)
   kernel_tss.tss.iomap_base = sizeof(tss_t);
   __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
 
-  set_kernel_idt();
+  idt_init();
   pic_setup();
 
   /* set text mode */

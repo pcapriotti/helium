@@ -70,9 +70,9 @@ void root_task()
 void kernel_start(void *multiboot_info, uint32_t magic)
 {
   gdt_init();
-  set_kernel_idt();
-
+  idt_init();
   pic_setup();
+
   /* set text mode */
   regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   regs.eax = 0x2;

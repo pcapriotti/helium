@@ -42,7 +42,7 @@ void isr_assemble(isr_t *isr, uint8_t number)
   *((int32_t *) p) = rel;
 }
 
-void set_kernel_idt()
+void idt_init(void)
 {
   /* isr */
   for (int i = 0; i < NUM_ISR; i++) {

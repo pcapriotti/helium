@@ -44,7 +44,7 @@ typedef struct {
 
 extern idtp_t kernel_idtp;
 
-void set_kernel_idt();
+void idt_init(void);
 
 typedef struct {
   uint32_t prev;
