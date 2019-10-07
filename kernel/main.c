@@ -60,8 +60,7 @@ void root_task()
             console.width, console.height);
   }
 
-  /* LIST_HEAD(devices); */
-  /* pci_scan(&devices); */
+  list_t *devices = pci_scan();
 
   serial_printf("spawning shell\n");
   sched_spawn_task(shell_main);

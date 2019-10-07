@@ -6,7 +6,7 @@
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 1
+#define PCI_DEBUG 0
 
 enum {
   PCI_VENDOR_DEVICE = 0,
@@ -121,6 +121,7 @@ list_t *pci_scan()
       device_t *dev = DEV_LIST_ENTRY(p);
       kprintf("found device %p class: %#x subclass: %#x\n",
               dev, dev->class, dev->subclass);
+      p = p->next;
     }
   }
 #endif
