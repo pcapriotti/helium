@@ -130,9 +130,9 @@ void kernel_start(void *multiboot_info, uint32_t magic)
         console.buffer[p++] = debug_buf[q++];
       }
     }
-    console_render_buffer();
     console.cur.x = debug_console.x;
     console.cur.y = debug_console.y;
+    console_render_buffer();
     print_char_function = &console_debug_print_char;
     serial_printf("background task:\n");
     console_start_background_task();
