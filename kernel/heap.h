@@ -1,6 +1,8 @@
 #ifndef HEAP_H
 #define HEAP_H
 
+#include <stddef.h>
+
 #define ROUND(a, i) (((uint32_t)a + (1 << (i)) - 1) >> i)
 
 struct heap;

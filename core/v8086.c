@@ -329,6 +329,10 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
     st[2] = 0xcf; /* iret */
   }
 
+  /* disable paging */
+  /* TODO: make a page for the v8086 task */
+  int paging_enabled = paging_disable();
+
   /* save flags */
   __asm__ volatile
     (
@@ -392,6 +396,8 @@ uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
      "popf\n"
      :
      : "r"(eflags));
+
+  if (paging_enabled) paging_enable();
 
   return ctx->eflags;
 }

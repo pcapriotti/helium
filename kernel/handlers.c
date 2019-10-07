@@ -4,6 +4,7 @@
 #include "core/v8086.h"
 #include "handlers.h"
 #include "keyboard.h"
+#include "paging.h"
 #include "scheduler.h"
 #include "timer.h"
 
@@ -50,12 +51,29 @@ int handle_syscall(isr_stack_t *stack)
   }
 }
 
+int __attribute__((noinline)) handle_page_fault(isr_stack_t *stack)
+{
+  if (stack->int_num != IDT_PF) return 0;
+
+  if (stack->error & 0x4) {
+    kprintf("Unhandled page fault (code: %#x)\n", stack->error);
+    kprintf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
+    kprintf("  cr2: %#x\n", CR_GET(2));
+    serial_printf("page fault\n");
+    hang_system();
+  }
+
+  paging_idmap((void *) CR_GET(2));
+  return 1;
+}
+
 void handle_interrupt(isr_stack_t *stack)
 {
   int done =
     v8086_manager(stack) ||
     handle_irq(stack) ||
-    handle_syscall(stack);
+    handle_syscall(stack) ||
+    handle_page_fault(stack);
 
   if (!done) {
     kprintf("Unhandled exception %#x (code: %#x)\n", stack->int_num, stack->error);

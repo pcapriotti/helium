@@ -5,6 +5,7 @@
 
 enum {
   IDT_GP = 0xd,
+  IDT_PF = 0xe,
   IDT_IRQ = 0x20,
   IDT_SYSCALL = 0x7f,
   IDT_NUM_ENTRIES = 0x100,
@@ -20,7 +21,36 @@ enum {
   IRQ_KEYBOARD = 1,
 };
 
+#define CR_SET(cr, value) \
+  __asm__ volatile \
+    ("mov %0, %%cr" #cr : : "r"(value))
+
+#define CR_GET(cr) \
+  ({ uint32_t value; \
+    __asm__ volatile ("mov %%cr" #cr ", %0" : "=r"(value)); \
+    value;})
+
 #define IRQ_MASK(irq) (1 << (irq))
+
+enum {
+  CR4_PSE = 1 << 4,
+};
+
+enum {
+  CR0_PG = 1 << 31,
+};
+
+static inline void paging_enable(void) {
+  uint32_t value = CR_GET(0);
+  CR_SET(0, value | CR0_PG);
+}
+
+static inline int paging_disable(void) {
+  uint32_t value = CR_GET(0);
+  int enabled = value & CR0_PG;
+  if (enabled) CR_SET(0, value & ~CR0_PG);
+  return enabled;
+}
 
 typedef struct {
   uint16_t offset_low;
