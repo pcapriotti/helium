@@ -1,5 +1,6 @@
 #include "core/debug.h"
 #include "core/v8086.h"
+#include "core/x86.h"
 #include "buddy/frames.h"
 #include "memory.h"
 

@@ -1,5 +1,6 @@
 #include "console.h"
 #include "core/debug.h"
+#include "core/x86.h"
 #include "keyboard.h"
 #include "semaphore.h"
 #include "kmalloc.h"
@@ -19,8 +20,21 @@ typedef struct shell {
 
 void shell_process_command(shell_t *shell, const char *cmd)
 {
+  if (shell->input_len == 0) return;
+
   if (!strcmp("reboot", shell->input)) {
     kb_reset_system();
+  }
+  else if (!strcmp("cpuid", shell->input)) {
+    if (cpuid_is_supported()) {
+      char vendor[20];
+      cpuid_vendor(vendor);
+      uint64_t features = cpuid_features();
+      kprintf("cpu \"%s\", features: %#016llx\n", vendor, features);
+    }
+    else {
+      kprintf("cpuid not supported\n");
+    }
   }
   else {
     kprintf("unknown command: %s\n", shell->input);

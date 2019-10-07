@@ -45,12 +45,6 @@ static inline ptr16_t linear_to_ptr16(uint32_t p)
   return p16;
 }
 
-enum {
-  EFLAGS_CF = 1 << 0,
-  EFLAGS_IF = 1 << 9,
-  EFLAGS_VM = 1 << 17,
-};
-
 struct isr_stack;
 int v8086_manager(struct isr_stack *stack_);
 
