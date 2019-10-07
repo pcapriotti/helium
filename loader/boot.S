@@ -136,7 +136,7 @@ load_loop_end:
   push %edx
 
 
-  call _stage1
+  call loader_start
 
 .code16
 

@@ -166,7 +166,7 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
 
 typedef void (*main_t)();
 
-void _stage1(uint32_t drive)
+void loader_start(uint32_t drive)
 {
   /* set bss to zero */
   for (uint8_t *p = _bss_start;
