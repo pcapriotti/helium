@@ -15,7 +15,7 @@ typedef struct {
 } timer_t;
 
 static timer_t timer;
-static task_t *waiting;
+static list_t *waiting;
 
 static int timer_waiting_locked = 0;
 
@@ -72,8 +72,9 @@ void timer_irq(isr_stack_t *stack)
   barrier();
 
   /* wake sleeping tasks */
-  while (waiting && waiting->timeout <= timer.count) {
-    task_t *task = task_list_take(&waiting, waiting);
+  while (waiting &&
+         TASK_LIST_ENTRY(waiting)->timeout <= timer.count) {
+    task_t *task = task_list_pop(&waiting);
     task->state = TASK_RUNNING;
     task_list_add(&sched_runqueue, task);
   }
@@ -94,18 +95,22 @@ void timer_sleep(unsigned long delay)
   sched_current->timeout = timer.count + delay;
 
   timer_waiting_lock();
+  task_t *task = waiting ? TASK_LIST_ENTRY(waiting) : 0;
+
   /* insert in the list of waiting tasks in order of timeout */
-  if (!waiting || sched_current->timeout <= waiting->timeout) {
+  if (!waiting || sched_current->timeout <= task->timeout) {
     /* insert at the beginning */
     task_list_push(&waiting, sched_current);
   }
   else {
     /* insert before the first task with higher priority */
-    task_t *task = waiting->next;
-    while (task != waiting && task->timeout < sched_current->timeout) {
-      task = task->next;
+    list_t *p = waiting->next;
+    task = TASK_LIST_ENTRY(p);
+    while (p != waiting &&
+           TASK_LIST_ENTRY(p)->timeout < sched_current->timeout) {
+      p = p->next;
     }
-    task_list_insert(task, sched_current);
+    task_list_insert(p, sched_current);
   }
   timer_waiting_unlock();
 

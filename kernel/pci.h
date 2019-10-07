@@ -55,6 +55,9 @@ typedef struct {
   uint8_t subclass;
 } device_t;
 
-void pci_scan(list_t *devices);
+#define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
+
+list_t *pci_scan();
+list_t *pci_scan_bus(uint8_t bus);
 
 #endif /* PCI_H */

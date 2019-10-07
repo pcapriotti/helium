@@ -8,12 +8,12 @@ typedef int spin_lock_t[0];
 void spin_lock(spin_lock_t *lock);
 void spin_unlock(spin_lock_t *lock);
 
-struct task;
+struct list;
 
 typedef struct semaphore {
   spin_lock_t lock;
   int value;
-  struct task *waiting;
+  struct list *waiting;
 } semaphore_t;
 
 #define SEM_INIT(val) ((semaphore_t) { SPIN_LOCK_INIT, (val), 0 })

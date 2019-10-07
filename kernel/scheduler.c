@@ -19,7 +19,7 @@
 
 #define SCHED_QUANTUM 20
 
-task_t *sched_runqueue = 0;
+list_t *sched_runqueue = 0;
 task_t *sched_current = 0;
 
 /* when this is set the current task cannot be preempted, and it has
@@ -36,59 +36,32 @@ static void context_switch(isr_stack_t *stack)
      : : "m"(stack));
 }
 
-void task_list_insert(task_t *list, task_t *task)
+void task_list_insert(list_t *list, task_t *task)
 {
-  assert(list);
-  task_t *prev = list->prev;
-  prev->next = task;
-  task->prev = prev;
-  list->prev = task;
-  task->next = list;
+  list_insert(list, &task->head);
 }
 
 /* add at the end */
-void task_list_add(task_t **list, task_t *task)
+void task_list_add(list_t **list, task_t *task)
 {
-  if (*list) {
-    task_list_insert(*list, task);
-  }
-  else {
-    task->next = task;
-    task->prev = task;
-    *list = task;
-  }
+  list_add(list, &task->head);
 }
 
 /* add at the front */
-void task_list_push(task_t **list, task_t *task)
+void task_list_push(list_t **list, task_t *task)
 {
-  task_list_add(list, task);
-  *list = task;
+  list_push(list, &task->head);
 }
 
 /* remove from the front */
-task_t *task_list_pop(task_t **list)
+task_t *task_list_pop(list_t **list)
 {
-  if (*list == 0) return 0;
-  return task_list_take(list, *list);
+  return TASK_LIST_ENTRY(list_pop(list));
 }
 
-task_t *task_list_take(task_t **list, task_t *task)
+task_t *task_list_take(list_t **list, task_t *task)
 {
-  if (task->next == task) {
-    *list = 0;
-    return task;
-  }
-
-  task_t *prev = task->prev;
-  task_t *next = task->next;
-  prev->next = next;
-  next->prev = prev;
-
-  if (task == *list) {
-    *list = next;
-  }
-  return task;
+  return TASK_LIST_ENTRY(list_take(list, &task->head));
 }
 
 void sched_schedule(isr_stack_t *stack)

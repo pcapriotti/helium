@@ -1,41 +1,97 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <assert.h>
+#include <stddef.h>
+
+#define LIST_ENTRY(item, ty, member) \
+  ((ty *)((void *)(item) - (size_t) (&((ty *)0)->member)))
+
 typedef struct list {
   struct list *next, *prev;
 } list_t;
 
-#define LIST_INIT(name) { &(name), &(name) }
-#define LIST_HEAD(name) list_t name = LIST_INIT(name)
-
-static inline void list_add(list_t *x, list_t *list)
+/* insert item before an element of a list */
+static inline void list_insert(list_t *list, list_t *item)
 {
-  list_t *next = list->next;
-
-  list->next = x;
-  x->prev = list;
-
-  next->prev = x;
-  x->next = next;
+  assert(list);
+  list_t *last = list->prev;
+  last->next = item;
+  item->prev = last;
+  list->prev = item;
+  item->next = list;
 }
 
-static inline int list_empty(list_t *list)
+/* insert item at the end of a list */
+static inline void list_add(list_t **list, list_t *item)
 {
-  return list->next == list;
+  if (*list) {
+    list_insert(*list, item);
+  }
+  else {
+    item->next = item;
+    item->prev = item;
+    *list = item;
+  }
 }
 
-#define list_entry(x, ty, member) \
-  ((ty *)((uint8_t *)(x) - (uint8_t *)&((ty *)0)->member))
+/* insert item at the front of a list */
+static inline void list_push(list_t **list, list_t *item)
+{
+  list_add(list, item);
+  *list = item;
+}
 
-#define list_first(x, ty, member) \
-  list_entry((x).next, ty, member)
+/* remove item from a list */
+static inline list_t *list_take(list_t **list, list_t *item)
+{
+  if (item->next == item) {
+    *list = 0;
+    return item;
+  }
 
-#define list_next(x, member) \
-  list_entry((x)->member.next, typeof(*x), member)
+  list_t *prev = item->prev;
+  list_t *next = item->next;
+  prev->next = next;
+  next->prev = prev;
 
-#define list_foreach_entry(p, h, member) \
-  for (p = list_entry((h)->next, typeof(*p), member);   \
-       &p->member != (h);                               \
-       p = list_entry(p->member.next, typeof(*p), member))
+  if (item == *list) {
+    *list = next;
+  }
+  return item;
+}
+
+/* remove item from the front of a list */
+static inline list_t *list_pop(list_t **list)
+{
+  if (*list == 0) return 0;
+  return list_take(list, *list);
+}
+
+/* splice a list before a given element of a list */
+static inline void list_splice_at(list_t *item, list_t *list)
+{
+  assert(item);
+  if (list == 0) return;
+
+  list_t *last1 = item->prev;
+  list_t *last2 = list->prev;
+
+  last1->next = list;
+  list->prev = last1;
+  last2->next = item;
+  item->prev = last2;
+}
+
+/* splice a list at the end of the given one */
+static inline void list_splice(list_t **list1, list_t *list2)
+{
+  if (*list1) {
+    list_splice_at(*list1, list2);
+  }
+  else {
+    *list1 = list2;
+  }
+}
 
 #endif /* LIST_H */

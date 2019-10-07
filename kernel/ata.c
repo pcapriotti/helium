@@ -206,8 +206,9 @@ drive_t *ata_get_drive(uint8_t index)
 
 device_t *ata_find_ide_controller(list_t *devices)
 {
-  device_t *dev;
-  list_foreach_entry(dev, devices, head) {
+  list_t *p = devices ? devices->next : 0;
+  while (p != devices) {
+    device_t *dev = DEV_LIST_ENTRY(p);
     if (dev->class == PCI_CLS_STORAGE &&
         dev->subclass == PCI_STORAGE_IDE) {
       return dev;
