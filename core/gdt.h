@@ -19,11 +19,12 @@ typedef struct {
   void *offset;
 } __attribute__((packed)) gdtp_t;
 
-void set_gdt_entry(gdt_entry_t *entry,
+void gdt_set_entry(gdt_entry_t *entry,
                    uint32_t base,
                    uint32_t limit,
                    uint8_t flags,
                    uint8_t granularity);
+void gdt_init(void);
 
 extern gdtp_t kernel_gdtp;
 extern __attribute__((aligned(8))) gdt_entry_t kernel_gdt[];

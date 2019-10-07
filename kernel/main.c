@@ -69,17 +69,7 @@ void root_task()
 
 void kernel_start(void *multiboot_info, uint32_t magic)
 {
-
-  set_gdt_entry(&kernel_gdt[GDT_TASK],
-                (uint32_t)&kernel_tss,
-                sizeof(kernel_tss),
-                0x89, 0);
-  __asm__ volatile("lgdt %0" : : "m"(kernel_gdtp));
-
-  kernel_tss.tss.ss0 = GDT_SEL(GDT_DATA);
-  kernel_tss.tss.iomap_base = sizeof(tss_t);
-  __asm__ volatile("ltr %0" : : "r"(GDT_SEL(GDT_TASK)));
-
+  gdt_init();
   set_kernel_idt();
 
   pic_setup();

@@ -174,7 +174,7 @@ void _stage1(uint32_t drive)
     *p = 0;
   }
 
-  set_gdt_entry(&kernel_gdt[GDT_TASK],
+  gdt_set_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
                 sizeof(kernel_tss),
                 0x89, 0);
