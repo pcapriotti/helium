@@ -28,6 +28,48 @@ enum {
   PS2_STATUS = 0x64,
 };
 
+enum {
+  PS2_STATUS_OUTPUT = 1 << 0,
+  PS2_STATUS_INPUT = 1 << 1,
+  PS2_STATUS_SYSTEM = 1 << 2,
+  PS2_STATUS_COMMAND = 1 << 3,
+  PS2_STATUS_TIMEOUT = 1 << 6,
+  PS2_STATUS_PARITY = 1 << 7,
+};
+
+enum {
+  PS2_CMD_READ = 0x20,
+  PS2_CMD_WRITE = 0x60,
+  PS2_DISABLE2 = 0xa7,
+  PS2_ENABLE2 = 0xa8,
+  PS2_TEST2 = 0xa9,
+  PS2_TEST = 0xaa,
+  PS2_TEST1 = 0xab,
+  PS2_DUMP = 0xac,
+  PS2_DISABLE1 = 0xad,
+  PS2_ENABLE1 = 0xae,
+  PS2_READ_INPUT = 0xc0,
+  PS2_COPY_INPUT0 = 0xc1,
+  PS2_COPY_INPUT1 = 0xc2,
+  PS2_READ_OUTPUT = 0xd0,
+  PS2_WRITE_OUTPUT = 0xd1,
+  PS2_WRITE_BUF1 = 0xd2,
+  PS2_WRITE_BUF2 = 0xd3,
+  PS2_WRITE_INPUT_BUF2 = 0xd4,
+  PS2_PULSE = 0xf0,
+};
+
+enum {
+  PS2_OUTPUT_RESET = 1 << 0,
+  PS2_OUTPUT_A20 = 1 << 1,
+  PS2_OUTPUT_CLOCK2 = 1 << 2,
+  PS2_OUTPUT_DATA2 = 1 << 3,
+  PS2_OUTPUT_BUF1 = 1 << 4,
+  PS2_OUTPUT_BUF2 = 1 << 5,
+  PS2_OUTPUT_CLOCK1 = 1 << 6,
+  PS2_OUTPUT_DATA1 = 1 << 7,
+};
+
 /* modifier bit offsets */
 enum {
   MOD_SHIFT,
@@ -158,15 +200,6 @@ int kb_init(void)
 
 void kb_irq(void)
 {
-  /* wait for keyboard input */
-  uint8_t status = inb(PS2_STATUS);
-  while (status & 0x1) {
-    if ((status & (1 << 5)) == 0) break;
-    inb(PS2_DATA);
-    status = inb(PS2_STATUS);
-  }
-  if ((status & 0x1) == 0) return;
-
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
 
@@ -201,4 +234,17 @@ void kb_grab(void (*on_event)(kb_event_t *event, void *data), void *data)
 {
   kb_on_event = on_event;
   kb_on_event_data = data;
+}
+
+void kb_reset_system(void)
+{
+  uint8_t status = inb(PS2_STATUS);
+  if (status & PS2_STATUS_OUTPUT)
+    inb(PS2_DATA);
+  while (status & PS2_STATUS_INPUT) {
+    status = inb(PS2_STATUS);
+  }
+
+  outb(PS2_STATUS, PS2_PULSE | ~PS2_OUTPUT_RESET);
+  hang_system();
 }

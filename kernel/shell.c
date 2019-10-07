@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #define INPUT_BUF_SIZE 1024
 
@@ -18,7 +19,12 @@ typedef struct shell {
 
 void shell_process_command(shell_t *shell, const char *cmd)
 {
-  kprintf("unknown command: %s\n", shell->input);
+  if (!strcmp("reboot", shell->input)) {
+    kb_reset_system();
+  }
+  else {
+    kprintf("unknown command: %s\n", shell->input);
+  }
 }
 
 void shell_draw_prompt(shell_t *shell)
@@ -36,6 +42,7 @@ void on_kb_event(kb_event_t *event, void *data)
     kprintf("\n");
     shell_process_command(shell, shell->input);
     shell->input_len = 0;
+    shell->input[shell->input_len] = '\0';
     shell_draw_prompt(shell);
   }
   else if (event->keycode == KC_BSP) {

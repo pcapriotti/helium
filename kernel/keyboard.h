@@ -48,5 +48,6 @@ extern queue_t kb_events;
 
 /* add a process to the keyboard waiting queue */
 void kb_grab(void (*on_event)(kb_event_t *event, void *data), void *data);
+void kb_reset_system(void);
 
 #endif /* KEYBOARD_H */
