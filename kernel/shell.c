@@ -30,7 +30,7 @@ void shell_process_command(shell_t *shell, const char *cmd)
       char vendor[20];
       cpuid_vendor(vendor);
       uint64_t features = cpuid_features();
-      kprintf("cpu \"%s\", features: %#016llx\n", vendor, features);
+      kprintf("cpu \"%s\", features: %#08x\n", vendor, features);
     }
     else {
       kprintf("cpuid not supported\n");

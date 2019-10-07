@@ -38,16 +38,21 @@ void cpuid_vendor(char *vendor)
   vendor[12] = '\0';
 }
 
-uint64_t cpuid_features(void)
+uint32_t cpuid_features(void)
 {
-  uint32_t eax, ecx, edx;
+  uint32_t eax, ret;
 
   __asm__
     ("cpuid\n"
-     : "=d"(edx),
-       "=c"(ecx),
+     : "=d"(ret),
        "=a"(eax)
      : "a"(CPUID_GETFEATURES)
-     : "ebx");
-  return (uint64_t) edx | ((uint64_t) ecx << 32);
+     : "ebx", "ecx");
+  return ret;
+}
+
+int cpuid_check_features(uint32_t mask)
+{
+  if (!cpuid_is_supported()) return 0;
+  return (cpuid_features() & mask) == mask;
 }

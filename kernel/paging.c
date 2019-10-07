@@ -1,3 +1,4 @@
+#include "core/debug.h"
 #include "core/interrupts.h"
 #include "paging.h"
 
@@ -51,6 +52,10 @@ void paging_init(void)
   CR_SET(3, directory);
 
   /* enable large pages */
+  if (!cpuid_check_features(CPUID_FEAT_PSE)) {
+    kprintf("Large pages not supported\n");
+    panic();
+  }
   CR_SET(4, CR_GET(4) | CR4_PSE);
 
   paging_enable();
