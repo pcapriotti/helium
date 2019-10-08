@@ -83,7 +83,7 @@ void serial_print_char(char c)
   if (c == '\n')
     serial_print_char('\r');
   while ((inb(COM1_PORT + 5) & 0x20) == 0);
-  outb(0x3f8, c);
+  outb(COM1_PORT, c);
 }
 
 void (*print_char_function)(char c) = debug_print_char;
