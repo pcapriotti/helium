@@ -23,9 +23,8 @@ enum {
 
 int default_mem_info(void *start, size_t size, void *data);
 
-frames_t *frames_new(void *start,
+frames_t *frames_new(void *start, void *end,
                      unsigned int min_order,
-                     unsigned int max_order,
                      int (*mem_info)(void *start, size_t size, void *data),
                      void *data);
 size_t frames_available_memory(frames_t *frames);

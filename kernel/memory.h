@@ -6,6 +6,7 @@
 
 #define ALIGNED(x, bits) (((uint32_t) x) & (~0UL << (bits)))
 #define PAGE_BITS 12
+#define MAX_KERNEL_MEMORY_SIZE (126 * 1024 * 1024)
 
 extern uint8_t _stage1_end[];
 extern uint8_t _kernel_start[];

@@ -73,6 +73,7 @@ order of a block is the base-two logarithm of its size. The various
 parameters of the system are:
 
  - start: pointer to the beginning of the managed memory chunk
+ - end: pointer past the end of managed memory
  - min_order: order of the smallest blocks
  - max_order: order of the largest block
 
@@ -122,6 +123,7 @@ block and its buddy would end up being available, we merge them by
 making them unavailable and recursing on the parent block. */
 struct frames {
   void *start;
+  void *end;
   struct block_t *free[MAX_ORDER];
   unsigned int min_order, max_order;
 
@@ -283,9 +285,8 @@ void *take_block(frames_t *frames, unsigned int order)
 
   Finally we allocate a block for the frames_t structure itself, copy
   it over, and return its address. */
-frames_t *frames_new(void *start,
+frames_t *frames_new(void *start, void *end,
                      unsigned int min_order,
-                     unsigned int max_order,
                      int (*mem_info)(void *start, size_t size, void *data),
                      void *data)
 {
@@ -295,8 +296,9 @@ frames_t *frames_new(void *start,
 
   frames_t frames;
   frames.start = start;
+  frames.end = end;
   frames.min_order = min_order;
-  frames.max_order = max_order;
+  frames.max_order = ORDER_OF(end - start);
   if (frames.max_order < frames.min_order) {
     FRAMES_PANIC(0, "min_order too large\n");
   }

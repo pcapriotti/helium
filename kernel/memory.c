@@ -314,18 +314,19 @@ int memory_init(uint32_t *heap)
     kprintf(")\n");
   }
 #endif
-  if (total_memory_size > 0xffffffff)
-    total_memory_size = 0xffffffff;
+  uint32_t kernel_memory_size = total_memory_size;
+  if (kernel_memory_size > MAX_KERNEL_MEMORY_SIZE)
+    kernel_memory_size = MAX_KERNEL_MEMORY_SIZE;
 
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
   chunk_info.num_chunks = num_chunks;
 
-  unsigned int max_order = ORDER_OF(total_memory_size);
 #if MM_DEBUG
-  kprintf("max_order = %u\n", max_order);
+  kprintf("kernel memory size: %u\n", kernel_memory_size);
 #endif
-  memory_frames = frames_new(0, FRAMES_MIN_ORDER, max_order,
+  memory_frames = frames_new(0, (void *) kernel_memory_size,
+                             FRAMES_MIN_ORDER,
                              &mem_info, &chunk_info);
 
   if (!memory_frames) {
