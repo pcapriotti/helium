@@ -19,14 +19,23 @@
   return ret; } while(0)
 #endif
 
+#if !_HELIUM
+#define kprintf printf
+#endif
+
 #if FRAMES_DEBUG
-# if _HELIUM
-#  define TRACE(...) kprintf(__VA_ARGS__)
-# else
-#  define TRACE(...) printf(__VA_ARGS__)
-# endif
+# define TRACE(...) kprintf(__VA_ARGS__)
 #else
 # define TRACE(...) do {} while(0)
+#endif
+
+#if FRAMES_DEBUG
+#define DIAGNOSTICS(frames) \
+  TRACE("----\n"); \
+  frames_dump_diagnostics(frames); \
+  TRACE("----\n");
+#else
+#define DIAGNOSTICS(frames) do {} while (0)
 #endif
 
 /* operations on bitvectors defined as arrays of uint32_t */
@@ -309,7 +318,7 @@ frames_t *frames_new(void *start, void *end,
   /* add all blocks */
   add_blocks(frames.max_order, start, &frames, mem_info, data);
 
-  frames_dump_diagnostics(&frames);
+  DIAGNOSTICS(&frames);
 
   /* set metadata */
   frames.metadata = 0;
@@ -366,24 +375,24 @@ void *frames_alloc(frames_t *frames, size_t sz)
   void *ret = take_block(frames, ORDER_OF(sz));
   TRACE("allocated 0x%lx size 0x%lx (order %lu)\n",
          ret - frames->start, sz, ORDER_OF(sz));
-  frames_dump_diagnostics(frames);
+  DIAGNOSTICS(frames);
   return ret;
 }
 
 void frames_dump_diagnostics(frames_t *frames)
 {
-  TRACE("----\n");
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     block_t *block = *block_head(frames, k);
     int nonempty = block != 0;
-    if (nonempty) TRACE("order %d: ", k);
+    if (nonempty) kprintf("order %d: ", k);
     while (block) {
-      TRACE("0x%lx ", (void *)block - frames->start);
+      kprintf("0x%lx ", (void *)block - frames->start);
       block = block->next;
     }
-    if (nonempty) TRACE("\n");
+    if (nonempty) kprintf("\n");
   }
-  TRACE("----\n");
+  kprintf("total memory: %lu B\n", frames->end - frames->start);
+  kprintf("free memory:  %lu B\n", frames_available_memory(frames));
 }
 
 void frames_free_order(frames_t *frames, void *p, unsigned int order)
@@ -415,7 +424,7 @@ void frames_free_order(frames_t *frames, void *p, unsigned int order)
   }
 
   TRACE("freed 0x%lx of order %d\n", p - frames->start, order);
-  frames_dump_diagnostics(frames);
+  DIAGNOSTICS(frames);
 }
 
 unsigned int frames_find_order(frames_t *frames, void *p)

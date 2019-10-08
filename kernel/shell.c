@@ -2,7 +2,9 @@
 #include "console.h"
 #include "core/debug.h"
 #include "core/x86.h"
+#include "frames.h"
 #include "keyboard.h"
+#include "memory.h"
 #include "semaphore.h"
 #include "kmalloc.h"
 
@@ -28,6 +30,9 @@ void shell_process_command(shell_t *shell, const char *cmd)
   }
   else if (!strcmp("drives", shell->input)) {
     ata_list_drives();
+  }
+  else if (!strcmp("memory", shell->input)) {
+    frames_dump_diagnostics(memory_frames);
   }
   else if (!strcmp("cpuid", shell->input)) {
     if (cpuid_is_supported()) {

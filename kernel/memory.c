@@ -240,6 +240,9 @@ int find_chunk(chunk_t *chunks, int num_chunks, uint64_t base)
 typedef struct {
   chunk_t *chunks;
   int num_chunks;
+
+  uint64_t start;
+  uint64_t end;
 } chunk_info_t;
 
 /* return availability information for a memory block */
@@ -251,6 +254,12 @@ int mem_info(void *startp, size_t size, void *data)
 
   uint64_t start = (uint32_t) startp;
   uint64_t length = size ? size : 1ULL << 32;
+
+  if (start + length < chunk_info->start) return MEM_INFO_RESERVED;
+  if (start >= chunk_info->end) return MEM_INFO_RESERVED;
+
+  if (start < chunk_info->start || start + length >= chunk_info->end)
+    reserved = 1;
 
   int i = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start);
   int j = find_chunk(chunk_info->chunks, chunk_info->num_chunks, start + length);
@@ -321,9 +330,11 @@ int memory_init(uint32_t *heap)
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
   chunk_info.num_chunks = num_chunks;
+  chunk_info.start = (uint32_t) _kernel_start;
+  chunk_info.end = kernel_memory_size;
 
 #if MM_DEBUG
-  kprintf("kernel memory size: %u\n", kernel_memory_size);
+  kprintf("kernel memory size: %lu\n", kernel_memory_size);
 #endif
   memory_frames = frames_new(0, (void *) kernel_memory_size,
                              FRAMES_MIN_ORDER,
@@ -335,7 +346,7 @@ int memory_init(uint32_t *heap)
 
   uint32_t free_mem = frames_available_memory(memory_frames);
 #if MM_DEBUG
-  kprintf("free memory: %#x\n", free_mem);
+  kprintf("free memory: %lu\n", free_mem);
 #endif
 
   return 0;
