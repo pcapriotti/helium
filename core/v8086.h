@@ -11,6 +11,8 @@ typedef struct {
 } __attribute__((packed)) regs16_t;
 
 int bios_int(uint32_t interrupt, regs16_t *regs);
+void bios_shutdown(void);
+
 void v8086_exit(void *stack);
 
 typedef struct {

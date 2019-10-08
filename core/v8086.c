@@ -429,3 +429,12 @@ int bios_int(uint32_t interrupt, regs16_t *regs)
   ptr16_t *handlers = 0; /* bios IVT */
   return v8086_set_stack_and_enter(regs, handlers[interrupt]);
 }
+
+void bios_shutdown(void)
+{
+  regs16_t regs;
+  regs.eax = 0x5307;
+  regs.ebx = 1;
+  regs.ecx = 3;
+  bios_int(0x15, &regs);
+}

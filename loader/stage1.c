@@ -186,7 +186,7 @@ void loader_start(uint32_t drive)
   pic_init();
 
   /* set text mode */
-  regs16_t regs = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  regs16_t regs = {0};
   regs.eax = 0x2;
   bios_int(0x10, &regs);
 

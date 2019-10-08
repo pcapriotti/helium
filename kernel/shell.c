@@ -2,6 +2,7 @@
 #include "console.h"
 #include "core/debug.h"
 #include "core/x86.h"
+#include "core/v8086.h"
 #include "frames.h"
 #include "keyboard.h"
 #include "memory.h"
@@ -27,6 +28,9 @@ void shell_process_command(shell_t *shell, const char *cmd)
 
   if (!strcmp("reboot", shell->input)) {
     kb_reset_system();
+  }
+  if (!strcmp("poweroff", shell->input)) {
+    bios_shutdown();
   }
   else if (!strcmp("drives", shell->input)) {
     ata_list_drives();
