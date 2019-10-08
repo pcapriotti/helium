@@ -9,8 +9,8 @@
 
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
 
-#define BIOS_MM_DEBUG 1
-#define MM_DEBUG 0
+#define BIOS_MM_DEBUG 0
+#define MM_DEBUG 1
 
 frames_t *memory_frames;
 
@@ -298,11 +298,24 @@ int memory_init(uint32_t *heap)
 #endif
 
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
+#if MM_DEBUG
+  {
+    kprintf("memory size: %#llx (", total_memory_size);
+    unsigned long long kb = total_memory_size / 1024;
+    unsigned long long mb = kb / 1024;
+    unsigned long long gb = mb / 1024;
+    if (gb)
+      kprintf("%llu GB", gb);
+    else if (mb)
+      kprintf("%llu MB", mb);
+    else if (kb)
+      kprintf("%llu kB", kb);
+
+    kprintf(")\n");
+  }
+#endif
   if (total_memory_size > 0xffffffff)
     total_memory_size = 0xffffffff;
-#if MM_DEBUG
-  kprintf("memory size: %#x\n", total_memory_size);
-#endif
 
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
