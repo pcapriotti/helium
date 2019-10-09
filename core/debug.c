@@ -75,7 +75,7 @@ enum {
 };
 
 volatile int debug_key_pressed = 0;
-int debug_paging = 0;
+int debug_paging = 1;
 
 void hang_system(void) {
   while(1) {

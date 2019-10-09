@@ -292,9 +292,10 @@ int mem_info(uint64_t start, uint64_t length, void *data)
 
 int chunk_info_init_frame(chunk_info_t *chunk_info,
                           frames_t *frames,
+                          frames_t *aux_frames,
                           unsigned int order)
 {
-  return frames_init(frames,
+  return frames_init(frames, aux_frames,
                      chunk_info->start, chunk_info->end,
                      order, &mem_info, chunk_info);
 }
@@ -347,10 +348,14 @@ int memory_init(uint32_t *heap)
     chunk_info.end = KERNEL_MEMORY_END;
 
     if (chunk_info_init_frame(&chunk_info,
-                              &kernel_frames,
+                              &kernel_frames, 0,
                               KERNEL_FRAMES_ORDER) == -1)
       return -1;
   }
+
+#if MM_DEBUG
+  kprintf("initialising kernel heap\n");
+#endif
 
   /* initialise kernel heap */
   if (kmalloc_init() == -1) panic();
@@ -363,19 +368,31 @@ int memory_init(uint32_t *heap)
     memcpy(chunk_info.chunks, chunks, chunk_size);
   }
 
+#if MM_DEBUG
+  kprintf("creating DMA allocator\n");
+#endif
+
   /* create DMA frame allocator */
   {
     chunk_info.start = 0;
     chunk_info.end = (size_t) _kernel_start;
 
     if (chunk_info_init_frame(&chunk_info,
-                              &dma_frames,
+                              &dma_frames, &kernel_frames,
                               DMA_FRAMES_ORDER) == -1)
       return -1;
   }
 
+#if MM_DEBUG
+  kprintf("enabling paging\n");
+#endif
+
   /* enable paging now, because the user allocator will need it */
   if (paging_init() == -1) panic();
+
+#if MM_DEBUG
+  kprintf("creating user allocator\n");
+#endif
 
   /* TODO: use kernel allocator for metadata */
   if (total_memory_size > USER_MEMORY_START) {
@@ -383,7 +400,7 @@ int memory_init(uint32_t *heap)
     chunk_info.end = total_memory_size;
 
     if (chunk_info_init_frame(&chunk_info,
-                              &user_frames,
+                              &user_frames, &kernel_frames,
                               USER_FRAMES_ORDER) == -1)
       return -1;
   }
@@ -395,12 +412,12 @@ void *falloc(size_t sz)
 {
   uint64_t frame = frames_alloc(&kernel_frames, sz);
   assert(frame < KERNEL_MEMORY_END);
-  return (void *) (uint32_t) frame;
+  return (void *) (size_t) frame;
 }
 
 void ffree(void *p)
 {
-  uint64_t frame = (uint32_t) p;
+  uint64_t frame = (size_t) p;
   assert(frame < KERNEL_MEMORY_END);
   frames_free(&kernel_frames, frame);
 }

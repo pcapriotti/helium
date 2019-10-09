@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#define FRAMES_DEBUG 0
+#define FRAMES_DEBUG 1
 
 #if _HELIUM
 #include "core/debug.h"
@@ -281,15 +281,15 @@ void mark_blocks(frames_t *frames, uint64_t start, unsigned int order,
                  void *data)
 {
   int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  /* TRACE("mark block %#lx order %u info %d\n", */
-  /*       start - frames->start, order, info); */
+  TRACE("mark block %#lx order %u info %d\n",
+        start - frames->start, order, info);
   if (info == MEM_INFO_USABLE) return;
 
   if (order < frames->max_order) {
     unsigned int index = frames_block_index(frames, start, order);
     SET_BIT(frames->metadata, index);
-    /* TRACE("set bit for block %#lx order %u index %d\n", */
-    /*       start - frames->start, order, index); */
+    TRACE("set bit for block %#lx order %u index %d\n",
+          start - frames->start, order, index);
   }
 
   if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
@@ -347,7 +347,7 @@ uint64_t take_block(frames_t *frames, unsigned int order)
   can be recorded.  So after the metadata block has been allocated, we
   first synchronise it with the initial block setup, then reconstruct
   the metadata changes that would have happened during its allocation. */
-int frames_init(frames_t *frames,
+int frames_init(frames_t *frames, frames_t *aux_frames,
                 uint64_t start, uint64_t end,
                 unsigned int min_order,
                 int (*mem_info)(uint64_t start, uint64_t size, void *data),
@@ -378,7 +378,15 @@ int frames_init(frames_t *frames,
   unsigned int meta_order = frames->max_order - frames->min_order - 2;
   if (meta_order <= 2) meta_order = 2;
   if (meta_order < frames->min_order) meta_order = frames->min_order;
-  uint64_t metadata_frame = take_block(frames, meta_order);
+  uint64_t metadata_frame = 0;
+
+  if (aux_frames) {
+    metadata_frame = frames_alloc(aux_frames, 1 << meta_order);
+  }
+  else {
+    metadata_frame = take_block(frames, meta_order);
+  }
+
   if (!metadata_frame) FRAMES_PANIC(-1, "not enough memory for frame metadata\n");
 #if _HELIUM
   assert(metadata_frame < KERNEL_MEMORY_END);
@@ -395,7 +403,7 @@ int frames_init(frames_t *frames,
   TRACE("  done\n");
 
   /* execute metadata changes for the metadata block allocation */
-  {
+  if (!aux_frames) {
     TRACE("replaying metadata for %p order %u\n",
           frames->metadata, meta_order);
     int index = frames_block_index(frames, metadata_frame, meta_order);

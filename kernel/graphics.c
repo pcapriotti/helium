@@ -237,6 +237,8 @@ int graphics_init(void *low_heap, vbe_mode_t *req_mode)
   return -1;
 #endif
 
+  return -1;
+
   /* map framebuffer into virtual memory */
   req_mode->framebuffer = paging_perm_map_pages
     ((size_t) req_mode->framebuffer,

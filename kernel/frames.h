@@ -32,7 +32,7 @@ enum {
 
 int default_mem_info(uint64_t start, uint64_t size, void *data);
 
-int frames_init(frames_t *frames,
+int frames_init(frames_t *frames, frames_t *aux_frames,
                 uint64_t start, uint64_t end,
                 unsigned int min_order,
                 int (*mem_info)(uint64_t start, uint64_t size, void *data),
