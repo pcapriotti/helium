@@ -398,6 +398,10 @@ int memory_init(uint32_t *heap)
   if (total_memory_size > USER_MEMORY_START) {
     chunk_info.start = USER_MEMORY_START;
     chunk_info.end = total_memory_size;
+    uint64_t max = paging_maximum_memory();
+    if (max && chunk_info.end > max) {
+      chunk_info.end = max;
+    }
 
     if (chunk_info_init_frame(&chunk_info,
                               &user_frames, &kernel_frames,

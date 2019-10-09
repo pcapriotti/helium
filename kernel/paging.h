@@ -37,7 +37,7 @@ enum {
 
 enum {
   PAGING_DISABLED,
-  PAGING_REGULAR,
+  PAGING_LEGACY,
   PAGING_PAE,
 };
 
@@ -51,5 +51,7 @@ void paging_temp_unmap_page(void *p);
 
 void *paging_perm_map_page(uint64_t p);
 void *paging_perm_map_pages(uint64_t p, size_t size);
+
+uint64_t paging_maximum_memory();
 
 #endif /* PAGING_H */

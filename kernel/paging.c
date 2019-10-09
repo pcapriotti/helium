@@ -85,7 +85,7 @@ int paging_init(void)
   CR_SET(4, CR_GET(4) | CR4_PSE);
 
   paging_enable();
-  paging_state = PAGING_REGULAR;
+  paging_state = PAGING_LEGACY;
 
   return 0;
 }
@@ -95,7 +95,7 @@ void *paging_temp_map_page(uint64_t p)
 {
   TRACE("temp map: %#" PRIx64 "\n", p);
 
-  assert(paging_state == PAGING_REGULAR);
+  assert(paging_state == PAGING_LEGACY);
   assert(dir_table);
   assert(p < (1ULL << 32));
 
@@ -138,7 +138,7 @@ void paging_temp_unmap_page(void *p)
 /* map a single physical page into the permanent VMA space */
 void *paging_perm_map_page(uint64_t p)
 {
-  assert(paging_state == PAGING_REGULAR);
+  assert(paging_state == PAGING_LEGACY);
   assert(dir_table);
   assert(p < (1ULL << 32));
 
@@ -175,4 +175,21 @@ void *paging_perm_map_pages(uint64_t p, size_t size)
   }
 
   return ret;
+}
+
+uint64_t paging_maximum_memory()
+{
+  switch (paging_state) {
+  case PAGING_DISABLED:
+    kprintf("ERROR: paging disabled\n");
+    panic();
+    return 0;
+  case PAGING_LEGACY:
+    return 1ULL << 32;
+  case PAGING_PAE:
+    /* TODO: use cpuid to find the maximum amount of physical memory */
+    return 0;
+  }
+
+  return 0;
 }
