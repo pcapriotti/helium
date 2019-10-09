@@ -22,23 +22,40 @@ typedef struct shell {
   size_t input_len;
 } shell_t;
 
-void shell_process_command(shell_t *shell, const char *cmd)
+void shell_process_command(shell_t *shell)
 {
   if (shell->input_len == 0) return;
 
-  if (!strcmp("reboot", shell->input)) {
+  char *saveptr = 0;
+  char *cmd = strtok_r(shell->input, " ", &saveptr);
+
+  if (!cmd || strlen(cmd) == 0) return;
+
+  if (!strcmp("reboot", cmd)) {
     kb_reset_system();
   }
-  if (!strcmp("poweroff", shell->input)) {
+  if (!strcmp("poweroff", cmd)) {
     bios_shutdown();
   }
-  else if (!strcmp("drives", shell->input)) {
+  else if (!strcmp("drives", cmd)) {
     ata_list_drives();
   }
-  else if (!strcmp("memory", shell->input)) {
-    frames_dump_diagnostics(&kernel_frames);
+  else if (!strcmp("memory", cmd)) {
+    const char *ty = strtok_r(0, " ", &saveptr);
+    if (!ty || strlen(ty) == 0 || !strcmp(ty, "kernel")) {
+      frames_dump_diagnostics(&kernel_frames);
+    }
+    else if (!strcmp(ty, "user")) {
+      frames_dump_diagnostics(&user_frames);
+    }
+    else if (!strcmp(ty, "dma")) {
+      frames_dump_diagnostics(&dma_frames);
+    }
+    else {
+      kprintf("Unknown allocator `%s'\n", ty);
+    }
   }
-  else if (!strcmp("cpuid", shell->input)) {
+  else if (!strcmp("cpuid", cmd)) {
     if (cpuid_is_supported()) {
       char vendor[20];
       cpuid_vendor(vendor);
@@ -50,7 +67,7 @@ void shell_process_command(shell_t *shell, const char *cmd)
     }
   }
   else {
-    kprintf("unknown command: %s\n", shell->input);
+    kprintf("unknown command: %s\n", cmd);
   }
 }
 
@@ -67,7 +84,7 @@ void on_kb_event(kb_event_t *event, void *data)
   sem_wait(&shell->lock);
   if (event->keycode == KC_ENT) {
     kprintf("\n");
-    shell_process_command(shell, shell->input);
+    shell_process_command(shell);
     shell->input_len = 0;
     shell->input[shell->input_len] = '\0';
     shell_draw_prompt(shell);

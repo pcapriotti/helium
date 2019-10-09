@@ -18,6 +18,8 @@ typedef struct {
 
 struct frames;
 extern struct frames kernel_frames;
+extern struct frames dma_frames;
+extern struct frames user_frames;
 
 void *falloc(size_t sz);
 void ffree(void *p);
