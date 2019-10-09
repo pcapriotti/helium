@@ -1,4 +1,7 @@
 #include "frames.h"
+#if _HELIUM
+#include "paging.h"
+#endif
 
 #include <assert.h>
 #include <inttypes.h>
@@ -67,9 +70,8 @@ static inline block_t *map_block(uint64_t p)
     return (block_t *)(uint32_t) p;
   }
   else {
-    kprintf("ERROR: Mapping block %#llx\n", p);
-    panic();
-    return 0;
+    block_t *block = paging_temp_map_page(p);
+    return block;
   }
 #else
   return (block_t *)p;
@@ -80,10 +82,7 @@ static inline void unmap_block(block_t *block)
 {
 #if _HELIUM
   if (block && block->current >= KERNEL_MEMORY_END) {
-    assert((uint32_t) block >= KERNEL_MEMORY_END &&
-           (uint32_t) block < USER_MEMORY_START);
-    kprintf("ERROR: Unmapping block %#llx\n", block->current);
-    panic();
+    paging_temp_unmap_page(block);
   }
 #endif
 }
@@ -258,13 +257,13 @@ void add_blocks(unsigned int order, uint64_t start, frames_t *frames,
                 void *data)
 {
   int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  /* TRACE("block %#" PRIx64 " order %u info %d\n", start, order, info); */
+  TRACE("block %#" PRIx64 " order %u info %d\n", start, order, info);
 
   /* if the block is usable, just add it to the list */
   if (info == MEM_INFO_USABLE) {
     block_t *block = map_block(start);
     block->current = start;
-    /* TRACE("adding block %p order %u\n", block, order); */
+    TRACE("adding block %p order %u\n", block, order);
     list_add(block_head(frames, order), block);
     unmap_block(block);
     return;
@@ -315,7 +314,7 @@ uint64_t take_block(frames_t *frames, unsigned int order)
     /* otherwise, split the next one up */
     uint64_t frame1 = take_block(frames, order + 1);
     if (!frame1) return 0;
-    uint64_t frame2 = frame1 + (1 << order);
+    uint64_t frame2 = frame1 + (1ULL << order);
     block_t *block2 = map_block(frame2);
     block2->current = frame2;
     TRACE("  adding split block %" PRIx64 " order %u\n", frame2, order);
@@ -452,7 +451,9 @@ void frames_dump_diagnostics(frames_t *frames)
     }
     if (nonempty) kprintf("\n");
   }
-  kprintf("total memory: %lu B\n", frames->end - frames->start);
+  kprintf("total memory: %lu B\n  from %" PRIx64 " to %" PRIx64 "\n",
+          (size_t) (frames->end - frames->start),
+          frames->start, frames->end);
   kprintf("free memory:  %lu B\n", frames_available_memory(frames));
 }
 

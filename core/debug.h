@@ -19,7 +19,8 @@ extern debug_console_t debug_console;
 extern volatile int debug_key_pressed;
 extern int debug_paging;
 
-void panic(void);
+void _panic(const char *filename, int line);
+#define panic() _panic(__FILE__, __LINE__)
 
 void debug_str(const char *msg);
 void debug_byte(uint8_t x);

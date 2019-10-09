@@ -23,14 +23,16 @@
 
 int paging_state = PAGING_DISABLED;
 page_t *paging_perm = KERNEL_VM_PERM_START;
+page_t *paging_temp = KERNEL_VM_TEMP_START;
 pt_entry_t *dir_table = 0;
+pt_entry_t *tmp_table = 0;
 
 static inline void page_zero(page_t *page)
 {
   memset(page, 0, sizeof(page_t));
 }
 
-static inline pt_entry_t entry(page_t *page, uint16_t flags)
+static inline pt_entry_t mk_entry(page_t *page, uint16_t flags)
 {
   return (uint32_t) page | flags;
 }
@@ -38,10 +40,10 @@ static inline pt_entry_t entry(page_t *page, uint16_t flags)
 void paging_idmap_large(pt_entry_t *table, void *address)
 {
   table[DIR_INDEX(address)] =
-    entry(LARGE_PAGE(address),
-          PT_ENTRY_PRESENT |
-          PT_ENTRY_RW |
-          PT_ENTRY_SIZE);
+    mk_entry(LARGE_PAGE(address),
+             PT_ENTRY_PRESENT |
+             PT_ENTRY_RW |
+             PT_ENTRY_SIZE);
 }
 
 /* identity map a large page containing a given address */
@@ -63,6 +65,15 @@ int paging_init(void)
     paging_idmap_large(dir_table, p);
   }
 
+  /* set up temporary mapping table */
+  {
+    page_t *tmp_page = falloc(sizeof(page_t));
+    page_zero(tmp_page);
+    dir_table[DIR_INDEX(KERNEL_VM_TEMP_START)] = mk_entry
+      (tmp_page, PT_ENTRY_PRESENT | PT_ENTRY_RW);
+    tmp_table = (pt_entry_t *) tmp_page;
+  }
+
   /* install page directory */
   CR_SET(3, directory);
 
@@ -80,16 +91,53 @@ int paging_init(void)
 }
 
 /* map a physical page into the temporary VMA space */
-void *paging_temp_map(uint64_t p)
+void *paging_temp_map_page(uint64_t p)
 {
-  kprintf("ERROR: paging_temp_map not implemented\n");
-  panic();
-  return 0;
+  TRACE("temp map: %#" PRIx64 "\n", p);
+
+  assert(paging_state == PAGING_REGULAR);
+  assert(dir_table);
+  assert(p < (1ULL << 32));
+
+  page_t *tmp = paging_temp;
+  uint32_t *entry = 0;
+  do {
+    entry = &tmp_table[TABLE_INDEX(tmp)];
+    if (!(*entry & PT_ENTRY_PRESENT)) break;
+    tmp++;
+    if ((void *)tmp >= KERNEL_VM_TEMP_END)
+      tmp = KERNEL_VM_TEMP_START;
+  } while (tmp != paging_temp);
+
+  if (*entry & PT_ENTRY_PRESENT) {
+    kprintf("ERROR: Out of temporary mappings\n");
+    panic();
+    return 0;
+  }
+
+  *entry = mk_entry(PAGE(p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
+
+  paging_temp = tmp + 1;
+  if ((void *) paging_temp >= KERNEL_VM_TEMP_END)
+    paging_temp = KERNEL_VM_TEMP_START;
+
+  return tmp;
+}
+
+void paging_temp_unmap_page(void *p)
+{
+  assert(p >= KERNEL_VM_TEMP_START && p < KERNEL_VM_TEMP_END);
+  assert(((size_t) p & ((1 << PAGE_BITS) - 1)) == 0);
+
+  tmp_table[TABLE_INDEX(p)] = 0;
+
+  paging_temp = p;
 }
 
 /* map a single physical page into the permanent VMA space */
 void *paging_perm_map_page(uint64_t p)
 {
+  assert(paging_state == PAGING_REGULAR);
   assert(dir_table);
   assert(p < (1ULL << 32));
 
@@ -104,11 +152,12 @@ void *paging_perm_map_page(uint64_t p)
     /* allocate new page table */
     tpage = falloc(sizeof(page_t));
     page_zero(tpage);
-    *entry = (pt_entry_t) tpage | PT_ENTRY_PRESENT | PT_ENTRY_RW;
+    *entry = mk_entry(tpage, PT_ENTRY_PRESENT | PT_ENTRY_RW);
   }
 
   pt_entry_t *table = (pt_entry_t *)tpage;
-  table[TABLE_INDEX(paging_perm)] = p | PT_ENTRY_PRESENT | PT_ENTRY_RW;
+  table[TABLE_INDEX(paging_perm)] =
+    mk_entry(PAGE(p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
 
   return paging_perm++;
 }

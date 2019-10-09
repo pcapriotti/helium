@@ -83,10 +83,10 @@ void hang_system(void) {
   }
 }
 
-void panic(void)
+void _panic(const char *filename, int line)
 {
-  serial_printf("kernel panic\n");
-  kprintf("kernel panic\n");
+  serial_printf("kernel panic: %s:%d\n", filename, line);
+  kprintf("kernel panic %s:%d\n", filename, line);
   __asm__ volatile("cli");
   hang_system();
 }

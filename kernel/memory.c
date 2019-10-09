@@ -341,17 +341,6 @@ int memory_init(uint32_t *heap)
   }
 #endif
 
-  /* create DMA frame allocator */
-  {
-    chunk_info.start = 0;
-    chunk_info.end = (size_t) _kernel_start;
-
-    if (chunk_info_init_frame(&chunk_info,
-                              &dma_frames,
-                              DMA_FRAMES_ORDER) == -1)
-      return -1;
-  }
-
   /* create main kernel frame allocator */
   {
     chunk_info.start = (size_t) _kernel_start;
@@ -365,6 +354,25 @@ int memory_init(uint32_t *heap)
 
   /* initialise kernel heap */
   if (kmalloc_init() == -1) panic();
+
+  /* move chunks to kernel memory, otherwise they might be overwritten
+     by the DMA frame allocator */
+  {
+    size_t chunk_size = num_chunks * sizeof(chunk_t);
+    chunk_info.chunks = kmalloc(chunk_size);
+    memcpy(chunk_info.chunks, chunks, chunk_size);
+  }
+
+  /* create DMA frame allocator */
+  {
+    chunk_info.start = 0;
+    chunk_info.end = (size_t) _kernel_start;
+
+    if (chunk_info_init_frame(&chunk_info,
+                              &dma_frames,
+                              DMA_FRAMES_ORDER) == -1)
+      return -1;
+  }
 
   /* enable paging now, because the user allocator will need it */
   if (paging_init() == -1) panic();
