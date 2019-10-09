@@ -55,15 +55,11 @@ int __attribute__((noinline)) handle_page_fault(isr_stack_t *stack)
 {
   if (stack->int_num != IDT_PF) return 0;
 
-  if (stack->error & 0x4) {
-    kprintf("Unhandled page fault (code: %#x)\n", stack->error);
-    kprintf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
-    kprintf("  cr2: %#x\n", CR_GET(2));
-    serial_printf("page fault\n");
-    hang_system();
-  }
+  serial_printf("Unhandled page fault (code: %#x)\n", stack->error);
+  serial_printf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
+  serial_printf("  cr2: %#x\n", CR_GET(2));
+  panic();
 
-  paging_idmap((void *) CR_GET(2));
   return 1;
 }
 

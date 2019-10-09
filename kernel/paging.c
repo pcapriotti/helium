@@ -1,12 +1,15 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
+#include "frames.h"
 #include "paging.h"
 
+#include <assert.h>
 #include <string.h>
+#include <inttypes.h>
 
-#define PAGING_DEBUG 0
+#define PAGING_DEBUG 1
 #if PAGING_DEBUG
-#define TRACE(...) kprintf(__VA_ARGS__)
+#define TRACE(...) serial_printf(__VA_ARGS__)
 #else
 #define TRACE(...) do {} while(0)
 #endif
@@ -16,8 +19,11 @@
 #define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
 
 #define DIR_INDEX(x) (((uint32_t) x) >> LARGE_PAGE_BITS)
+#define TABLE_INDEX(x) ((((uint32_t) x) >> PAGE_BITS) & ((1 << (PAGE_BITS - 2)) - 1))
 
 int paging_state = PAGING_DISABLED;
+page_t *paging_perm = KERNEL_VM_PERM_START;
+pt_entry_t *dir_table = 0;
 
 static inline void page_zero(page_t *page)
 {
@@ -50,12 +56,12 @@ int paging_init(void)
   // TODO: use a page allocator
   page_t *directory = falloc(sizeof(page_t));
   page_zero(directory);
-  pt_entry_t *dir_table = (pt_entry_t *) directory;
+  dir_table = (pt_entry_t *) directory;
 
-  /* identity map the first 4 MB with a single large page */
-  paging_idmap_large(dir_table, 0);
-  /* identity map a large paging containing the page directory */
-  paging_idmap_large(dir_table, dir_table);
+  /* identity map kernel memory */
+  for (void *p = KERNEL_VM_ID_START; p < KERNEL_VM_ID_END; p += (1 << LARGE_PAGE_BITS)) {
+    paging_idmap_large(dir_table, p);
+  }
 
   /* install page directory */
   CR_SET(3, directory);
@@ -71,4 +77,52 @@ int paging_init(void)
   paging_state = PAGING_REGULAR;
 
   return 0;
+}
+
+/* map a physical page into the temporary VMA space */
+void *paging_temp_map(uint64_t p)
+{
+  kprintf("ERROR: paging_temp_map not implemented\n");
+  panic();
+  return 0;
+}
+
+/* map a single physical page into the permanent VMA space */
+void *paging_perm_map_page(uint64_t p)
+{
+  assert(dir_table);
+  assert(p < (1ULL << 32));
+
+  TRACE("perm map: %#" PRIx64 "\n", p);
+
+  uint32_t *entry = &dir_table[DIR_INDEX(paging_perm)];
+  page_t *tpage = 0;
+  if (*entry & PT_ENTRY_PRESENT) {
+    tpage = PAGE(*entry);
+  }
+  else {
+    /* allocate new page table */
+    tpage = falloc(sizeof(page_t));
+    page_zero(tpage);
+    *entry = (pt_entry_t) tpage | PT_ENTRY_PRESENT | PT_ENTRY_RW;
+  }
+
+  pt_entry_t *table = (pt_entry_t *)tpage;
+  table[TABLE_INDEX(paging_perm)] = p | PT_ENTRY_PRESENT | PT_ENTRY_RW;
+
+  return paging_perm++;
+}
+
+void *paging_perm_map_pages(uint64_t p, size_t size)
+{
+  uint64_t p1 = p + size;
+  void *ret = 0;
+
+  while (p < p1) {
+    void *vma = paging_perm_map_page(p);
+    if (!ret) ret = vma;
+    p += (1 << PAGE_BITS);
+  }
+
+  return ret;
 }

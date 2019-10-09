@@ -1,6 +1,7 @@
 #include "core/debug.h"
 #include "core/v8086.h"
 #include "graphics.h"
+#include "paging.h"
 
 #define GRAPHICS_DEBUG 0
 
@@ -235,6 +236,11 @@ int graphics_init(void *low_heap, vbe_mode_t *req_mode)
 #if GRAPHICS_DEBUG
   return -1;
 #endif
+
+  /* map framebuffer into virtual memory */
+  req_mode->framebuffer = paging_perm_map_pages
+    ((size_t) req_mode->framebuffer,
+     req_mode->width * req_mode->height * (req_mode->bpp >> 3));
 
   /* enable mode */
   regs16_t regs;

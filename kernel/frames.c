@@ -63,7 +63,7 @@ typedef struct block_t {
 static inline block_t *map_block(uint64_t p)
 {
 #if _HELIUM
-  if (p < MAX_KERNEL_MEMORY_SIZE) {
+  if (p < KERNEL_MEMORY_END) {
     return (block_t *)(uint32_t) p;
   }
   else {
@@ -79,8 +79,8 @@ static inline block_t *map_block(uint64_t p)
 static inline void unmap_block(block_t *block)
 {
 #if _HELIUM
-  if (block && block->current >= MAX_KERNEL_MEMORY_SIZE) {
-    assert((uint32_t) block >= MAX_KERNEL_MEMORY_SIZE &&
+  if (block && block->current >= KERNEL_MEMORY_END) {
+    assert((uint32_t) block >= KERNEL_MEMORY_END &&
            (uint32_t) block < USER_MEMORY_START);
     kprintf("ERROR: Unmapping block %#llx\n", block->current);
     panic();
@@ -382,7 +382,7 @@ int frames_init(frames_t *frames,
   uint64_t metadata_frame = take_block(frames, meta_order);
   if (!metadata_frame) FRAMES_PANIC(-1, "not enough memory for frame metadata\n");
 #if _HELIUM
-  assert(metadata_frame < MAX_KERNEL_MEMORY_SIZE);
+  assert(metadata_frame < KERNEL_MEMORY_END);
 #endif
   frames->metadata = (uint32_t *) (size_t) metadata_frame;
 

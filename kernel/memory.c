@@ -355,7 +355,7 @@ int memory_init(uint32_t *heap)
   /* create main kernel frame allocator */
   {
     chunk_info.start = (size_t) _kernel_start;
-    chunk_info.end = MAX_KERNEL_MEMORY_SIZE;
+    chunk_info.end = KERNEL_MEMORY_END;
 
     if (chunk_info_init_frame(&chunk_info,
                               &kernel_frames,
@@ -386,13 +386,13 @@ int memory_init(uint32_t *heap)
 void *falloc(size_t sz)
 {
   uint64_t frame = frames_alloc(&kernel_frames, sz);
-  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+  assert(frame < KERNEL_MEMORY_END);
   return (void *) (uint32_t) frame;
 }
 
 void ffree(void *p)
 {
   uint64_t frame = (uint32_t) p;
-  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+  assert(frame < KERNEL_MEMORY_END);
   frames_free(&kernel_frames, frame);
 }

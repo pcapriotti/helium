@@ -85,6 +85,7 @@ void hang_system(void) {
 
 void panic(void)
 {
+  serial_printf("kernel panic\n");
   kprintf("kernel panic\n");
   __asm__ volatile("cli");
   hang_system();

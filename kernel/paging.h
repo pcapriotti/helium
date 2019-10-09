@@ -10,6 +10,19 @@ typedef struct page {
 typedef uint32_t pt_entry_t;
 typedef pt_entry_t page_table_t[1 << (PAGE_BITS - 2)];
 
+/* kernel virtual memory is as follows:
+
+  0 - 126 MB: identity mapping
+  126 MB - 128 MB: temporary mappings
+  128 MB - 256 MB: permanent mappings
+*/
+#define KERNEL_VM_ID_START 0
+#define KERNEL_VM_ID_END ((void *)(126 * 1024 * 1024))
+#define KERNEL_VM_TEMP_START KERNEL_VM_ID_END
+#define KERNEL_VM_TEMP_END ((void *)(128 * 1024 * 1024))
+#define KERNEL_VM_PERM_START KERNEL_VM_TEMP_END
+#define KERNEL_VM_PERM_END ((void *)(256 * 1024 * 1024))
+
 enum {
   PT_ENTRY_PRESENT = 1 << 0,
   PT_ENTRY_RW = 1 << 1,
@@ -32,5 +45,8 @@ extern int paging_state;
 
 int paging_init(void);
 void paging_idmap(void *address);
+
+void *paging_perm_map_page(uint64_t p);
+void *paging_perm_map_pages(uint64_t p, size_t size);
 
 #endif /* PAGING_H */
