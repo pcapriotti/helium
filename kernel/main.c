@@ -99,7 +99,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
   sti();
 
   if (memory_init(heap) == -1) panic();
-  if (kmalloc_init(memory_frames) == -1) panic();
+  if (kmalloc_init() == -1) panic();
 
   paging_init();
 

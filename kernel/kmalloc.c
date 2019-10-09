@@ -1,5 +1,6 @@
-#include "kmalloc.h"
 #include "heap.h"
+#include "kmalloc.h"
+#include "memory.h"
 
 #include <stdint.h>
 
@@ -7,9 +8,9 @@
    of address */
 static heap_t *kernel_heap;
 
-int kmalloc_init(struct frames *frames)
+int kmalloc_init()
 {
-  kernel_heap = heap_new(frames);
+  kernel_heap = heap_new(kernel_frames);
   return kernel_heap != 0;
 }
 

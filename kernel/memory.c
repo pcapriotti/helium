@@ -12,7 +12,7 @@
 #define BIOS_MM_DEBUG 0
 #define MM_DEBUG 1
 
-frames_t *memory_frames;
+frames_t *kernel_frames;
 
 typedef struct {
   uint64_t base;
@@ -333,15 +333,15 @@ int memory_init(uint32_t *heap)
 #if MM_DEBUG
   kprintf("kernel memory size: %lu\n", kernel_memory_size);
 #endif
-  memory_frames = frames_new(0, kernel_memory_size,
+  kernel_frames = frames_new(0, kernel_memory_size,
                              FRAMES_MIN_ORDER,
                              &mem_info, &chunk_info);
 
-  if (!memory_frames) {
+  if (!kernel_frames) {
     panic();
   }
 
-  uint64_t free_mem = frames_available_memory(memory_frames);
+  uint64_t free_mem = frames_available_memory(kernel_frames);
 #if MM_DEBUG
   kprintf("free memory: %llu\n", free_mem);
 #endif
@@ -351,7 +351,7 @@ int memory_init(uint32_t *heap)
 
 void *falloc(size_t sz)
 {
-  uint64_t frame = frames_alloc(memory_frames, sz);
+  uint64_t frame = frames_alloc(kernel_frames, sz);
   assert(frame < MAX_KERNEL_MEMORY_SIZE);
   return (void *) (uint32_t) frame;
 }
@@ -360,5 +360,5 @@ void ffree(void *p)
 {
   uint64_t frame = (uint32_t) p;
   assert(frame < MAX_KERNEL_MEMORY_SIZE);
-  frames_free(memory_frames, frame);
+  frames_free(kernel_frames, frame);
 }

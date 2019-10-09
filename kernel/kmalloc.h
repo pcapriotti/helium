@@ -5,7 +5,7 @@
 
 struct frames;
 
-int kmalloc_init(struct frames *frames);
+int kmalloc_init();
 
 void *kmalloc(size_t bytes);
 void kfree(void *p);
