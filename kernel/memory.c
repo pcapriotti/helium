@@ -14,7 +14,7 @@
 #define USER_FRAMES_ORDER KERNEL_FRAMES_ORDER
 
 #define BIOS_MM_DEBUG 0
-#define MM_DEBUG 1
+#define MM_DEBUG 0
 
 frames_t kernel_frames;
 frames_t dma_frames;

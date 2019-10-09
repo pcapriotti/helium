@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <string.h>
 
-#define FRAMES_DEBUG 1
+#define FRAMES_DEBUG 0
 
 #if _HELIUM
 #include "core/debug.h"
@@ -167,14 +167,14 @@ static inline unsigned int frames_abs_index(frames_t *frames,
                                             unsigned int rel_index,
                                             unsigned int order)
 {
-  return rel_index + (1 << (frames->max_order - order)) - 2;
+  return rel_index + (1ULL << (frames->max_order - order)) - 2;
 }
 
 static inline unsigned int frames_rel_index(frames_t *frames,
                                             unsigned int index,
                                             unsigned int order)
 {
-  return index + 2 - (1 << (frames->max_order - order));
+  return index + 2 - (1ULL << (frames->max_order - order));
 }
 
 static inline unsigned int frames_block_index(frames_t *frames,
@@ -256,14 +256,14 @@ void add_blocks(unsigned int order, uint64_t start, frames_t *frames,
                 int (*mem_info)(uint64_t start, uint64_t size, void *data),
                 void *data)
 {
-  int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  TRACE("block %#" PRIx64 " order %u info %d\n", start, order, info);
+  int info = mem_info(start, 1ULL << order, data);
+  /* TRACE("block %#" PRIx64 " order %u info %d\n", start, order, info); */
 
   /* if the block is usable, just add it to the list */
   if (info == MEM_INFO_USABLE) {
     block_t *block = map_block(start);
     block->current = start;
-    TRACE("adding block %p order %u\n", block, order);
+    /* TRACE("adding block %p order %u\n", block, order); */
     list_add(block_head(frames, order), block);
     unmap_block(block);
     return;
@@ -272,7 +272,7 @@ void add_blocks(unsigned int order, uint64_t start, frames_t *frames,
   /* if it is partially usable, split it and recurse */
   if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
     add_blocks(order - 1, start, frames, mem_info, data);
-    add_blocks(order - 1, start + (1 << (order - 1)), frames, mem_info, data);
+    add_blocks(order - 1, start + (1ULL << (order - 1)), frames, mem_info, data);
   }
 }
 
@@ -280,21 +280,21 @@ void mark_blocks(frames_t *frames, uint64_t start, unsigned int order,
                  int (*mem_info)(uint64_t start, uint64_t size, void *data),
                  void *data)
 {
-  int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  TRACE("mark block %#lx order %u info %d\n",
-        start - frames->start, order, info);
+  int info = mem_info(start, 1ULL << order, data);
+  /* TRACE("mark block %#lx order %u info %d\n", */
+  /*       start - frames->start, order, info); */
   if (info == MEM_INFO_USABLE) return;
 
   if (order < frames->max_order) {
     unsigned int index = frames_block_index(frames, start, order);
     SET_BIT(frames->metadata, index);
-    TRACE("set bit for block %#lx order %u index %d\n",
-          start - frames->start, order, index);
+    /* TRACE("set bit for block %#lx order %u index %d\n", */
+    /*       start - frames->start, order, index); */
   }
 
   if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
     mark_blocks(frames, start, order - 1, mem_info, data);
-    mark_blocks(frames, start + (1 << (order - 1)), order - 1, mem_info, data);
+    mark_blocks(frames, start + (1ULL << (order - 1)), order - 1, mem_info, data);
   }
 }
 
@@ -317,7 +317,8 @@ uint64_t take_block(frames_t *frames, unsigned int order)
     uint64_t frame2 = frame1 + (1ULL << order);
     block_t *block2 = map_block(frame2);
     block2->current = frame2;
-    TRACE("  adding split block %" PRIx64 " order %u\n", frame2, order);
+    TRACE("  adding split block %" PRIx64 " order %u\n",
+          frame2 - frames->start, order);
     list_add(head, block2);
     unmap_block(block2);
     frame = frame1;
@@ -381,7 +382,7 @@ int frames_init(frames_t *frames, frames_t *aux_frames,
   uint64_t metadata_frame = 0;
 
   if (aux_frames) {
-    metadata_frame = frames_alloc(aux_frames, 1 << meta_order);
+    metadata_frame = frames_alloc(aux_frames, 1ULL << meta_order);
   }
   else {
     metadata_frame = take_block(frames, meta_order);
@@ -396,7 +397,7 @@ int frames_init(frames_t *frames, frames_t *aux_frames,
 
   TRACE("setting initial metadata\n");
 
-  memset(frames->metadata, 0, 1 << meta_order);
+  memset(frames->metadata, 0, 1ULL << meta_order);
   /* synchronise metadata with initial blocks */
   mark_blocks(frames, start, frames->max_order, mem_info, data);
 
@@ -418,11 +419,11 @@ int frames_init(frames_t *frames, frames_t *aux_frames,
   return 0;
 }
 
-size_t frames_available_memory(frames_t *frames)
+uint64_t frames_available_memory(frames_t *frames)
 {
-  size_t total = 0;
+  uint64_t total = 0;
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
-    size_t size = 1 << k;
+    uint64_t size = 1ULL << k;
     uint64_t frame = *block_head(frames, k);
     while (frame) {
       total += size;
@@ -452,8 +453,9 @@ void frames_dump_diagnostics(frames_t *frames)
     int nonempty = frame != 0;
     if (nonempty) kprintf("order %d: ", k);
     while (frame) {
+      kprintf("%#" PRIx64 " ", frame - frames->start);
+
       block_t *block = map_block(frame);
-      kprintf("0x%" PRIx64 " ", block->current - frames->start);
       frame = block->next;
       unmap_block(block);
     }
@@ -462,7 +464,7 @@ void frames_dump_diagnostics(frames_t *frames)
   kprintf("total memory: %lu B\n  from %" PRIx64 " to %" PRIx64 "\n",
           (size_t) (frames->end - frames->start),
           frames->start, frames->end);
-  kprintf("free memory:  %lu B\n", frames_available_memory(frames));
+  kprintf("free memory:  %" PRIu64 " B\n", frames_available_memory(frames));
 }
 
 void frames_free_order(frames_t *frames, uint64_t p, unsigned int order)

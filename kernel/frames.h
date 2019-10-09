@@ -37,7 +37,7 @@ int frames_init(frames_t *frames, frames_t *aux_frames,
                 unsigned int min_order,
                 int (*mem_info)(uint64_t start, uint64_t size, void *data),
                 void *data);
-size_t frames_available_memory(frames_t *frames);
+uint64_t frames_available_memory(frames_t *frames);
 uint64_t frames_alloc(frames_t *frames, size_t sz);
 void frames_free(frames_t *frames, uint64_t p);
 void frames_dump_diagnostics(frames_t *frames);
