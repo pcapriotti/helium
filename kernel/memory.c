@@ -246,14 +246,11 @@ typedef struct {
 } chunk_info_t;
 
 /* return availability information for a memory block */
-int mem_info(void *startp, size_t size, void *data)
+int mem_info(uint64_t start, uint64_t length, void *data)
 {
   chunk_info_t *chunk_info = data;
   int reserved = 0;
   int available = 0;
-
-  uint64_t start = (uint32_t) startp;
-  uint64_t length = size ? size : 1ULL << 32;
 
   if (start + length < chunk_info->start) return MEM_INFO_RESERVED;
   if (start >= chunk_info->end) return MEM_INFO_RESERVED;
@@ -323,7 +320,7 @@ int memory_init(uint32_t *heap)
     kprintf(")\n");
   }
 #endif
-  uint32_t kernel_memory_size = total_memory_size;
+  uint64_t kernel_memory_size = total_memory_size;
   if (kernel_memory_size > MAX_KERNEL_MEMORY_SIZE)
     kernel_memory_size = MAX_KERNEL_MEMORY_SIZE;
 
@@ -336,7 +333,7 @@ int memory_init(uint32_t *heap)
 #if MM_DEBUG
   kprintf("kernel memory size: %lu\n", kernel_memory_size);
 #endif
-  memory_frames = frames_new(0, (void *) kernel_memory_size,
+  memory_frames = frames_new(0, kernel_memory_size,
                              FRAMES_MIN_ORDER,
                              &mem_info, &chunk_info);
 
@@ -344,9 +341,9 @@ int memory_init(uint32_t *heap)
     panic();
   }
 
-  uint32_t free_mem = frames_available_memory(memory_frames);
+  uint64_t free_mem = frames_available_memory(memory_frames);
 #if MM_DEBUG
-  kprintf("free memory: %lu\n", free_mem);
+  kprintf("free memory: %llu\n", free_mem);
 #endif
 
   return 0;
@@ -354,10 +351,14 @@ int memory_init(uint32_t *heap)
 
 void *falloc(size_t sz)
 {
-  return frames_alloc(memory_frames, sz);
+  uint64_t frame = frames_alloc(memory_frames, sz);
+  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+  return (void *) (uint32_t) frame;
 }
 
 void ffree(void *p)
 {
-  frames_free(memory_frames, p);
+  uint64_t frame = (uint32_t) p;
+  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+  frames_free(memory_frames, frame);
 }

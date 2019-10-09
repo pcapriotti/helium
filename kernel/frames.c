@@ -1,6 +1,7 @@
 #include "frames.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <string.h>
 
 #define FRAMES_DEBUG 0
@@ -49,11 +50,41 @@
   ((v)[(index) >> 5] ^= (1 << ((index) & 0x1f)))
 
 typedef struct block_t {
-  /* pointer to next block */
-  struct block_t *next;
-  /* pointer to previous block */
-  struct block_t *prev;
+  /* physical pointer to next block */
+  uint64_t next;
+  /* physica address of this block */
+  uint64_t current;
+  /* physical pointer to previous block */
+  uint64_t prev;
 } block_t;
+
+/* temporarely map blocks that don't resize in the identity mapped
+   portion of RAM */
+static inline block_t *map_block(uint64_t p)
+{
+#if _HELIUM
+  if (p < MAX_KERNEL_MEMORY_SIZE) {
+    return (block_t *)(uint32_t) p;
+  }
+  else {
+    FRAMES_PANIC(0, "Mapping block %#llx\n", p);
+  }
+#else
+  return (block_t *)p;
+#endif
+}
+
+static inline void unmap_block(block_t *block)
+{
+#if _HELIUM
+  if (block && block->current >= MAX_KERNEL_MEMORY_SIZE) {
+    TRACE("current = %#" PRIx64 "\n", block->current);
+    assert((uint32_t) block >= MAX_KERNEL_MEMORY_SIZE &&
+           (uint32_t) block < MAX_KERNEL_MEMORY_SIZE + (1 << 21));
+    FRAMES_PANIC(,"Unmapping block %#llx\n", block->current);
+  }
+#endif
+}
 
 /*
 A standard buddy memory allocator. This manages a contiguous chunk of
@@ -131,85 +162,117 @@ bit. This allows us to maintain the second invariant: if both the
 block and its buddy would end up being available, we merge them by
 making them unavailable and recursing on the parent block. */
 struct frames {
-  void *start;
-  void *end;
-  struct block_t *free[MAX_ORDER];
+  uint64_t start;
+  uint64_t end;
+  uint64_t free[MAX_ORDER];
   unsigned int min_order, max_order;
 
   uint32_t *metadata;
 };
 
-static inline unsigned int frames_abs_index(frames_t *frames, unsigned int rel_index, unsigned int order)
+static inline unsigned int frames_abs_index(frames_t *frames,
+                                            unsigned int rel_index,
+                                            unsigned int order)
 {
   return rel_index + (1 << (frames->max_order - order)) - 2;
 }
 
-static inline unsigned int frames_rel_index(frames_t *frames, unsigned int index, unsigned int order)
+static inline unsigned int frames_rel_index(frames_t *frames,
+                                            unsigned int index,
+                                            unsigned int order)
 {
   return index + 2 - (1 << (frames->max_order - order));
 }
 
-static inline unsigned int frames_block_index(frames_t *frames, void *block, unsigned int order)
+static inline unsigned int frames_block_index(frames_t *frames,
+                                              uint64_t block,
+                                              unsigned int order)
 {
-  uint32_t offset = block - frames->start;
+  uint64_t offset = block - frames->start;
+  /* TRACE("offset = %" PRIx64 "\n", offset); */
+  /* TRACE("rel_index = %u\n", (unsigned int) (offset >> order)); */
   unsigned int index = frames_abs_index(frames, offset >> order, order);
+  /* TRACE("index = %u\n", index); */
+  /* TRACE("limit = %u\n", (1U << (frames->max_order - frames->min_order + 1))); */
   assert(index < (1UL << (frames->max_order - frames->min_order + 1)));
   return index;
 }
 
-static inline void *frames_index_block(frames_t *frames, unsigned int index, unsigned int order)
+static inline uint64_t frames_index_block(frames_t *frames, unsigned int index, unsigned int order)
 {
-  return frames->start + (frames_rel_index(frames, index, order) << order);
+  uint64_t i = frames_rel_index(frames, index, order);
+  uint64_t offset = i << order;
+  return frames->start + offset;
 }
 
-static inline block_t **block_head(frames_t *frames, unsigned int order)
+static inline uint64_t *block_head(frames_t *frames, unsigned int order)
 {
   return &frames->free[order - frames->min_order];
 }
 
-static inline void list_add(block_t **list, block_t *block)
+static inline void list_add(uint64_t *list, block_t *block)
 {
   block->prev = 0;
-  block->next = *list;
-  if (*list) (*list)->prev = block;
-  *list = block;
+  block->next = 0;
+
+  if (*list) {
+    block_t *head = map_block(*list);
+    block->next = head->current;
+    head->prev = block->current;
+    unmap_block(head);
+  }
+
+  *list = block->current;
 }
 
-static inline void list_remove(block_t **list, block_t *block)
+static inline void list_remove(uint64_t *list, block_t *block)
 {
-  block_t *prev = block->prev;
-  block_t *next = block->next;
-  if (next) next->prev = prev;
-  if (prev)
-    prev->next = next;
-  else
-    *list = next;
+  uint64_t prev = block->prev;
+  uint64_t next = block->next;
+
+  block_t *nextb = map_block(next);
+  block_t *prevb = map_block(prev);
+
+  if (next) nextb->prev = prev;
+  if (prev) prevb->next = next;
+  if (!prev) *list = next;
+
+  unmap_block(nextb);
+  unmap_block(prevb);
 }
 
-static inline block_t *list_take(block_t **list)
+static inline uint64_t list_take(uint64_t *list)
 {
   if (*list) {
-    block_t *ret = *list;
-    if ((*list)->next) (*list)->next->prev = 0;
-    *list = (*list)->next;
+    uint64_t ret = *list;
+    block_t *block = map_block(ret);
+    if (block->next) {
+      block_t *next = map_block(block->next);
+      next->prev = 0;
+      unmap_block(next);
+    }
+    *list = block->next;
+    unmap_block(block);
     return ret;
   }
 
   return 0;
 }
 
-void add_blocks(unsigned int order, void *start, frames_t *frames,
-                int (*mem_info)(void *start, size_t size, void *data),
+void add_blocks(unsigned int order, uint64_t start, frames_t *frames,
+                int (*mem_info)(uint64_t start, uint64_t size, void *data),
                 void *data)
 {
   int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  /* TRACE("block %p order %u info %d\n", start, order, info); */
+  /* TRACE("block %#" PRIx64 " order %u info %d\n", start, order, info); */
 
   /* if the block is usable, just add it to the list */
   if (info == MEM_INFO_USABLE) {
-    block_t *block = (block_t *)start;
+    block_t *block = map_block(start);
+    block->current = start;
     /* TRACE("adding block %p order %u\n", block, order); */
     list_add(block_head(frames, order), block);
+    unmap_block(block);
     return;
   }
 
@@ -220,20 +283,20 @@ void add_blocks(unsigned int order, void *start, frames_t *frames,
   }
 }
 
-void mark_blocks(frames_t *frames, void *start, unsigned int order,
-                 int (*mem_info)(void *start, size_t size, void *data),
+void mark_blocks(frames_t *frames, uint64_t start, unsigned int order,
+                 int (*mem_info)(uint64_t start, uint64_t size, void *data),
                  void *data)
 {
   int info = mem_info(start, order == 32 ? 0 : 1 << order, data);
-  TRACE("mark block %#lx order %u info %d\n",
-        start - frames->start, order, info);
+  /* TRACE("mark block %#lx order %u info %d\n", */
+  /*       start - frames->start, order, info); */
   if (info == MEM_INFO_USABLE) return;
 
   if (order < frames->max_order) {
     unsigned int index = frames_block_index(frames, start, order);
     SET_BIT(frames->metadata, index);
-    TRACE("set bit for block %#lx order %u index %d\n",
-          start - frames->start, order, index);
+    /* TRACE("set bit for block %#lx order %u index %d\n", */
+    /*       start - frames->start, order, index); */
   }
 
   if (order > frames->min_order && info == MEM_INFO_PARTIALLY_USABLE) {
@@ -246,30 +309,34 @@ void mark_blocks(frames_t *frames, void *start, unsigned int order,
 
    If the metadata is invalid, this function can still be used, but it
    does not update the metadata. */
-void *take_block(frames_t *frames, unsigned int order)
+uint64_t take_block(frames_t *frames, unsigned int order)
 {
   if (order > frames->max_order) return 0;
   if (order <= frames->min_order) order = frames->min_order;
 
-  block_t **head = block_head(frames, order);
+  uint64_t *head = block_head(frames, order);
   /* if there is an available block of the correct order, take it */
-  block_t *block = list_take(head);
-  if (!block) {
+  uint64_t frame = list_take(head);
+  if (!frame) {
     /* otherwise, split the next one up */
-    void *block1 = take_block(frames, order + 1);
-    if (!block1) return 0;
-    block_t *block2 = (block_t *)(block1 + (1 << order));
+    uint64_t frame1 = take_block(frames, order + 1);
+    if (!frame1) return 0;
+    uint64_t frame2 = frame1 + (1 << order);
+    block_t *block2 = map_block(frame2);
+    block2->current = frame2;
+    TRACE("  adding split block %" PRIx64 " order %u\n", frame2, order);
     list_add(head, block2);
-    block = block1;
+    unmap_block(block2);
+    frame = frame1;
   }
 
-  assert((void *)block >= frames->start);
+  assert(frame >= frames->start && frame < frames->end);
   if (frames->metadata && order < frames->max_order) {
     TRACE("set bit order %u index 0x%x\n", order,
-           frames_block_index(frames, block, order));
-    SET_BIT(frames->metadata, frames_block_index(frames, block, order));
+           frames_block_index(frames, frame, order));
+    SET_BIT(frames->metadata, frames_block_index(frames, frame, order));
   }
-  return block;
+  return frame;
 }
 
 /* Create a new buddy allocator for a chunk of memory.
@@ -294,13 +361,13 @@ void *take_block(frames_t *frames, unsigned int order)
 
   Finally we allocate a block for the frames_t structure itself, copy
   it over, and return its address. */
-frames_t *frames_new(void *start, void *end,
+frames_t *frames_new(uint64_t start, uint64_t end,
                      unsigned int min_order,
-                     int (*mem_info)(void *start, size_t size, void *data),
+                     int (*mem_info)(uint64_t start, uint64_t size, void *data),
                      void *data)
 {
   if (min_order < ORDER_OF(sizeof(block_t))) {
-    FRAMES_PANIC(0, "min_order must be at least %lu\n", ORDER_OF(sizeof(block_t)));
+    FRAMES_PANIC(0, "min_order must be at least %u\n", ORDER_OF(sizeof(block_t)));
   }
 
   frames_t frames;
@@ -325,8 +392,13 @@ frames_t *frames_new(void *start, void *end,
   unsigned int meta_order = frames.max_order - frames.min_order - 2;
   if (meta_order <= 2) meta_order = 2;
   if (meta_order < frames.min_order) meta_order = frames.min_order;
-  frames.metadata = take_block(&frames, meta_order);
-  if (!frames.metadata) FRAMES_PANIC(0, "not enough memory for frame metadata\n");
+  uint64_t metadata_frame = take_block(&frames, meta_order);
+  if (!metadata_frame) FRAMES_PANIC(0, "not enough memory for frame metadata\n");
+#if _HELIUM
+  assert(metadata_frame < MAX_KERNEL_MEMORY_SIZE);
+#endif
+  frames.metadata = (uint32_t *) (size_t) metadata_frame;
+
 
   TRACE("setting initial metadata\n");
 
@@ -340,7 +412,7 @@ frames_t *frames_new(void *start, void *end,
   {
     TRACE("replaying metadata for %p order %u\n",
           frames.metadata, meta_order);
-    int index = frames_block_index(&frames, frames.metadata, meta_order);
+    int index = frames_block_index(&frames, metadata_frame, meta_order);
     while (index > 0) {
       TRACE("setting bit for index %d\n", index);
       SET_BIT(frames.metadata, index);
@@ -348,9 +420,15 @@ frames_t *frames_new(void *start, void *end,
     }
   }
 
+  DIAGNOSTICS(&frames);
+
   /* allocate frames_t structure itself */
   TRACE("allocating frames_t (size 0x%lx)\n", sizeof(frames_t));
-  frames_t *ret = frames_alloc(&frames, sizeof(frames_t));
+  uint64_t frame = frames_alloc(&frames, sizeof(frames_t));
+#if _HELIUM
+  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+#endif
+  frames_t *ret = (frames_t *) (size_t) frame;
   *ret = frames;
 
   return ret;
@@ -361,20 +439,24 @@ size_t frames_available_memory(frames_t *frames)
   size_t total = 0;
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     size_t size = 1 << k;
-    block_t *block = *block_head(frames, k);
-    while (block) {
+    uint64_t frame = *block_head(frames, k);
+    while (frame) {
       total += size;
-      block = block->next;
+      block_t *block = map_block(frame);
+      frame = block->next;
+      unmap_block(block);
     }
   }
   return total;
 }
 
-void *frames_alloc(frames_t *frames, size_t sz)
+uint64_t frames_alloc(frames_t *frames, size_t sz)
 {
-  void *ret = take_block(frames, ORDER_OF(sz));
-  TRACE("allocated 0x%lx size 0x%lx (order %lu)\n",
-         ret - frames->start, sz, ORDER_OF(sz));
+  unsigned int order = ORDER_OF(sz);
+  if (order < frames->min_order) order = frames->min_order;
+  uint64_t ret = take_block(frames, order);
+  TRACE("allocated %#" PRIx64 " size 0x%lx (order %u)\n",
+         ret - frames->start, sz, order);
   DIAGNOSTICS(frames);
   return ret;
 }
@@ -382,12 +464,14 @@ void *frames_alloc(frames_t *frames, size_t sz)
 void frames_dump_diagnostics(frames_t *frames)
 {
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
-    block_t *block = *block_head(frames, k);
-    int nonempty = block != 0;
+    uint64_t frame = *block_head(frames, k);
+    int nonempty = frame != 0;
     if (nonempty) kprintf("order %d: ", k);
-    while (block) {
-      kprintf("0x%lx ", (void *)block - frames->start);
-      block = block->next;
+    while (frame) {
+      block_t *block = map_block(frame);
+      kprintf("0x%" PRIx64 " ", block->current - frames->start);
+      frame = block->next;
+      unmap_block(block);
     }
     if (nonempty) kprintf("\n");
   }
@@ -395,42 +479,50 @@ void frames_dump_diagnostics(frames_t *frames)
   kprintf("free memory:  %lu B\n", frames_available_memory(frames));
 }
 
-void frames_free_order(frames_t *frames, void *p, unsigned int order)
+void frames_free_order(frames_t *frames, uint64_t p, unsigned int order)
 {
-  block_t *block = p;
+  block_t *block = map_block(p);
+  block->current = p;
 
   /* find buddy */
   block_t *buddy = 0;
   if (order < frames->max_order) {
-    int index = frames_block_index(frames, block, order);
+    int index = frames_block_index(frames, block->current, order);
     UNSET_BIT(frames->metadata, index);
     TRACE("checking buddy for 0x%lx order %d index 0x%x\n",
            p - frames->start, order, index);
     if (!GET_BIT(frames->metadata, index ^ 1)) {
-      buddy = frames_index_block(frames, index ^ 1, order);
+      uint64_t buddy_addr = frames_index_block(frames, index ^ 1, order);
+      TRACE("  buddy_addr = %#" PRIx64 "\n", buddy_addr);
+      buddy = map_block(buddy_addr);
+      TRACE("  buddy current = %#" PRIx64 "\n", buddy->current);
     }
   }
 
   /* merge */
   if (buddy) {
-    TRACE("  buddy found: 0x%lx\n", (void *)buddy - frames->start);
+    TRACE("  buddy found: %#" PRIx64 "\n", buddy->current - frames->start);
     list_remove(block_head(frames, order), buddy);
-    if (buddy < block) block = buddy;
-    frames_free_order(frames, block, order + 1);
+    if (buddy->current < block->current) block = buddy;
+    frames_free_order(frames, block->current, order + 1);
+
+    unmap_block(buddy);
+    unmap_block(block);
     return;
   }
   else {
     list_add(block_head(frames, order), block);
+    unmap_block(block);
   }
 
-  TRACE("freed 0x%lx of order %d\n", p - frames->start, order);
+  TRACE("freed 0x%" PRIx64 " of order %d\n", p - frames->start, order);
   DIAGNOSTICS(frames);
 }
 
-unsigned int frames_find_order(frames_t *frames, void *p)
+unsigned int frames_find_order(frames_t *frames, uint64_t p)
 {
   unsigned int order = __builtin_ctzl(p - frames->start);
-  TRACE("maximum order for 0x%lx: %d\n", p - frames->start, order);
+  TRACE("maximum order for %#" PRIx64 ": %u\n", p - frames->start, order);
 
   for (unsigned int k = order - 1; k >= frames->min_order; k--) {
     unsigned int i = frames_block_index(frames, p, k);
@@ -450,12 +542,12 @@ unsigned int frames_find_order(frames_t *frames, void *p)
   return order;
 }
 
-void frames_free(frames_t *frames, void *p)
+void frames_free(frames_t *frames, uint64_t p)
 {
   frames_free_order(frames, p, frames_find_order(frames, p));
 }
 
-int default_mem_info(void *start, size_t size, void *data)
+int default_mem_info(uint64_t start, uint64_t size, void *data)
 {
   return MEM_INFO_USABLE;
 }

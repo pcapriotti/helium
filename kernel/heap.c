@@ -38,7 +38,9 @@ heap_t *heap_new(frames_t *frames)
   /* get a block from the frame allocator */
   uint32_t size = PAGE_GROWTH << PAGE_BITS;
   assert(size >= sizeof(heap_t));
-  void *block = frames_alloc(frames, size);
+  uint64_t frame = frames_alloc(frames, size);
+  assert(frame < MAX_KERNEL_MEMORY_SIZE);
+  void *block = (void *) (uint32_t) frame;
   if (!block) return 0;
 
   /* reserve space for the heap data structures */
@@ -103,7 +105,9 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       int num_pages = ROUND(bytes, PAGE_BITS) + 1;
       if (num_pages < PAGE_GROWTH) num_pages = PAGE_GROWTH;
       unsigned long size = num_pages << PAGE_BITS;
-      block_t *block = frames_alloc(heap->frames, size);
+      uint64_t frame = frames_alloc(heap->frames, size);
+      assert(frame < MAX_KERNEL_MEMORY_SIZE);
+      block_t *block = (void *) (uint32_t) frame;
       b->next = block;
       if (block) {
         block->size = size;

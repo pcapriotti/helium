@@ -15,27 +15,29 @@
 
 int test_alloc_free(void *mem, size_t sz)
 {
-  frames_t *frames = frames_new(mem, mem + sz, 5, default_mem_info, 0);
+  frames_t *frames = frames_new((uint64_t) mem,
+                                (uint64_t) mem + sz,
+                                5, default_mem_info, 0);
   ASSERT(frames);
   size_t total = frames_available_memory(frames);
   printf("total memory: 0x%lx\n", total);
 
-  void *x = frames_alloc(frames, 128);
+  void *x = (void *) frames_alloc(frames, 128);
   ASSERT(x);
   ASSERT_EQ(frames_available_memory(frames), total - 128);
 
-  frames_free(frames, x);
+  frames_free(frames, (uint64_t) x);
   ASSERT_EQ(frames_available_memory(frames), total);
 
-  x = frames_alloc(frames, 200);
+  x = (void *) frames_alloc(frames, 200);
   ASSERT(x);
   ASSERT_EQ(frames_available_memory(frames), total - 256);
-  void *y = frames_alloc(frames, 33);
+  void *y = (void *) frames_alloc(frames, 33);
   ASSERT(y);
   ASSERT_EQ(frames_available_memory(frames), total - 256 - 64);
-  frames_free(frames, x);
+  frames_free(frames, (uint64_t) x);
   ASSERT_EQ(frames_available_memory(frames), total - 64);
-  frames_free(frames, y);
+  frames_free(frames, (uint64_t) y);
   ASSERT_EQ(frames_available_memory(frames), total);
 
   return 0;
@@ -46,18 +48,18 @@ typedef struct {
   size_t size;
 } chunk_t;
 
-int chunk_mem_info(void *start, size_t size, void *data) {
+int chunk_mem_info(uint64_t start, uint64_t size, void *data) {
   chunk_t *chunk = data;
-  if (start < chunk->start) {
-    if (start + size > chunk->start)
+  if (start < (uint64_t) chunk->start) {
+    if (start + size > (uint64_t) chunk->start)
       return MEM_INFO_PARTIALLY_USABLE;
     else
       return MEM_INFO_RESERVED;
   }
-  else if (start >= chunk->start + chunk->size) {
+  else if (start >= (uint64_t) chunk->start + chunk->size) {
     return MEM_INFO_RESERVED;
   }
-  else if (start + size > chunk->start + chunk->size) {
+  else if (start + size > (uint64_t) chunk->start + chunk->size) {
     return MEM_INFO_PARTIALLY_USABLE;
   }
   else {
@@ -73,16 +75,18 @@ int test_chunk_alloc(void *mem, size_t sz0) {
   chunk.start = mem;
   chunk.size = sz;
 
-  frames_t *frames = frames_new(mem, mem + sz, 4, chunk_mem_info, &chunk);
+  frames_t *frames = frames_new((uint64_t) mem,
+                                (uint64_t) mem + sz,
+                                5, chunk_mem_info, &chunk);
   ASSERT(frames);
   size_t total = frames_available_memory(frames);
   ASSERT(total < sz);
 
-  void *x = frames_alloc(frames, 6500);
+  void *x = (void *) frames_alloc(frames, 6500);
   ASSERT(x);
   ASSERT_EQ(frames_available_memory(frames), total - 0x2000);
 
-  void *y = frames_alloc(frames, 6500);
+  void *y = (void *) frames_alloc(frames, 6500);
   ASSERT(!y);
 
   return 0;
