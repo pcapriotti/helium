@@ -13,6 +13,15 @@
 #define ASSERT_EQ(x, y) ASSERT_MSG(((x) == (y)), \
   "equality test failed:\n  " #x " = 0x%lx\n  " #y " = 0x%lx", x, y)
 
+frames_t *frames_new(uint64_t start, uint64_t end, unsigned int min_order,
+                     int (*mem_info)(uint64_t start, uint64_t size, void *data),
+                     void *data)
+{
+  frames_t *frames = malloc(sizeof(frames_t));
+  frames_init(frames, start, min_order, end, mem_info, data);
+  return frames;
+}
+
 int test_alloc_free(void *mem, size_t sz)
 {
   frames_t *frames = frames_new((uint64_t) mem,

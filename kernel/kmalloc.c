@@ -10,7 +10,7 @@ static heap_t *kernel_heap;
 
 int kmalloc_init()
 {
-  kernel_heap = heap_new(kernel_frames);
+  kernel_heap = heap_new(&kernel_frames);
   return kernel_heap != 0;
 }
 

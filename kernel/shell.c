@@ -36,7 +36,7 @@ void shell_process_command(shell_t *shell, const char *cmd)
     ata_list_drives();
   }
   else if (!strcmp("memory", shell->input)) {
-    frames_dump_diagnostics(kernel_frames);
+    frames_dump_diagnostics(&kernel_frames);
   }
   else if (!strcmp("cpuid", shell->input)) {
     if (cpuid_is_supported()) {

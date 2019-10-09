@@ -161,14 +161,6 @@ check the availability of the buddy block just by testing its
 bit. This allows us to maintain the second invariant: if both the
 block and its buddy would end up being available, we merge them by
 making them unavailable and recursing on the parent block. */
-struct frames {
-  uint64_t start;
-  uint64_t end;
-  uint64_t free[MAX_ORDER];
-  unsigned int min_order, max_order;
-
-  uint32_t *metadata;
-};
 
 static inline unsigned int frames_abs_index(frames_t *frames,
                                             unsigned int rel_index,
@@ -346,92 +338,75 @@ uint64_t take_block(frames_t *frames, unsigned int order)
   mem_info, data - closure that returns whether a fragment of the
     memory chunk is available for use
 
-  Initialisation happens in several phases. First, a frames_t
-  structure is constructed on the stack and initialised with no
-  available blocks.
-
-  Then, the available blocks are constructed and added to the lists
+  First, the available blocks are constructed and added to the lists
   using recursive invocations of mem_info.
 
   At this point, metadata needs to be created. Unfortunately, because
   there is no metadata yet, when we allocate it no metadata changes
   can be recorded.  So after the metadata block has been allocated, we
   first synchronise it with the initial block setup, then reconstruct
-  the metadata changes that would have happened during its allocation.
-
-  Finally we allocate a block for the frames_t structure itself, copy
-  it over, and return its address. */
-frames_t *frames_new(uint64_t start, uint64_t end,
-                     unsigned int min_order,
-                     int (*mem_info)(uint64_t start, uint64_t size, void *data),
-                     void *data)
+  the metadata changes that would have happened during its allocation. */
+int frames_init(frames_t *frames,
+                uint64_t start, uint64_t end,
+                unsigned int min_order,
+                int (*mem_info)(uint64_t start, uint64_t size, void *data),
+                void *data)
 {
   if (min_order < ORDER_OF(sizeof(block_t))) {
-    FRAMES_PANIC(0, "min_order must be at least %u\n", ORDER_OF(sizeof(block_t)));
+    FRAMES_PANIC(-1, "min_order must be at least %u\n", ORDER_OF(sizeof(block_t)));
   }
 
-  frames_t frames;
-  frames.start = start;
-  frames.end = end;
-  frames.min_order = min_order;
-  frames.max_order = ORDER_OF(end - start);
-  if (frames.max_order < frames.min_order) {
-    FRAMES_PANIC(0, "min_order too large\n");
+  frames->start = start;
+  frames->end = end;
+  frames->min_order = min_order;
+  frames->max_order = ORDER_OF(end - start);
+  if (frames->max_order < frames->min_order) {
+    FRAMES_PANIC(-1, "min_order too large\n");
   }
-  for (unsigned int k = frames.min_order; k <= frames.max_order; k++) {
-    *block_head(&frames, k) = 0;
+  for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
+    *block_head(frames, k) = 0;
   }
 
   /* add all blocks */
-  add_blocks(frames.max_order, start, &frames, mem_info, data);
+  add_blocks(frames->max_order, start, frames, mem_info, data);
 
-  DIAGNOSTICS(&frames);
+  DIAGNOSTICS(frames);
 
   /* set metadata */
-  frames.metadata = 0;
-  unsigned int meta_order = frames.max_order - frames.min_order - 2;
+  frames->metadata = 0;
+  unsigned int meta_order = frames->max_order - frames->min_order - 2;
   if (meta_order <= 2) meta_order = 2;
-  if (meta_order < frames.min_order) meta_order = frames.min_order;
-  uint64_t metadata_frame = take_block(&frames, meta_order);
-  if (!metadata_frame) FRAMES_PANIC(0, "not enough memory for frame metadata\n");
+  if (meta_order < frames->min_order) meta_order = frames->min_order;
+  uint64_t metadata_frame = take_block(frames, meta_order);
+  if (!metadata_frame) FRAMES_PANIC(-1, "not enough memory for frame metadata\n");
 #if _HELIUM
   assert(metadata_frame < MAX_KERNEL_MEMORY_SIZE);
 #endif
-  frames.metadata = (uint32_t *) (size_t) metadata_frame;
+  frames->metadata = (uint32_t *) (size_t) metadata_frame;
 
 
   TRACE("setting initial metadata\n");
 
-  memset(frames.metadata, 0, 1 << meta_order);
+  memset(frames->metadata, 0, 1 << meta_order);
   /* synchronise metadata with initial blocks */
-  mark_blocks(&frames, start, frames.max_order, mem_info, data);
+  mark_blocks(frames, start, frames->max_order, mem_info, data);
 
   TRACE("  done\n");
 
   /* execute metadata changes for the metadata block allocation */
   {
     TRACE("replaying metadata for %p order %u\n",
-          frames.metadata, meta_order);
-    int index = frames_block_index(&frames, metadata_frame, meta_order);
+          frames->metadata, meta_order);
+    int index = frames_block_index(frames, metadata_frame, meta_order);
     while (index > 0) {
       TRACE("setting bit for index %d\n", index);
-      SET_BIT(frames.metadata, index);
+      SET_BIT(frames->metadata, index);
       index = (index >> 1) - 1;
     }
   }
 
-  DIAGNOSTICS(&frames);
-
-  /* allocate frames_t structure itself */
-  TRACE("allocating frames_t (size 0x%lx)\n", sizeof(frames_t));
-  uint64_t frame = frames_alloc(&frames, sizeof(frames_t));
-#if _HELIUM
-  assert(frame < MAX_KERNEL_MEMORY_SIZE);
-#endif
-  frames_t *ret = (frames_t *) (size_t) frame;
-  *ret = frames;
-
-  return ret;
+  DIAGNOSTICS(frames);
+  return 0;
 }
 
 size_t frames_available_memory(frames_t *frames)

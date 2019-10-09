@@ -17,7 +17,7 @@ typedef struct {
 } chunk_t;
 
 struct frames;
-extern struct frames *kernel_frames;
+extern struct frames kernel_frames;
 
 void *falloc(size_t sz);
 void ffree(void *p);
