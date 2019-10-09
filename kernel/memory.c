@@ -2,18 +2,23 @@
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "frames.h"
+#include "kmalloc.h"
 #include "memory.h"
+#include "paging.h"
 
 #include <stdint.h>
 #include <string.h>
 
-#define FRAMES_MIN_ORDER 14 /* 16K frames */
+#define DMA_FRAMES_ORDER PAGE_BITS
+#define KERNEL_FRAMES_ORDER 14 /* 16K frames */
+#define USER_FRAMES_ORDER KERNEL_FRAMES_ORDER
 
 #define BIOS_MM_DEBUG 0
-#define MM_DEBUG 0
+#define MM_DEBUG 1
 
 frames_t kernel_frames;
 frames_t dma_frames;
+frames_t user_frames;
 
 typedef struct {
   uint64_t base;
@@ -285,6 +290,15 @@ int mem_info(uint64_t start, uint64_t length, void *data)
   return 0;
 }
 
+int chunk_info_init_frame(chunk_info_t *chunk_info,
+                          frames_t *frames,
+                          unsigned int order)
+{
+  return frames_init(frames,
+                     chunk_info->start, chunk_info->end,
+                     order, &mem_info, chunk_info);
+}
+
 int memory_init(uint32_t *heap)
 {
   int num_chunks;
@@ -305,6 +319,9 @@ int memory_init(uint32_t *heap)
             chunks[i].base);
   }
 #endif
+  chunk_info_t chunk_info;
+  chunk_info.chunks = chunks;
+  chunk_info.num_chunks = num_chunks;
 
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
 #if MM_DEBUG
@@ -323,38 +340,44 @@ int memory_init(uint32_t *heap)
     kprintf(")\n");
   }
 #endif
-  uint64_t kernel_memory_size = total_memory_size;
-  if (kernel_memory_size > MAX_KERNEL_MEMORY_SIZE)
-    kernel_memory_size = MAX_KERNEL_MEMORY_SIZE;
-
-  chunk_info_t chunk_info;
-  chunk_info.chunks = chunks;
-  chunk_info.num_chunks = num_chunks;
 
   /* create DMA frame allocator */
   {
     chunk_info.start = 0;
     chunk_info.end = (size_t) _kernel_start;
 
-    int ret = frames_init(&dma_frames,
-                          chunk_info.start,
-                          chunk_info.end,
-                          PAGE_BITS,
-                          &mem_info, &chunk_info);
-    if (ret == -1) panic();
+    if (chunk_info_init_frame(&chunk_info,
+                              &dma_frames,
+                              DMA_FRAMES_ORDER) == -1)
+      return -1;
   }
 
   /* create main kernel frame allocator */
   {
     chunk_info.start = (size_t) _kernel_start;
-    chunk_info.end = kernel_memory_size;
+    chunk_info.end = MAX_KERNEL_MEMORY_SIZE;
 
-    int ret = frames_init(&kernel_frames,
-                          chunk_info.start,
-                          chunk_info.end,
-                          FRAMES_MIN_ORDER,
-                          &mem_info, &chunk_info);
-    if (ret == -1) panic();
+    if (chunk_info_init_frame(&chunk_info,
+                              &kernel_frames,
+                              KERNEL_FRAMES_ORDER) == -1)
+      return -1;
+  }
+
+  /* initialise kernel heap */
+  if (kmalloc_init() == -1) panic();
+
+  /* enable paging now, because the user allocator will need it */
+  if (paging_init() == -1) panic();
+
+  /* TODO: use kernel allocator for metadata */
+  if (total_memory_size > USER_MEMORY_START) {
+    chunk_info.start = USER_MEMORY_START;
+    chunk_info.end = total_memory_size;
+
+    if (chunk_info_init_frame(&chunk_info,
+                              &user_frames,
+                              USER_FRAMES_ORDER) == -1)
+      return -1;
   }
 
   return 0;

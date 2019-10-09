@@ -67,7 +67,9 @@ static inline block_t *map_block(uint64_t p)
     return (block_t *)(uint32_t) p;
   }
   else {
-    FRAMES_PANIC(0, "Mapping block %#llx\n", p);
+    kprintf("ERROR: Mapping block %#llx\n", p);
+    panic();
+    return 0;
   }
 #else
   return (block_t *)p;
@@ -78,10 +80,10 @@ static inline void unmap_block(block_t *block)
 {
 #if _HELIUM
   if (block && block->current >= MAX_KERNEL_MEMORY_SIZE) {
-    TRACE("current = %#" PRIx64 "\n", block->current);
     assert((uint32_t) block >= MAX_KERNEL_MEMORY_SIZE &&
-           (uint32_t) block < MAX_KERNEL_MEMORY_SIZE + (1 << 21));
-    FRAMES_PANIC(,"Unmapping block %#llx\n", block->current);
+           (uint32_t) block < USER_MEMORY_START);
+    kprintf("ERROR: Unmapping block %#llx\n", block->current);
+    panic();
   }
 #endif
 }

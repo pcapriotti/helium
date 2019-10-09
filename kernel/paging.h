@@ -22,7 +22,15 @@ enum {
   PT_ENTRY_GLOBAL = 1 << 8,
 };
 
-void paging_init(void);
+enum {
+  PAGING_DISABLED,
+  PAGING_REGULAR,
+  PAGING_PAE,
+};
+
+extern int paging_state;
+
+int paging_init(void);
 void paging_idmap(void *address);
 
 #endif /* PAGING_H */

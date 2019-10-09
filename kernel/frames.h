@@ -7,6 +7,7 @@
 #define MAX_ORDER 64
 #define ORDER_OF(n) ((unsigned int)(sizeof(size_t) * 8 - __builtin_clzl((n) - 1)))
 #define MAX_KERNEL_MEMORY_SIZE (126 * 1024 * 1024)
+#define USER_MEMORY_START (128 * 1024 * 1024)
 
 typedef struct frames {
   uint64_t start;

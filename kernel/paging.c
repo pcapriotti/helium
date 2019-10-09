@@ -4,11 +4,20 @@
 
 #include <string.h>
 
+#define PAGING_DEBUG 0
+#if PAGING_DEBUG
+#define TRACE(...) kprintf(__VA_ARGS__)
+#else
+#define TRACE(...) do {} while(0)
+#endif
+
 #define LARGE_PAGE_BITS (PAGE_BITS + PAGE_BITS - 2)
 #define LARGE_PAGE(x) ((page_t *) ALIGNED(x, LARGE_PAGE_BITS))
 #define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
 
 #define DIR_INDEX(x) (((uint32_t) x) >> LARGE_PAGE_BITS)
+
+int paging_state = PAGING_DISABLED;
 
 static inline void page_zero(page_t *page)
 {
@@ -36,7 +45,7 @@ void paging_idmap(void *address)
   paging_idmap_large(table, address);
 }
 
-void paging_init(void)
+int paging_init(void)
 {
   // TODO: use a page allocator
   page_t *directory = falloc(sizeof(page_t));
@@ -53,10 +62,13 @@ void paging_init(void)
 
   /* enable large pages */
   if (!cpuid_check_features(CPUID_FEAT_PSE)) {
-    kprintf("Large pages not supported\n");
-    panic();
+    TRACE("Large pages not supported\n");
+    return -1;
   }
   CR_SET(4, CR_GET(4) | CR4_PSE);
 
   paging_enable();
+  paging_state = PAGING_REGULAR;
+
+  return 0;
 }

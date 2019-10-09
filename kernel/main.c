@@ -99,9 +99,6 @@ void kernel_start(void *multiboot_info, uint32_t magic)
   sti();
 
   if (memory_init(heap) == -1) panic();
-  if (kmalloc_init() == -1) panic();
-
-  paging_init();
 
   kprintf("entering graphic mode\n");
 
