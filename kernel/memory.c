@@ -10,9 +10,10 @@
 #define FRAMES_MIN_ORDER 14 /* 16K frames */
 
 #define BIOS_MM_DEBUG 0
-#define MM_DEBUG 1
+#define MM_DEBUG 0
 
 frames_t kernel_frames;
+frames_t dma_frames;
 
 typedef struct {
   uint64_t base;
@@ -290,9 +291,11 @@ int memory_init(uint32_t *heap)
   chunk_t *chunks = memory_get_chunks(&num_chunks, &heap);
   if (!chunks || num_chunks <= 0) panic();
 
-  /* ignore low memory for now */
   memory_reserve_chunk(chunks, &num_chunks,
-                       0, (unsigned long) _kernel_end);
+                       (size_t)_kernel_start,
+                       (size_t) _kernel_end);
+  memory_reserve_chunk(chunks, &num_chunks,
+                       0, 0x7c00);
 
 #if MM_DEBUG
   kprintf("memory map:\n");
@@ -327,14 +330,32 @@ int memory_init(uint32_t *heap)
   chunk_info_t chunk_info;
   chunk_info.chunks = chunks;
   chunk_info.num_chunks = num_chunks;
-  chunk_info.start = (uint32_t) _kernel_start;
-  chunk_info.end = kernel_memory_size;
 
-  int ret = frames_init(&kernel_frames,
-                        0, kernel_memory_size,
-                        FRAMES_MIN_ORDER,
-                        &mem_info, &chunk_info);
-  if (ret == -1) panic();
+  /* create DMA frame allocator */
+  {
+    chunk_info.start = 0;
+    chunk_info.end = (size_t) _kernel_start;
+
+    int ret = frames_init(&dma_frames,
+                          chunk_info.start,
+                          chunk_info.end,
+                          PAGE_BITS,
+                          &mem_info, &chunk_info);
+    if (ret == -1) panic();
+  }
+
+  /* create main kernel frame allocator */
+  {
+    chunk_info.start = (size_t) _kernel_start;
+    chunk_info.end = kernel_memory_size;
+
+    int ret = frames_init(&kernel_frames,
+                          chunk_info.start,
+                          chunk_info.end,
+                          FRAMES_MIN_ORDER,
+                          &mem_info, &chunk_info);
+    if (ret == -1) panic();
+  }
 
   return 0;
 }
