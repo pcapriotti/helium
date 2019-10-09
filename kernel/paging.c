@@ -129,6 +129,7 @@ void paging_temp_unmap_page(void *p)
   assert(p >= KERNEL_VM_TEMP_START && p < KERNEL_VM_TEMP_END);
   assert(((size_t) p & ((1 << PAGE_BITS) - 1)) == 0);
 
+  __asm__ volatile("invlpg %0" : : "m"(*(uint8_t *)p));
   tmp_table[TABLE_INDEX(p)] = 0;
 
   paging_temp = p;
