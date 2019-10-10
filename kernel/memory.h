@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 #define ALIGNED(x, bits) (((uint32_t) x) & (~0UL << (bits)))
+#define ALIGNED64(x, bits) (((uint64_t) x) & (~0ULL << (bits)))
 #define PAGE_BITS 12
 
 extern uint8_t _stage1_end[];

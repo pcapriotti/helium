@@ -6,6 +6,7 @@
 
 #define MAX_ORDER 64
 #define ORDER_OF(n) ((unsigned int)(sizeof(size_t) * 8 - __builtin_clzl((n) - 1)))
+#define ORDER64_OF(n) (((n) < (1ULL << 32)) ? (ORDER_OF(n)) : (ORDER_OF((n) >> 32)) + 32)
 
 #define KERNEL_MEMORY_END (124 * 1024 * 1024)
 #define USER_MEMORY_START (128 * 1024 * 1024)

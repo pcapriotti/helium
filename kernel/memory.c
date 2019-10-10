@@ -87,7 +87,7 @@ chunk_t *memory_get_chunks(int *count, uint32_t **heap)
   regs16_t regs;
 
 #if BIOS_MM_DEBUG
-  kprintf("flags: %#08x\n", cpu_flags());
+  serial_printf("flags: %#08x\n", cpu_flags());
 #endif
 
   memory_map_entry_t *entry0 = (memory_map_entry_t *)*heap;
@@ -109,16 +109,16 @@ chunk_t *memory_get_chunks(int *count, uint32_t **heap)
 
     if (flags & EFLAGS_CF || regs.eax != 0x534d4150) {
 #if BIOS_MM_DEBUG
-      kprintf("memory map bios call failed\n  eax: %#x eflags: %#x\n",
+      serial_printf("memory map bios call failed\n  eax: %#x eflags: %#x\n",
               regs.eax, flags);
       int num = entry - entry0;
-      kprintf("  num entries so far: %d\n", num);
+      serial_printf("  num entries so far: %d\n", num);
 #endif /* BIOS_MM_DEBUG */
       return 0;
     }
 
 #if BIOS_MM_DEBUG
-    kprintf("entry: %#016llx size: %#016llx type: %d\n",
+    serial_printf("entry: %#016llx size: %#016llx type: %d\n",
             entry->base, entry->size, entry->type);
 #endif /* BIOS_MM_DEBUG */
     entry++;
@@ -313,11 +313,11 @@ int memory_init(uint32_t *heap)
                        0, 0x7c00);
 
 #if MM_DEBUG
-  kprintf("memory map:\n");
+  serial_printf("memory map:\n");
   for (int i = 0; i < num_chunks; i++) {
-    kprintf("type: %d base: %#016llx\n",
-            chunks[i].type,
-            chunks[i].base);
+    serial_printf("type: %d base: %#016llx\n",
+                  chunks[i].type,
+                  chunks[i].base);
   }
 #endif
   chunk_info_t chunk_info;
@@ -327,18 +327,18 @@ int memory_init(uint32_t *heap)
   uint64_t total_memory_size = chunks[num_chunks - 1].base;
 #if MM_DEBUG
   {
-    kprintf("memory size: %#llx (", total_memory_size);
+    serial_printf("memory size: %#llx (", total_memory_size);
     unsigned long long kb = total_memory_size / 1024;
     unsigned long long mb = kb / 1024;
     unsigned long long gb = mb / 1024;
     if (gb)
-      kprintf("%llu GB", gb);
+      serial_printf("%llu GB", gb);
     else if (mb)
-      kprintf("%llu MB", mb);
+      serial_printf("%llu MB", mb);
     else if (kb)
-      kprintf("%llu kB", kb);
+      serial_printf("%llu kB", kb);
 
-    kprintf(")\n");
+    serial_printf(")\n");
   }
 #endif
 
@@ -354,7 +354,7 @@ int memory_init(uint32_t *heap)
   }
 
 #if MM_DEBUG
-  kprintf("initialising kernel heap\n");
+  serial_printf("initialising kernel heap\n");
 #endif
 
   /* initialise kernel heap */
@@ -369,7 +369,7 @@ int memory_init(uint32_t *heap)
   }
 
 #if MM_DEBUG
-  kprintf("creating DMA allocator\n");
+  serial_printf("creating DMA allocator\n");
 #endif
 
   /* create DMA frame allocator */
@@ -384,14 +384,14 @@ int memory_init(uint32_t *heap)
   }
 
 #if MM_DEBUG
-  kprintf("enabling paging\n");
+  serial_printf("enabling paging\n");
 #endif
 
   /* enable paging now, because the user allocator will need it */
   if (paging_init(total_memory_size) == -1) panic();
 
 #if MM_DEBUG
-  kprintf("creating user allocator\n");
+  serial_printf("creating user allocator\n");
 #endif
 
   /* TODO: use kernel allocator for metadata */

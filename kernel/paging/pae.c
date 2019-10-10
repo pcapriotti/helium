@@ -9,7 +9,7 @@
 #define LARGE_PAGE_BITS (PAGE_BITS + ENTRY_BITS)
 #define DEF_FLAGS (PT_ENTRY_PRESENT | PT_ENTRY_RW)
 
-/* level 3 table: four entries, hi 2 bits */
+/* level 3 table: four entries, highest 2 bits */
 #define L3_INDEX(x) ((((uint32_t) x) >> 30) & 0x3)
 /* level 2 table: 512 entries, next 9 bits */
 #define L2_INDEX(x) ((((uint32_t) x) >> LARGE_PAGE_BITS) & ((1 << ENTRY_BITS) - 1))
@@ -23,9 +23,6 @@ static inline pg_pae_entry_t mk_entry(uint64_t p, uint16_t flags)
 
 int paging_pae_init(paging_pae_t *pg)
 {
-  pg->perm = KERNEL_VM_PERM_START;
-  pg->temp = KERNEL_VM_TEMP_START;
-
   /* allocate level 3 table */
   page_t *l3 = falloc(sizeof(page_t));
   page_zero(l3);
@@ -40,17 +37,21 @@ int paging_pae_init(paging_pae_t *pg)
 
   /* identity map kernel memory */
   for (void *p = KERNEL_VM_ID_START; p < KERNEL_VM_ID_END; p += (1 << LARGE_PAGE_BITS)) {
-    pg->table2[L2_INDEX(p)] = mk_entry(ALIGNED(p, LARGE_PAGE_BITS),
+    pg->table2[L2_INDEX(p)] = mk_entry(ALIGNED64((size_t) p, LARGE_PAGE_BITS),
                                        DEF_FLAGS | PT_ENTRY_SIZE);
   }
 
   /* set up temporary mapping table */
   {
+    pg->temp = KERNEL_VM_TEMP_START;
     page_t *tmp_page = falloc(sizeof(page_t));
     page_zero(tmp_page);
     pg->table2[L2_INDEX(pg->temp)] = mk_entry((size_t) tmp_page, DEF_FLAGS);
     pg->tmp_table = (pg_pae_entry_t *)tmp_page;
   }
+
+  /* set up permanent virtual memory area */
+  pg->perm = KERNEL_VM_PERM_START;
 
   /* install level 3 table */
   CR_SET(3, l3);
@@ -92,7 +93,7 @@ static void *map_temp(void *data, uint64_t p)
     return 0;
   }
 
-  *entry = mk_entry(ALIGNED(p, PAGE_BITS), DEF_FLAGS);
+  *entry = mk_entry(ALIGNED64(p, PAGE_BITS), DEF_FLAGS);
 
   pg->temp = tmp + 1;
   if ((void *) pg->temp >= KERNEL_VM_TEMP_END)
@@ -132,7 +133,7 @@ static void *map_perm(void *data, uint64_t p)
   }
 
   pg_pae_entry_t *table = (pg_pae_entry_t *)tpage;
-  table[L1_INDEX(pg->perm)] = mk_entry(ALIGNED(p, PAGE_BITS), DEF_FLAGS);
+  table[L1_INDEX(pg->perm)] = mk_entry(ALIGNED64(p, PAGE_BITS), DEF_FLAGS);
 
   return pg->perm++;
 }

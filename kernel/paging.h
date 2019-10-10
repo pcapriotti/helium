@@ -7,7 +7,7 @@
 
 #define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
 
-#define PAGING_DEBUG 1
+#define PAGING_DEBUG 0
 
 typedef struct page {
   uint8_t bytes[1 << PAGE_BITS];
