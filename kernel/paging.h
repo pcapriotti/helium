@@ -3,6 +3,10 @@
 
 #include "memory.h"
 
+#define LARGE_PAGE_BITS (PAGE_BITS + PAGE_BITS - 2)
+#define LARGE_PAGE(x) ((page_t *) ALIGNED(x, LARGE_PAGE_BITS))
+#define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
+
 typedef struct page {
   uint8_t bytes[1 << PAGE_BITS];
 } __attribute__((packed, aligned(1 << PAGE_BITS))) page_t;
@@ -41,16 +45,21 @@ enum {
   PAGING_PAE,
 };
 
-extern int paging_state;
+typedef struct pg_ops {
+  void *(*map_temp)(void *data, uint64_t p);
+  void (*unmap_temp)(void *data, void *p);
+  void *(*map_perm)(void *data, uint64_t p);
+  uint64_t (*max_memory)(void *data);
+} pg_ops_t;
 
-int paging_init(void);
-void paging_idmap(void *address);
+extern int paging_type;
+
+void *paging_perm_map_pages(uint64_t p, size_t size);
 
 void *paging_temp_map_page(uint64_t p);
-void paging_temp_unmap_page(void *p);
+void paging_temp_unmap_page(void * p);
 
-void *paging_perm_map_page(uint64_t p);
-void *paging_perm_map_pages(uint64_t p, size_t size);
+int paging_init(void);
 
 uint64_t paging_maximum_memory();
 

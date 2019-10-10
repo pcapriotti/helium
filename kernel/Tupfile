@@ -1,6 +1,7 @@
 include_rules
 
 CFLAGS += $(CFLAGS_HELIUM)
+CFLAGS += -I$(TUP_CWD)
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
@@ -10,5 +11,5 @@ LSCRIPT=kernel.ld
 LDFLAGS += -e kmain
 
 : foreach *.S |> !as |>
-: foreach *.c |> !cc |>
+: foreach *.c paging/*.c |> !cc |>
 : *.o $(LIBS) |> !ld |> kernel.elf
