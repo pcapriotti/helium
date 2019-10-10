@@ -14,6 +14,7 @@
 
 enum {
   CR4_PSE = 1 << 4,
+  CR4_PAE = 1 << 5,
 };
 
 enum {

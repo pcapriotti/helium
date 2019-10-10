@@ -3,16 +3,20 @@
 
 #include "memory.h"
 
-#define LARGE_PAGE_BITS (PAGE_BITS + PAGE_BITS - 2)
-#define LARGE_PAGE(x) ((page_t *) ALIGNED(x, LARGE_PAGE_BITS))
+#include <string.h>
+
 #define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
+
+#define PAGING_DEBUG 1
 
 typedef struct page {
   uint8_t bytes[1 << PAGE_BITS];
 } __attribute__((packed, aligned(1 << PAGE_BITS))) page_t;
 
-typedef uint32_t pt_entry_t;
-typedef pt_entry_t page_table_t[1 << (PAGE_BITS - 2)];
+static inline void page_zero(page_t *page)
+{
+  memset(page, 0, sizeof(page_t));
+}
 
 /* kernel virtual memory is as follows:
 
@@ -59,7 +63,7 @@ void *paging_perm_map_pages(uint64_t p, size_t size);
 void *paging_temp_map_page(uint64_t p);
 void paging_temp_unmap_page(void * p);
 
-int paging_init(void);
+int paging_init(uint64_t memory);
 
 uint64_t paging_maximum_memory();
 

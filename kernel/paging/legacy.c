@@ -17,25 +17,21 @@
 #define DIR_INDEX(x) (((uint32_t) x) >> LARGE_PAGE_BITS)
 #define TABLE_INDEX(x) ((((uint32_t) x) >> PAGE_BITS) & ((1 << (PAGE_BITS - 2)) - 1))
 
-int paging_type;
+#define LARGE_PAGE_BITS (PAGE_BITS + PAGE_BITS - 2)
+#define LARGE_PAGE(x) ((page_t *) ALIGNED(x, LARGE_PAGE_BITS))
 
-static inline pt_entry_t mk_entry(page_t *page, uint16_t flags)
+static inline pg_legacy_entry_t mk_entry(page_t *page, uint16_t flags)
 {
   return (uint32_t) page | flags;
 }
 
-static void paging_idmap_large(pt_entry_t *table, void *address)
+static void paging_idmap_large(pg_legacy_entry_t *table, void *address)
 {
   table[DIR_INDEX(address)] =
     mk_entry(LARGE_PAGE(address),
              PT_ENTRY_PRESENT |
              PT_ENTRY_RW |
              PT_ENTRY_SIZE);
-}
-
-static inline void page_zero(page_t *page)
-{
-  memset(page, 0, sizeof(page_t));
 }
 
 int paging_legacy_init(paging_legacy_t *pg)
@@ -46,7 +42,7 @@ int paging_legacy_init(paging_legacy_t *pg)
   // TODO: use a page allocator
   page_t *directory = falloc(sizeof(page_t));
   page_zero(directory);
-  pg->dir_table = (pt_entry_t *) directory;
+  pg->dir_table = (pg_legacy_entry_t *) directory;
 
   /* identity map kernel memory */
   for (void *p = KERNEL_VM_ID_START; p < KERNEL_VM_ID_END; p += (1 << LARGE_PAGE_BITS)) {
@@ -59,7 +55,7 @@ int paging_legacy_init(paging_legacy_t *pg)
     page_zero(tmp_page);
     pg->dir_table[DIR_INDEX(KERNEL_VM_TEMP_START)] = mk_entry
       (tmp_page, PT_ENTRY_PRESENT | PT_ENTRY_RW);
-    pg->tmp_table = (pt_entry_t *) tmp_page;
+    pg->tmp_table = (pg_legacy_entry_t *) tmp_page;
   }
 
   /* install page directory */
@@ -147,7 +143,7 @@ static void *paging_legacy_map_perm(void *data, uint64_t p)
     *entry = mk_entry(tpage, PT_ENTRY_PRESENT | PT_ENTRY_RW);
   }
 
-  pt_entry_t *table = (pt_entry_t *)tpage;
+  pg_legacy_entry_t *table = (pg_legacy_entry_t *)tpage;
   table[TABLE_INDEX(pg->perm)] =
     mk_entry(PAGE(p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
 

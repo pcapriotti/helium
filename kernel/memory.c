@@ -388,7 +388,7 @@ int memory_init(uint32_t *heap)
 #endif
 
   /* enable paging now, because the user allocator will need it */
-  if (paging_init() == -1) panic();
+  if (paging_init(total_memory_size) == -1) panic();
 
 #if MM_DEBUG
   kprintf("creating user allocator\n");
