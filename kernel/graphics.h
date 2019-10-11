@@ -3,13 +3,16 @@
 
 #include <stdint.h>
 
-typedef struct {
-  uint8_t lines[16];
-} __attribute__((packed)) glyph_t;
+#define BIOS_FONT_WIDTH 8
+#define BIOS_FONT_HEIGHT 16
 
 typedef struct {
-  glyph_t glyphs[512];
-} __attribute__((aligned(4), packed)) font_t;
+  uint8_t lines[16];
+} __attribute__((packed)) bios_glyph_t;
+
+typedef struct {
+  bios_glyph_t glyphs[512];
+} __attribute__((aligned(4), packed)) bios_font_t;
 
 typedef struct {
   uint8_t red_mask; uint8_t red_field;
@@ -32,6 +35,6 @@ typedef struct {
 int graphics_init(void *low_heap, vbe_mode_t *req_mode);
 
 extern vbe_mode_t graphics_mode;
-extern font_t graphics_font;
+extern bios_font_t graphics_font;
 
 #endif /* GRAPHICS_H */

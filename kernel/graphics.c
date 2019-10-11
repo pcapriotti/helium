@@ -5,7 +5,7 @@
 
 #define GRAPHICS_DEBUG 0
 
-font_t graphics_font;
+bios_font_t graphics_font;
 vbe_mode_t graphics_mode = {0};
 
 typedef struct {
@@ -174,7 +174,7 @@ int find_mode(void *low_heap, vbe_mode_t *req_mode, uint16_t *modes)
   return num_modes;
 }
 
-int get_font(font_t *font)
+int get_font(bios_font_t *font)
 {
   regs16_t regs;
 
@@ -186,7 +186,7 @@ int get_font(font_t *font)
     seg_off_to_linear(regs.es, regs.ebp);
   uint32_t *dest = (uint32_t *) font;
 
-  for (unsigned int i = 0; i < sizeof(font_t) / 4; i++) {
+  for (unsigned int i = 0; i < sizeof(bios_font_t) / 4; i++) {
     dest[i] = buf[i];
   }
 

@@ -3,6 +3,5 @@ CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 : loader/loader.bin |> ./scripts/build-floppy-image.sh %f %o |> fda
-
 : kernel/kernel.elf |> cp %f %o |> image/boot/kernel
 : image/boot/kernel loader/loader.bin |> ./scripts/make-image.sh -l loader/loader.bin |> disk.img
