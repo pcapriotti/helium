@@ -1,5 +1,6 @@
 #include "console.h"
 #include "core/debug.h"
+#include "font.h"
 #include "graphics.h"
 #include "memory.h"
 #include "scheduler.h"
@@ -78,8 +79,8 @@ static inline uint32_t mask(uint8_t size, uint8_t position)
 static inline uint32_t *at(point_t p)
 {
   return console.fb +
-    p.x * BIOS_FONT_WIDTH +
-    (p.y - console.offset) * console.pitch * BIOS_FONT_HEIGHT;
+    p.x * graphics_font.header.width +
+    (p.y - console.offset) * console.pitch * graphics_font.header.height;
 }
 
 int console_init(void)
@@ -98,8 +99,8 @@ int console_init(void)
   if (graphics_mode.pitch % PIXEL_SIZE != 0) return -1;
   console.pitch = graphics_mode.pitch / PIXEL_SIZE;
 
-  console.width = graphics_mode.width / BIOS_FONT_WIDTH;
-  console.height = graphics_mode.height / BIOS_FONT_HEIGHT;
+  console.width = graphics_mode.width / graphics_font.header.width;
+  console.height = graphics_mode.height / graphics_font.header.height;
   console.offset = 0;
   if (console.width <= 0 || console.height <= 0) return -1;
 
@@ -142,23 +143,23 @@ void console_render_cursor(uint32_t fg)
 {
   uint32_t *pos = at(console.cur);
   static const int cursor_height = 2;
-  pos += (BIOS_FONT_HEIGHT - cursor_height) * console.pitch;
+  pos += (graphics_font.header.height - cursor_height) * console.pitch;
   for (int i = 0; i < cursor_height; i++) {
-    for (int x = 0; x < BIOS_FONT_WIDTH; x++) {
+    for (size_t x = 0; x < graphics_font.header.width; x++) {
       *pos++ = fg;
     }
-    pos += console.pitch - BIOS_FONT_WIDTH;
+    pos += console.pitch - graphics_font.header.width;
   }
 }
 
 void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg)
 {
-  int pitch = console.pitch - BIOS_FONT_WIDTH;
+  int pitch = console.pitch - graphics_font.header.width;
 
   if (!c) {
     /* just draw background */
-    for (int i = 0; i < BIOS_FONT_HEIGHT; i++) {
-      for (int j = 0; j < BIOS_FONT_WIDTH; j++) {
+    for (size_t i = 0; i < graphics_font.header.height; i++) {
+      for (size_t j = 0; j < graphics_font.header.width; j++) {
         *pos++ = bg;
       }
       pos += pitch;
@@ -166,10 +167,10 @@ void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg)
     return;
   }
 
-  bios_glyph_t *glyph = &graphics_font.glyphs[(int) c];
-  for (int i = 0; i < BIOS_FONT_HEIGHT; i++) {
-    uint8_t line = glyph->lines[i];
-    for (int j = 0; j < BIOS_FONT_WIDTH; j++) {
+  uint8_t *glyph = font_glyph(&graphics_font, c);
+  for (size_t i = 0; i < graphics_font.header.height; i++) {
+    uint8_t line = glyph[i];
+    for (size_t j = 0; j < graphics_font.header.width; j++) {
       *pos++ = (line & 0x80) ? fg : bg;
       line <<= 1;
     }
@@ -196,9 +197,9 @@ void console_render_buffer()
     uint32_t bg = palette[(c >> 12) & 0x7];
     console_render_char(pos, c, fg, bg);
 
-    pos += BIOS_FONT_WIDTH;
+    pos += graphics_font.header.width;
     if (p.x == console.width - 1) {
-      pos += BIOS_FONT_HEIGHT * console.pitch - BIOS_FONT_WIDTH * console.width;
+      pos += graphics_font.header.height * console.pitch - graphics_font.header.width * console.width;
     }
     p = point_next(p);
   }

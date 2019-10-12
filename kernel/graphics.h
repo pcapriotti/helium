@@ -11,7 +11,7 @@ typedef struct {
 } __attribute__((packed)) bios_glyph_t;
 
 typedef struct {
-  bios_glyph_t glyphs[512];
+  bios_glyph_t glyphs[256];
 } __attribute__((aligned(4), packed)) bios_font_t;
 
 typedef struct {
@@ -35,6 +35,6 @@ typedef struct {
 int graphics_init(void *low_heap, vbe_mode_t *req_mode);
 
 extern vbe_mode_t graphics_mode;
-extern bios_font_t graphics_font;
+extern struct font graphics_font;
 
 #endif /* GRAPHICS_H */

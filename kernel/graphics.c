@@ -1,11 +1,12 @@
 #include "core/debug.h"
 #include "core/v8086.h"
+#include "font.h"
 #include "graphics.h"
 #include "paging.h"
 
 #define GRAPHICS_DEBUG 0
 
-bios_font_t graphics_font;
+font_t graphics_font;
 vbe_mode_t graphics_mode = {0};
 
 typedef struct {
@@ -174,7 +175,7 @@ int find_mode(void *low_heap, vbe_mode_t *req_mode, uint16_t *modes)
   return num_modes;
 }
 
-int get_font(bios_font_t *font)
+int get_font(font_t *font)
 {
   regs16_t regs;
 
@@ -182,13 +183,19 @@ int get_font(bios_font_t *font)
   regs.ebx = 0x0600;
   bios_int(0x10, &regs);
 
-  uint32_t *buf = (uint32_t *)
+  bios_font_t *src = (bios_font_t *)
     seg_off_to_linear(regs.es, regs.ebp);
-  uint32_t *dest = (uint32_t *) font;
 
-  for (unsigned int i = 0; i < sizeof(bios_font_t) / 4; i++) {
-    dest[i] = buf[i];
-  }
+  font->header.magic = PSF2_MAGIC;
+  font->header.version = 0;
+  font->header.headersize = sizeof(psf2_header_t);
+  font->header.flags = 0;
+  font->header.length = 256;
+  font->header.charsize = 16;
+  font->header.height = 16;
+  font->header.width = 8;
+
+  memcpy(font->glyphs, src, 16 * 256);
 
   return 0;
 }
