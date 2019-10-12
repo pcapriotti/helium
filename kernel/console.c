@@ -216,7 +216,7 @@ void console_clear_line(int y)
   memset(p, 0, console.width * sizeof(uint16_t));
 }
 
-/* print a character, return whether a redraw is needed */
+/* print a character */
 static inline void _console_putchar_at(point_t p, char c, uint8_t colour)
 {
   if (c < 0x20 || c > 0x7e) return;
