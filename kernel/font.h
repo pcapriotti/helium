@@ -26,4 +26,6 @@ typedef struct font {
 
 uint8_t *font_glyph(font_t *font, int c);
 
+extern font_t font_terminus;
+
 #endif /* FONT_H */

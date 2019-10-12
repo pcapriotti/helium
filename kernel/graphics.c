@@ -177,6 +177,13 @@ int find_mode(void *low_heap, vbe_mode_t *req_mode, uint16_t *modes)
 
 int get_font(font_t *font)
 {
+  /* use hack font */
+  memcpy(font, &font_terminus, sizeof(font_t));
+  return 0;
+}
+
+int get_bios_font(font_t *font)
+{
   regs16_t regs;
 
   regs.eax = 0x1130;
