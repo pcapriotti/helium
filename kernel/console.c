@@ -224,7 +224,7 @@ static inline void _console_putchar_at(point_t p, char c, uint8_t colour)
   uint16_t *dst = console.buffer +
     p.x + (p.y % console.height) * console.width;
   uint16_t col = colour << 8;
-  if (p.x < 80) {
+  if (p.x < console.width) {
     *dst = col | c;
     span_include_point(&console.dirty, p);
   }
