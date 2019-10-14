@@ -32,7 +32,7 @@ typedef struct {
   vbe_colour_info_t colour_info;
 } vbe_mode_t;
 
-int graphics_init(void *low_heap, vbe_mode_t *req_mode);
+int graphics_init(vbe_mode_t *req_mode);
 
 extern vbe_mode_t graphics_mode;
 extern struct font graphics_font;

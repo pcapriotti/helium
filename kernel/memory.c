@@ -300,9 +300,11 @@ int chunk_info_init_frame(chunk_info_t *chunk_info,
                      order, &mem_info, chunk_info);
 }
 
-int memory_init(uint32_t *heap)
+int memory_init()
 {
   int num_chunks;
+
+  uint32_t *heap = (uint32_t *) 0x20000; /* use some temporary low memory */
   chunk_t *chunks = memory_get_chunks(&num_chunks, &heap);
   if (!chunks || num_chunks <= 0) panic();
 

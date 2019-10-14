@@ -1,7 +1,9 @@
 #include "core/debug.h"
 #include "core/v8086.h"
 #include "font.h"
+#include "frames.h"
 #include "graphics.h"
+#include "memory.h"
 #include "paging.h"
 
 #define GRAPHICS_DEBUG 0
@@ -207,23 +209,21 @@ int get_bios_font(font_t *font)
   return 0;
 }
 
-int graphics_init(void *low_heap, vbe_mode_t *req_mode)
+static int init_and_find_mode(vbe_info_t *graphics_info,
+                              vbe_mode_info_t *tmp_mode_info,
+                              vbe_mode_t *req_mode)
 {
-  vbe_info_t *graphics_info = low_heap;
-  low_heap = graphics_info + 1;
-
   if (req_mode->number != 0) {
-    vbe_mode_info_t info;
-    if (get_mode(req_mode->number, &info) == -1)
+    if (get_mode(req_mode->number, tmp_mode_info) == -1)
       return -1;
 
     req_mode->index = 0;
-    req_mode->width = info.width;
-    req_mode->height = info.height;
-    req_mode->bpp = info.bpp;
-    req_mode->pitch = info.pitch;
-    req_mode->framebuffer = info.framebuffer;
-    req_mode->colour_info = info.colour_info;
+    req_mode->width = tmp_mode_info->width;
+    req_mode->height = tmp_mode_info->height;
+    req_mode->bpp = tmp_mode_info->bpp;
+    req_mode->pitch = tmp_mode_info->pitch;
+    req_mode->framebuffer = tmp_mode_info->framebuffer;
+    req_mode->colour_info = tmp_mode_info->colour_info;
   }
   else {
     if (get_graphics_info(graphics_info) == -1)
@@ -233,11 +233,25 @@ int graphics_init(void *low_heap, vbe_mode_t *req_mode)
       ptr16_to_linear(graphics_info->modes);
 
     /* find best matching mode */
-    if (find_mode(low_heap, req_mode, modes) == -1)
+    if (find_mode(tmp_mode_info, req_mode, modes) == -1)
       return -1;
   }
 
+  return 0;
+}
 
+int graphics_init(vbe_mode_t *req_mode)
+{
+  void *low_heap = (void *)(size_t)frames_alloc
+    (&dma_frames, sizeof(vbe_info_t) + sizeof(vbe_mode_info_t));
+  vbe_info_t *graphics_info = low_heap;
+  vbe_mode_info_t *tmp_mode_info = (void *) (graphics_info + 1);
+
+  int ret = init_and_find_mode(graphics_info, tmp_mode_info, req_mode);
+
+  frames_free(&dma_frames, (size_t) low_heap);
+
+  if (ret == -1) return -1;
   if (req_mode->bpp != 32) {
     kprintf("unsupported mode %#x: %ux%u %u bits\n",
             (uint32_t) req_mode->number,

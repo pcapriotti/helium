@@ -28,6 +28,6 @@ void ffree(void *p);
 chunk_t *memory_get_chunks(int *count, uint32_t **heap);
 void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
                           uint64_t start, uint64_t end);
-int memory_init(uint32_t *heap);
+int memory_init();
 
 #endif /* MEMORY_H */

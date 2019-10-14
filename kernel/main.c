@@ -89,14 +89,11 @@ void kernel_start(void *multiboot_info, uint32_t magic)
 
   kprintf("Helium starting (magic = %#x)\n", magic);
 
-  /* set up a temporary heap in low memory */
-  void *heap = (void *)0x20000;
-
   if (timer_init() == -1) panic();
   if (kb_init() == -1) panic();
   sti();
 
-  if (memory_init(heap) == -1) panic();
+  if (memory_init() == -1) panic();
 
   kprintf("entering graphic mode\n");
 
@@ -116,7 +113,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
     mode.height = 600;
     mode.bpp = 32;
     mode.number = 0;
-    if (graphics_init(heap, &mode) == -1) {
+    if (graphics_init(&mode) == -1) {
       kprintf("ERROR: could not enter graphic mode\n");
     }
     (void) mode;
