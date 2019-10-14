@@ -3,7 +3,17 @@
 #include "interrupts.h"
 #include "io.h"
 
+#include <stddef.h>
+
 int v8086_tracing = 0;
+
+typedef struct {
+  uint32_t eip, cs, eflags, sp, ss;
+  uint32_t es, ds, fs, gs;
+} __attribute__((packed)) v8086_stack_t;
+
+uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack);
+uint32_t v8086_exit(void *stack);
 
 void v8086_debug_dump(const char *s, v8086_isr_stack_t *stack)
 {
@@ -305,102 +315,6 @@ void v8086_interrupt_handler(isr_stack_t *stack)
   }
 }
 
-typedef struct {
-  uint32_t eip, cs, eflags, sp, ss;
-  uint32_t es, ds, fs, gs;
-} __attribute__((packed)) v8086_stack_t;
-
-/* The following function enters virtual-8086 mode with the given 16
-bit register configuration. It works by taking a stack parameter,
-populating it with values that would be pushed before an interrupt
-from v8086 to protected mode, and issuing an iret instruction, which
-will jump to the given entry point. */
-uint32_t v8086_enter(regs16_t *regs, v8086_stack_t stack)
-{
-  v8086_isr_stack_t *ctx;
-  uint32_t eflags;
-
-  /* set up a stack guard, in case some BIOS code attempts to return
-  with a far return instead of an iret */
-  {
-    uint16_t *st = (uint16_t *) V8086_STACK_BASE;
-    st[0] = (uint32_t) (st + 2); /* eip = addr of iret instruction later */
-    st[1] = 0; /* cs = 0 */
-    st[2] = 0xcf; /* iret */
-  }
-
-  /* disable paging */
-  /* TODO: make a page for the v8086 task */
-  int paging_enabled = paging_disable();
-
-  /* save flags */
-  __asm__ volatile
-    (
-     "pushf\n"
-     "pop %0\n"
-     : "=r"(eflags));
-
-  __asm__ volatile
-    (/* save registers used here */
-     "push %3\n"
-
-     /* save current stack pointer in tss */
-     "mov %%esp, %0\n"
-
-     /* adjust the stack */
-     "mov %2, %%esp\n"
-
-     /* /\* set up registers *\/ */
-     "mov 0x0(%3), %%eax\n"
-     "mov 0x4(%3), %%ebx\n"
-     "mov 0xc(%3), %%edx\n"
-     "mov 0x10(%3), %%edi\n"
-     "mov 0x14(%3), %%ebp\n"
-     "mov 0x8(%3), %%ecx\n" /* this has to be last */
-
-     /* jump to v8086 mode */
-     "iret\n"
-
-     /* control will return here from the v8086 #GP handler after the
-     v8086 call stack has underflowed */
-     "v8086_exit:\n"
-
-     /* save context */
-     "mov 4(%%esp), %1\n"
-
-     /* restore stack */
-     "mov %0, %%esp\n"
-
-     /* restore registers */
-     "pop %3\n"
-
-     : "=m"(kernel_tss.tss.esp0), "=a"(ctx)
-     : "a"(&stack), "c"(regs)
-     : "%ebx", "%edx", "%edi", "%ebp", "%esi");
-
-  /* update regs structure */
-  regs->eax = ctx->eax;
-  regs->ebx = ctx->ebx;
-  regs->ecx = ctx->ecx;
-  regs->edx = ctx->edx;
-  regs->edi = ctx->edi;
-  regs->ebp = ctx->ebp;
-  regs->es = ctx->es;
-  regs->ds = ctx->ds;
-  regs->fs = ctx->fs;
-  regs->gs = ctx->gs;
-
-  /* restore flags */
-  __asm__ volatile
-    ("push %0\n"
-     "popf\n"
-     :
-     : "r"(eflags));
-
-  if (paging_enabled) paging_enable();
-
-  return ctx->eflags;
-}
 
 /* The stack parameter of v8086_enter must be initialised by the
 caller to prevent undefined behaviour, so we have to use this little
@@ -421,7 +335,45 @@ uint32_t v8086_set_stack_and_enter(regs16_t *regs, ptr16_t entry)
   stack.eip = entry.offset;
   stack.cs = entry.segment;
 
-  return v8086_enter(regs, stack);
+  /* set up a stack guard, in case some BIOS code attempts to return
+  with a far return instead of an iret */
+  {
+    uint16_t *st = (uint16_t *) V8086_STACK_BASE;
+    st[0] = (uint32_t) (st + 2); /* eip = addr of iret instruction later */
+    st[1] = 0; /* cs = 0 */
+    st[2] = 0xcf; /* iret */
+  }
+
+  int paging_enabled = paging_disable();
+  uint32_t flags = v8086_enter(regs, stack);
+  if (paging_enabled) paging_enable();
+  return flags;
+}
+
+void v8086_save_esp(uint32_t esp)
+{
+  kernel_tss.tss.esp0 = esp;
+}
+
+uint32_t v8086_restore_esp()
+{
+  return kernel_tss.tss.esp0;
+}
+
+uint32_t v8086_save_ctx(regs16_t *regs, v8086_isr_stack_t *ctx)
+{
+  regs->eax = ctx->eax;
+  regs->ebx = ctx->ebx;
+  regs->ecx = ctx->ecx;
+  regs->edx = ctx->edx;
+  regs->edi = ctx->edi;
+  regs->ebp = ctx->ebp;
+  regs->es = ctx->es;
+  regs->ds = ctx->ds;
+  regs->fs = ctx->fs;
+  regs->gs = ctx->gs;
+
+  return ctx->eflags;
 }
 
 int bios_int(uint32_t interrupt, regs16_t *regs)

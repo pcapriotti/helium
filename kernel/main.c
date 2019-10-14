@@ -90,9 +90,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
   kprintf("Helium starting (magic = %#x)\n", magic);
 
   /* set up a temporary heap in low memory */
-  void *heap = (void *)0x500;
-
-  /* initialise serial port */
+  void *heap = (void *)0x20000;
 
   if (timer_init() == -1) panic();
   if (kb_init() == -1) panic();
