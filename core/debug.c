@@ -160,10 +160,14 @@ void serial_print_char(char c)
   outb(COM1_PORT, c);
 #else
   print_char_function(c);
+  redraw_screen_function();
 #endif
 }
 
+void noop(void) {}
+
 void (*print_char_function)(char c) = debug_print_char;
+void (*redraw_screen_function)(void) = noop;
 
 typedef void (*print_char_t)(char);
 

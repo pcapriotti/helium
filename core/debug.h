@@ -29,5 +29,6 @@ int kprintf(const char *fmt, ...);
 int serial_printf(const char *fmt, ...);
 
 void (*print_char_function)(char c);
+void (*redraw_screen_function)(void);
 
 #endif /* DEBUG_H */
