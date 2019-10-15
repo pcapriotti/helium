@@ -16,6 +16,8 @@ typedef struct {
 
 typedef partition_table_entry_t partition_table_t[4];
 
-int read_partition_table(drive_t *drive, partition_table_t table);
+struct drive;
+
+int read_partition_table(struct drive *drive, partition_table_t table);
 
 #endif /* MBR_H */

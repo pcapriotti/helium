@@ -1,4 +1,3 @@
-#include "ata.h"
 #include "atomic.h"
 #include "console.h"
 #include "core/gdt.h"
@@ -7,6 +6,7 @@
 #include "core/io.h"
 #include "core/v8086.h"
 #include "core/x86.h"
+#include "drivers/ata/ata.h"
 #include "ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"

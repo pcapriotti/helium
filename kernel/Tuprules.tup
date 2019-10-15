@@ -1,0 +1,6 @@
+KERNEL_ROOT = $(TUP_CWD)
+CFLAGS += $(CFLAGS_HELIUM)
+CFLAGS += -I$(KERNEL_ROOT)
+
+CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
+LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld

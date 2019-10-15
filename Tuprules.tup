@@ -10,7 +10,7 @@ CFLAGS += -fno-asynchronous-unwind-tables
 
 CFLAGS_HELIUM += -std=gnu99 -ffreestanding
 CFLAGS_HELIUM += -fomit-frame-pointer
-CFLAGS_HELIUM += -I.. -isystem ../libc
+CFLAGS_HELIUM += -I$(TUP_CWD) -isystem $(TUP_CWD)/libc
 CFLAGS_HELIUM += -D_HELIUM
 
 !as = |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> %B.S.o

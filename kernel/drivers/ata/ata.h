@@ -109,7 +109,7 @@ typedef struct {
   uint32_t lba_sectors;
 } __attribute__((packed)) ata_identify_t;
 
-typedef struct {
+typedef struct drive {
   uint8_t present;
   uint8_t channel;
   uint8_t index;

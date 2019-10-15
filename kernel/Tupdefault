@@ -1,0 +1,4 @@
+include_rules
+
+: foreach *.S |> !as |> | $(KERNEL_ROOT)/<objs>
+: foreach *.c |> !cc |> | $(KERNEL_ROOT)/<objs>

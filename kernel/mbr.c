@@ -1,4 +1,4 @@
-#include "ata.h"
+#include "drivers/ata/ata.h"
 #include "mbr.h"
 
 #include <stdint.h>
