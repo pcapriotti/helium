@@ -66,7 +66,6 @@ void root_task()
     kprintf("ERROR: could not initialise ATA\n");
   }
 
-  serial_printf("spawning shell\n");
   sched_spawn_task(shell_main);
 
   kprintf("Ok.\n");
@@ -129,12 +128,10 @@ void kernel_start(void *multiboot, uint32_t magic)
     console_render_buffer();
     print_char_function = &console_debug_print_char;
     redraw_screen_function = &console_render_buffer;
-    serial_printf("background task:\n");
     console_start_background_task();
   }
   ffree(debug_buf);
 
-  serial_printf("root task:\n");
   sched_spawn_task(root_task);
   sched_yield();
 }

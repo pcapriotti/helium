@@ -124,5 +124,4 @@ void shell_main(void)
 {
   shell_t *shell = kmalloc(sizeof(shell_t));
   shell_init(shell);
-  serial_printf("shell main exiting\n");
 }
