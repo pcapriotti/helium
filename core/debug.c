@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <math.h>
 
-#define SERIAL_DEBUG 1
+#define SERIAL_DEBUG 0
 
 enum {
   COM1_PORT = 0x3f8
@@ -148,6 +148,7 @@ void debug_print_char(char c)
 
 void serial_print_char(char c)
 {
+#if SERIAL_DEBUG
   static int serial_port_initialised = 0;
   if (!serial_port_initialised) {
     serial_port_init();
@@ -157,6 +158,9 @@ void serial_print_char(char c)
     serial_print_char('\r');
   while ((inb(COM1_PORT + 5) & 0x20) == 0);
   outb(COM1_PORT, c);
+#else
+  print_char_function(c);
+#endif
 }
 
 void (*print_char_function)(char c) = debug_print_char;
@@ -402,7 +406,6 @@ int kprintf(const char *fmt, ...)
 
 int serial_printf(const char *fmt, ...)
 {
-#if SERIAL_DEBUG
   va_list list;
   va_start(list, fmt);
 
@@ -411,9 +414,6 @@ int serial_printf(const char *fmt, ...)
   va_end(list);
 
   return ret;
-#else
-  return 0;
-#endif
 }
 
 void debug_str(const char *s)
