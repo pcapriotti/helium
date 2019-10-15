@@ -268,7 +268,7 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
   /* map framebuffer into virtual memory */
   req_mode->framebuffer = paging_perm_map_pages
     ((size_t) req_mode->framebuffer,
-     req_mode->width * req_mode->height * (req_mode->bpp >> 3));
+     req_mode->pitch * req_mode->height);
   /* save debug console */
   for (int i = 0; i < 25; i++) {
     int p = 80 * i;
