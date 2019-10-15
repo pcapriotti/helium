@@ -25,15 +25,17 @@ int paging_pae_init(paging_pae_t *pg)
 {
   /* allocate level 3 table */
   page_t *l3 = falloc(sizeof(page_t));
+  assert(((size_t) l3 & 0xfff) == 0);
   page_zero(l3);
   pg->table3 = (pg_pae_entry_t *)l3;
 
   /* allocate one level 2 table, this will be enough for the first GB
      of virtual memory */
   page_t *l2 = falloc(sizeof(page_t));
+  assert(((size_t) l2 & 0xfff) == 0);
   page_zero(l2);
   pg->table2 = (pg_pae_entry_t *)l2;
-  pg->table3[0] = mk_entry((size_t) l2, DEF_FLAGS);
+  pg->table3[0] = mk_entry((size_t) l2, PT_ENTRY_PRESENT);
 
   /* identity map kernel memory */
   for (void *p = KERNEL_VM_ID_START; p < KERNEL_VM_ID_END; p += (1 << LARGE_PAGE_BITS)) {
