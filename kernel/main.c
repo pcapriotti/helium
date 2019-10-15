@@ -97,15 +97,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
 
   kprintf("entering graphic mode\n");
 
-  /* copy debug console state */
   uint16_t *debug_buf = falloc(80 * 25 * sizeof(uint16_t));
-  for (int i = 0; i < 25; i++) {
-    int p = 80 * i;
-    for (int j = 0; j < 80; j++) {
-      debug_buf[p] = vga_text[p];
-      p++;
-    }
-  }
 
   {
     vbe_mode_t mode;
@@ -113,7 +105,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
     mode.height = 1000;
     mode.bpp = 32;
     mode.number = 0;
-    if (graphics_init(&mode) == -1) {
+    if (graphics_init(&mode, debug_buf) == -1) {
       kprintf("ERROR: could not enter graphic mode\n");
     }
     (void) mode;

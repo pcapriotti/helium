@@ -240,7 +240,7 @@ static int init_and_find_mode(vbe_info_t *graphics_info,
   return 0;
 }
 
-int graphics_init(vbe_mode_t *req_mode)
+int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
 {
   void *low_heap = (void *)(size_t)frames_alloc
     (&dma_frames, sizeof(vbe_info_t) + sizeof(vbe_mode_info_t));
@@ -269,6 +269,14 @@ int graphics_init(vbe_mode_t *req_mode)
   req_mode->framebuffer = paging_perm_map_pages
     ((size_t) req_mode->framebuffer,
      req_mode->width * req_mode->height * (req_mode->bpp >> 3));
+  /* save debug console */
+  for (int i = 0; i < 25; i++) {
+    int p = 80 * i;
+    for (int j = 0; j < 80; j++) {
+      debug_buf[p] = vga_text[p];
+      p++;
+    }
+  }
 
   /* enable mode */
   regs16_t regs;
