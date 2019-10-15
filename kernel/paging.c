@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
+#define PAGING_ENABLED 1
+
 static pg_ops_t ops;
 static paging_legacy_t legacy;
 static paging_pae_t pae;
@@ -14,7 +16,8 @@ void *ops_data = 0;
 
 void *paging_temp_map_page(uint64_t p)
 {
-  assert(ops.map_temp);
+  if (!ops.map_temp) return (void *)(size_t) p;
+
   void *ret = ops.map_temp(ops_data, p);
 #if PAGING_DEBUG
   serial_printf("temp mapping: %#" PRIx64 " => %p\n", p, ret);
@@ -24,7 +27,8 @@ void *paging_temp_map_page(uint64_t p)
 
 void paging_temp_unmap_page(void *p)
 {
-  assert(ops.unmap_temp);
+  if (!ops.unmap_temp) return;
+
   ops.unmap_temp(ops_data, p);
 #if PAGING_DEBUG
   serial_printf("temp unmap: %p\n", p);
@@ -33,7 +37,7 @@ void paging_temp_unmap_page(void *p)
 
 void *paging_perm_map_page(uint64_t p)
 {
-  assert(ops.map_perm);
+  if (!ops.map_perm) return (void *)(size_t) p;
   return ops.map_perm(ops_data, p);
 }
 
@@ -53,6 +57,7 @@ void *paging_perm_map_pages(uint64_t p, size_t size)
 
 int paging_init(uint64_t memory)
 {
+#if PAGING_ENABLED
   if (memory > (1ULL << 32) && cpuid_check_features(CPUID_FEAT_PAE)) {
 #if PAGING_DEBUG
     serial_printf("PAE paging\n");
@@ -69,12 +74,13 @@ int paging_init(uint64_t memory)
     paging_legacy_init_ops(&ops);
     ops_data = &legacy;
   }
-
+#endif
   return 0;
 }
 
 uint64_t paging_maximum_memory()
 {
-  assert(ops.max_memory);
+  if (!ops.max_memory) return 1ULL << 32;
+
   return ops.max_memory(ops_data);
 }
