@@ -3,7 +3,7 @@
 #include "core/io.h"
 #include "core/v8086.h"
 #include "handlers.h"
-#include "keyboard.h"
+#include "drivers/keyboard/keyboard.h"
 #include "paging.h"
 #include "scheduler.h"
 #include "timer.h"
