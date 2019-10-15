@@ -4,6 +4,7 @@
 #include "frames.h"
 #include "kmalloc.h"
 #include "memory.h"
+#include "multiboot.h"
 #include "paging.h"
 
 #include <stdint.h>
@@ -81,18 +82,34 @@ uint32_t cpu_flags()
   return flags;
 }
 
-/* Get memory map from BIOS. Store chunks in the temporary heap */
-chunk_t *memory_get_chunks(int *count, uint32_t **heap)
+void get_memory_map(multiboot_t *multiboot, memory_map_entry_t *entry, int *num_entries)
 {
-  regs16_t regs;
+  if (multiboot && multiboot->flags & MB_INFO_MMAP) {
+    mb_mmap_entry_t *e = multiboot->mmap;
+    mb_mmap_entry_t *e1 = (void *)multiboot->mmap +
+      multiboot->mmap_length;
 
+    int count = 0;
+    while (e < e1) {
 #if BIOS_MM_DEBUG
-  serial_printf("flags: %#08x\n", cpu_flags());
+      kprintf("multiboot base: %#016llx length: %#016llx type: %d\n",
+              e->base, e->length, e->type);
 #endif
+      entry->base = e->base;
+      entry->size = e->length;
+      entry->type = e->type;
 
-  memory_map_entry_t *entry0 = (memory_map_entry_t *)*heap;
-  memory_map_entry_t *entry = entry0;
+      entry++;
+      count++;
+      e = (void *)e + e->size + 4;
+    }
 
+    *num_entries = count;
+    return;
+  }
+
+  memory_map_entry_t *entry0 = entry;
+  regs16_t regs;
   regs.ebx = 0;
 
   do {
@@ -114,7 +131,7 @@ chunk_t *memory_get_chunks(int *count, uint32_t **heap)
       int num = entry - entry0;
       serial_printf("  num entries so far: %d\n", num);
 #endif /* BIOS_MM_DEBUG */
-      return 0;
+      break;
     }
 
 #if BIOS_MM_DEBUG
@@ -124,7 +141,18 @@ chunk_t *memory_get_chunks(int *count, uint32_t **heap)
     entry++;
   } while (regs.ebx);
 
-  int num_entries = entry - entry0;
+  *num_entries = entry - entry0;
+}
+
+/* Get memory map from BIOS. Store chunks in the temporary heap */
+chunk_t *memory_get_chunks(int *count, uint32_t **heap, multiboot_t *multiboot)
+{
+  regs16_t regs;
+
+  memory_map_entry_t *entry0 = (memory_map_entry_t *)*heap;
+  int num_entries = 0;
+
+  get_memory_map(multiboot, entry0, &num_entries);
 
   isort(entry0, num_entries, sizeof(memory_map_entry_t), &mm_compare);
 
@@ -132,7 +160,7 @@ chunk_t *memory_get_chunks(int *count, uint32_t **heap)
 
   memory_map_entry_t *last_entry = entry0;
 
-  chunk_t *chunk0 = (chunk_t *)entry;
+  chunk_t *chunk0 = (chunk_t *) (entry0 + num_entries);
 
   chunk_t *chunk = chunk0;
   chunk->base = last_entry->base;
@@ -300,12 +328,13 @@ int chunk_info_init_frame(chunk_info_t *chunk_info,
                      order, &mem_info, chunk_info);
 }
 
-int memory_init()
+int memory_init(multiboot_t *multiboot)
 {
   int num_chunks;
 
   uint32_t *heap = (uint32_t *) 0x20000; /* use some temporary low memory */
-  chunk_t *chunks = memory_get_chunks(&num_chunks, &heap);
+
+  chunk_t *chunks = memory_get_chunks(&num_chunks, &heap, multiboot);
   if (!chunks || num_chunks <= 0) panic();
 
   memory_reserve_chunk(chunks, &num_chunks,

@@ -14,6 +14,7 @@
 #include "kmalloc.h"
 #include "mbr.h"
 #include "memory.h"
+#include "multiboot.h"
 #include "paging.h"
 #include "pci.h"
 #include "scheduler.h"
@@ -71,8 +72,11 @@ void root_task()
   kprintf("Ok.\n");
 }
 
-void kernel_start(void *multiboot_info, uint32_t magic)
+void kernel_start(void *multiboot, uint32_t magic)
 {
+  /* ignore multiboot info unless we come from a multiboot loader */
+  if (magic != MB_MAGIC_EAX) multiboot = 0;
+
   gdt_init();
   idt_init();
   pic_init();
@@ -93,7 +97,7 @@ void kernel_start(void *multiboot_info, uint32_t magic)
   if (kb_init() == -1) panic();
   sti();
 
-  if (memory_init() == -1) panic();
+  if (memory_init(multiboot) == -1) panic();
 
   kprintf("entering graphic mode\n");
 

@@ -22,12 +22,13 @@ extern struct frames kernel_frames;
 extern struct frames dma_frames;
 extern struct frames user_frames;
 
+struct multiboot;
+
 void *falloc(size_t sz);
 void ffree(void *p);
 
-chunk_t *memory_get_chunks(int *count, uint32_t **heap);
 void memory_reserve_chunk(chunk_t *chunks, int *num_chunks,
                           uint64_t start, uint64_t end);
-int memory_init();
+int memory_init(struct multiboot *multiboot);
 
 #endif /* MEMORY_H */
