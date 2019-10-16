@@ -8,4 +8,4 @@ LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 : foreach *.c |> !cc |>
 : foreach *.S |> $(CC) -c $(CFLAGS) %f -o %o |> %f.o
-: *.o |> !ar |> core.a
+: *.o |> !ar |> core.a | $(ROOT)/<libs>

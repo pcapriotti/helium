@@ -1,8 +1,7 @@
 include_rules
 
-LIBS=../libc/libc.a ../core/core.a
 LDFLAGS += -e kmain -T kernel.ld
 
 : foreach *.S |> !as |> | $(KERNEL_ROOT)/<objs>
 : foreach *.c |> !cc |> | $(KERNEL_ROOT)/<objs>
-: $(LIBS) | <objs> |> ^ LD %o^ $(LD) $(LDFLAGS) %<objs> %f -o %o |> kernel.elf
+: <objs> $(ROOT)/<libs> |> ^ LD %o^ $(LD) $(LDFLAGS) %<objs> %<libs> -o %o |> kernel.elf

@@ -1,4 +1,5 @@
 TARGET := i686-elf
+ROOT := $(TUP_CWD)
 
 CFLAGS += -Wall -Wextra -Werror -O2
 CFLAGS += -fdiagnostics-color=always
