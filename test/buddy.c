@@ -18,7 +18,7 @@ frames_t *frames_new(uint64_t start, uint64_t end, unsigned int min_order,
                      void *data)
 {
   frames_t *frames = malloc(sizeof(frames_t));
-  frames_init(frames, 0, start, min_order, end, mem_info, data);
+  frames_init(frames, 0, start, end, min_order, mem_info, data);
   return frames;
 }
 
