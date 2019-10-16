@@ -16,26 +16,10 @@
 #define RXBUF_SIZE 8192
 #define NUM_TX_SLOTS 4
 
-typedef uint8_t mac_t[6];
-
-void debug_mac(mac_t mac)
-{
-  for (int i = 0; i < 6; i++) {
-    serial_printf("%s%02x", i == 0 ? "" : ":", mac[i]);
-  }
-}
-
-typedef struct eth_frame {
-  mac_t destination;
-  mac_t source;
-  uint16_t type;
-  uint8_t payload[];
-} __attribute__((packed)) eth_frame_t;
-
 typedef struct {
   uint16_t info;
   uint16_t length;
-  eth_frame_t frame;
+  uint8_t payload[];
 } __attribute__((packed)) packet_t;
 
 typedef struct {
@@ -168,17 +152,13 @@ void receive(void)
       serial_printf("[rtl8139] rx info: %#x length: %#x\n",
                     packet->info, packet->length);
       for (int i = 0; i < packet->length; i++) {
-        serial_printf("%02x ", data->rx[4 + i]);
+        serial_printf("%02x ", packet->payload[i]);
       }
-      serial_printf("\n");
-      debug_mac(packet->frame.source);
-      serial_printf(" => ");
-      debug_mac(packet->frame.destination);
       serial_printf("\n");
 #endif
 
       if (data->on_packet) {
-        data->on_packet(data->on_packet_data, &data->rx[4], packet->length);
+        data->on_packet(data->on_packet_data, packet->payload, packet->length);
       }
 
       /* advance rx pointer and align */
