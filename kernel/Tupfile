@@ -1,6 +1,6 @@
 include_rules
 
-LIBS=../libc/libc.a ../ext2/ext2.a ../core/core.a
+LIBS=../libc/libc.a ../core/core.a
 LDFLAGS += -e kmain -T kernel.ld
 
 : foreach *.S |> !as |> | $(KERNEL_ROOT)/<objs>

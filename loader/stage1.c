@@ -7,8 +7,8 @@
 #include "core/v8086.h"
 #include "stage1.h"
 
-#include "ext2/ext2.h"
-#include "ext2/ext2_fs.h"
+#include "kernel/fs/ext2/ext2.h"
+#include "kernel/fs/ext2/ext2_fs.h"
 
 #include <string.h>
 
@@ -202,7 +202,7 @@ void loader_start(uint32_t drive)
   }
   kprintf("\n");
   __asm__
-    ("call %0"
+    ("call *%0"
      : :
        "r"(entry), "a"(LOADER_MAGIC), "b"(0));
 

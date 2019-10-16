@@ -1,9 +1,8 @@
-#if _HELIUM
 #include "ext2_fs.h"
+#include "ext2.h"
 
 #include "core/debug.h"
 #include "core/vfs.h"
-#include "ext2.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -87,5 +86,3 @@ void ext2_vfs_file_del(vfs_file_t *file)
   FREE(data);
   FREE(file);
 }
-
-#endif

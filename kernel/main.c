@@ -8,7 +8,7 @@
 #include "core/x86.h"
 #include "drivers/ata/ata.h"
 #include "drivers/keyboard/keyboard.h"
-#include "ext2/ext2.h"
+#include "fs/ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"
 #include "kmalloc.h"

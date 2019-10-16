@@ -136,6 +136,10 @@ void loader_kfree(void *p);
 #  define MALLOC kmalloc
 #  define FREE kfree
 # endif /* _HELIUM_LOADER */
+#else
+# include <stdlib.h>
+# define MALLOC malloc
+# define FREE free
 #endif /* _HELIUM */
 
 #endif /* __EXT2_H__ */
