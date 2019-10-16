@@ -1,3 +1,4 @@
+#include "atomic.h"
 #include "core/debug.h"
 #include "drivers/drivers.h"
 #include "drivers/rtl8139/driver.h"
@@ -7,10 +8,12 @@
 #include "memory.h"
 #include "pci.h"
 #include "scheduler.h"
+#include "semaphore.h"
 
 #define DEBUG_LOCAL 1
 
 #define RXBUF_SIZE 8192
+#define NUM_TX_SLOTS 4
 
 typedef uint8_t mac_t[6];
 
@@ -38,8 +41,15 @@ typedef struct {
   uint8_t irq;
   uint16_t iobase;
 
-  uint8_t rxbuf[RXBUF_SIZE + 0x10];
   uint8_t *rx;
+
+  uint8_t tx_index;
+  semaphore_t tx_index_mutex;
+
+  semaphore_t tx_sem;
+
+
+  uint8_t rxbuf[RXBUF_SIZE + 0x10];
 } data_t;
 
 data_t rtl8139_data = {0};
@@ -53,6 +63,8 @@ static int tasklet_running = 0;
 
 enum {
   REG_MAC = 0x00,
+  REG_TSD = 0x10,
+  REG_TSAD = 0x20,
   REG_RBSTART = 0x30,
   REG_CMD = 0x37,
   REG_CAPR = 0x38,
@@ -64,31 +76,35 @@ enum {
 };
 
 enum {
-  CMD_BUFE = (1 << 0),
-  CMD_TE = (1 << 2),
-  CMD_RE = (1 << 3),
-  CMD_RST = (1 << 4),
+  TSD_OWN = 1 << 13,
 };
 
 enum {
-  INT_MASK_ROK = (1 << 0),
-  INT_MASK_RER = (1 << 1),
-  INT_MASK_TOK = (1 << 2),
-  INT_MASK_TER = (1 << 3),
-  INT_MASK_RXOVW = (1 << 4),
-  INT_MASK_PUN = (1 << 5),
-  INT_MASK_FOVW = (1 << 6),
-  INT_MASK_LEN_CHG = (1 << 13),
-  INT_MASK_TIMEOUT = (1 << 14),
-  INT_MASK_SERR = (1 << 15),
+  CMD_BUFE = 1 << 0,
+  CMD_TE = 1 << 2,
+  CMD_RE = 1 << 3,
+  CMD_RST = 1 << 4,
 };
 
 enum {
-  RX_CONF_AAP = (1 << 0), /* all packets */
-  RX_CONF_APM = (1 << 1), /* physical match */
-  RX_CONF_AM = (1 << 2), /* multicast */
-  RX_CONF_AB = (1 << 3), /* broadcast */
-  RX_CONF_WRAP = (1 << 7),
+  INT_MASK_ROK = 1 << 0,
+  INT_MASK_RER = 1 << 1,
+  INT_MASK_TOK = 1 << 2,
+  INT_MASK_TER = 1 << 3,
+  INT_MASK_RXOVW = 1 << 4,
+  INT_MASK_PUN = 1 << 5,
+  INT_MASK_FOVW = 1 << 6,
+  INT_MASK_LEN_CHG = 1 << 13,
+  INT_MASK_TIMEOUT = 1 << 14,
+  INT_MASK_SERR = 1 << 15,
+};
+
+enum {
+  RX_CONF_AAP = 1 << 0, /* all packets */
+  RX_CONF_APM = 1 << 1, /* physical match */
+  RX_CONF_AM = 1 << 2, /* multicast */
+  RX_CONF_AB = 1 << 3, /* broadcast */
+  RX_CONF_WRAP = 1 << 7,
 };
 
 uint16_t iobase(device_t *dev)
@@ -102,7 +118,33 @@ uint16_t iobase(device_t *dev)
   return 0;
 }
 
-void handle_rx(void)
+void transmit(data_t *data, void *buf, size_t len)
+{
+  assert(len <= 0x700); /* maximum tx packet size */
+
+  /* only NUM_TX_SLOTS thread allowed at one time */
+  sem_wait(&data->tx_sem);
+
+  /* writing to a tx slow needs to be serialised to make sure that
+  tx_index is in sync with the hardware */
+  sem_wait(&data->tx_index_mutex);
+
+  /* write address and size to tx slot */
+  const uint8_t index = data->tx_index;
+  const uint16_t tsd = data->iobase + REG_TSD + 4 * index;
+  const uint16_t tsad = data->iobase + REG_TSAD + 4 * index;
+  outb(tsad, (size_t) buf);
+  outb(tsd, (len & 0xfff) | TSD_OWN);
+
+  /* switch to the next slot */
+  data->tx_index = (data->tx_index + 1) % NUM_TX_SLOTS;
+  sem_signal(&data->tx_index_mutex);
+
+  /* tx_sem will be signalled when the card notifies that the
+  transmission is successful */
+}
+
+void receive(void)
 {
   data_t *data = &rtl8139_data;
 
@@ -117,11 +159,12 @@ void handle_rx(void)
 
       uint16_t cbr = inw(data->iobase + REG_CBR);
       uint16_t capr = inw(data->iobase + REG_CAPR);
+
 #if DEBUG_LOCAL
       serial_printf("[rtl8139] rx info: %#x length: %#x\n",
                     packet->info, packet->length);
       for (int i = 0; i < packet->length; i++) {
-        serial_printf("%02x ", data->rx[i]);
+        serial_printf("%02x ", data->rx[4 + i]);
       }
       serial_printf("\n");
       debug_mac(packet->frame.source);
@@ -159,6 +202,8 @@ int rtl8139_init(void *_data, device_t *dev)
   data->iobase = iobase(dev);
   data->irq = dev->irq;
   data->rx = data->rxbuf;
+  sem_init(&data->tx_index_mutex, 1);
+  sem_init(&data->tx_sem, NUM_TX_SLOTS);
 
 #if DEBUG_LOCAL
   serial_printf("[rtl8139] irq: %u\n", data->irq);
@@ -174,7 +219,7 @@ int rtl8139_init(void *_data, device_t *dev)
 
   /* initialise rx tasklet */
   isr_stack_t *stack = (void *)tasklet_stack + sizeof(tasklet_stack) - sizeof(isr_stack_t);
-  stack->eip = (uint32_t) handle_rx;
+  stack->eip = (uint32_t) receive;
   stack->eflags = EFLAGS_IF;
   stack->cs = GDT_SEL(GDT_CODE);
   tasklet.stack = stack;
@@ -194,8 +239,7 @@ int rtl8139_init(void *_data, device_t *dev)
   /* set interrupt mask */
   outw(data->iobase + REG_INT_MASK,
        INT_MASK_TOK | INT_MASK_ROK |
-       INT_MASK_TER | INT_MASK_RER |
-       INT_MASK_TIMEOUT | INT_MASK_SERR);
+       INT_MASK_TER | INT_MASK_RER);
 
   /* configure rx */
   outl(data->iobase + REG_RX_CONF,
@@ -225,6 +269,7 @@ int rtl8139_matches(void *data, device_t *dev)
 void rtl8139_irq(void)
 {
   data_t *data = &rtl8139_data;
+  int need_eoi = 1;
 
   uint16_t intr = inw(data->iobase + REG_INT_STATUS);
   if (intr & INT_MASK_ROK) {
@@ -233,7 +278,13 @@ void rtl8139_irq(void)
       list_add(&sched_runqueue, &tasklet.head);
       tasklet_running = 1;
     }
+    need_eoi = 0; /* EOI will be sent by the tasklet */
   }
+  if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
+    sem_signal(&data->tx_sem);
+  }
+
+  if (need_eoi) pic_eoi(data->irq);
 }
 
 driver_t rtl8139_driver = {
