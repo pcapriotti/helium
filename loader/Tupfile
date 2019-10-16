@@ -7,7 +7,7 @@ CFLAGS += -I..
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
-LSCRIPT=loader.ld
+LDFLAGS += -T loader.ld
 
 : foreach *.S |> !cc |>
 : foreach *.c |> !cc |>
