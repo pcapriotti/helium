@@ -4,4 +4,6 @@
 struct driver;
 extern struct driver rtl8139_driver;
 
+void rtl8139_irq(void);
+
 #endif /* DRIVER_H */

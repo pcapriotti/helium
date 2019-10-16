@@ -4,6 +4,7 @@
 #include "core/v8086.h"
 #include "handlers.h"
 #include "drivers/keyboard/keyboard.h"
+#include "drivers/rtl8139/driver.h"
 #include "paging/paging.h"
 #include "scheduler.h"
 #include "timer.h"
@@ -28,8 +29,20 @@ int handle_irq(isr_stack_t *stack)
     }
     kb_irq();
     break;
+  case 11: /* TODO: make this dynamic */
+    rtl8139_irq();
+    break;
   default:
-    pic_eoi(irq);
+    {
+      outb(PIC_MASTER_CMD, 0x0b);
+      outb(PIC_SLAVE_CMD, 0x0b);
+      uint16_t isr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
+      outb(PIC_MASTER_CMD, 0x0a);
+      outb(PIC_SLAVE_CMD, 0x0a);
+      uint16_t irr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
+      serial_printf("unhandled irq: %u isr: %#04x irr: %#04x\n", irq, isr, irr);
+      pic_eoi(irq);
+    }
     break;
   }
 

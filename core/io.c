@@ -19,7 +19,7 @@ void pic_init(void) {
 
   /* initialise slave at offset 0x28 */
   outb(PIC_SLAVE_CMD, 0x11); io_wait();
-  outb(PIC_SLAVE_DATA, 0x20); io_wait();
+  outb(PIC_SLAVE_DATA, 0x28); io_wait();
   outb(PIC_SLAVE_DATA, 0x02); io_wait();
   outb(PIC_SLAVE_DATA, 0x01); io_wait();
   outb(PIC_SLAVE_DATA, 0x00);

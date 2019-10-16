@@ -47,14 +47,26 @@ enum {
   PCI_BRIDGE_OTHER = 0x80,
 };
 
+enum {
+  PCI_CMD_IO = (1 << 0),
+  PCI_CMD_MEM = (1 << 1),
+  PCI_CMD_BUS_MASTER = (1 << 2),
+  PCI_CMD_IRQ_DISABLE = (1 << 10),
+};
+
 typedef struct device {
   list_t head;
   uint32_t bars[6];
+  uint8_t bus;
+  uint8_t device;
+  uint8_t func;
   uint8_t class;
   uint8_t subclass;
   uint32_t id;
   uint8_t irq;
 } device_t;
+
+void device_command_set_mask(device_t *dev, uint16_t mask);
 
 #define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
 #define PCI_NUM_BARS 6

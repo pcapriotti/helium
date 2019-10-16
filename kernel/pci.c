@@ -31,18 +31,30 @@ enum {
 driver_t pci_drivers[PCI_MAX_DRIVERS];
 size_t pci_num_drivers = 0;
 
-uint32_t pci_read(uint8_t bus, uint8_t device,
-                  uint8_t func, uint8_t offset)
+static inline uint32_t pci_address(uint8_t bus, uint8_t device,
+                                   uint8_t func, uint8_t offset)
 {
-  uint32_t address =
-    (offset << 2) |
+  return (offset << 2) |
     ((uint32_t)(func & 7) << 8) |
     ((uint32_t)(device & 0x1f) << 11) |
     ((uint32_t)bus << 16) |
     1 << 31;
+}
 
+uint32_t pci_read(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset)
+{
+  uint32_t address = pci_address(bus, device, func, offset);
   outl(PCI_CONF_ADDR, address);
   return inl(PCI_CONF_DATA);
+}
+
+void pci_write(uint8_t bus, uint8_t device,
+               uint8_t func, uint8_t offset,
+               uint32_t value)
+{
+  uint32_t address = pci_address(bus, device, func, offset);
+  outl(PCI_CONF_ADDR, address);
+  outl(PCI_CONF_DATA, value);
 }
 
 list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
@@ -60,6 +72,9 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
       uint32_t id = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
       uint32_t irq = pci_read(bus, device, func, PCI_H0_IRQ);
       device_t *dev = kmalloc(sizeof(device_t));
+      dev->bus = bus;
+      dev->device = device;
+      dev->func = func;
       dev->class = class;
       dev->subclass = subclass;
       dev->id = id;
@@ -67,6 +82,7 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
 #if PCI_DEBUG
       kprintf("found device: bus %u no %u id %#x cl %#x\n",
               bus, device, id, cl);
+      kprintf("  irq: %08x\n", irq);
 #endif
       for (unsigned int i = 0; i < PCI_NUM_BARS; i++) {
         dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i);
@@ -161,4 +177,10 @@ void pci_add_driver(driver_t *drv)
   }
 
   pci_drivers[pci_num_drivers++] = *drv;
+}
+
+void device_command_set_mask(device_t *dev, uint16_t mask)
+{
+  uint32_t sc = pci_read(dev->bus, dev->device, dev->func, PCI_STATUS_COMMAND);
+  pci_write(dev->bus, dev->device, dev->func, PCI_STATUS_COMMAND, sc | mask);
 }

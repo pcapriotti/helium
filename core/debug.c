@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <math.h>
 
-#define SERIAL_DEBUG 0
+#define SERIAL_DEBUG 1
 
 enum {
   COM1_PORT = 0x3f8
