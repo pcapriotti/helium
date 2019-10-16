@@ -7,5 +7,5 @@ CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 : foreach *.c |> !cc |>
-: foreach *.S |> $(CC) -c $(CFLAGS) %f -o %o |> %f.o
+: foreach *.S |> !as |>
 : *.o |> !ar |> core.a | $(ROOT)/<libs>
