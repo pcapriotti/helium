@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define INPUT_BUF_SIZE 1024
+#define ERROR_COLOUR 0x0090232a
 
 typedef struct shell {
   semaphore_t lock;
@@ -52,7 +53,9 @@ void shell_process_command(shell_t *shell)
       frames_dump_diagnostics(&dma_frames);
     }
     else {
-      kprintf("Unknown allocator `%s'\n", ty);
+      console_set_fg(ERROR_COLOUR);
+      kprintf("unknown allocator `%s'\n", ty);
+      console_reset_fg();
     }
   }
   else if (!strcmp("cpuid", cmd)) {
@@ -63,11 +66,15 @@ void shell_process_command(shell_t *shell)
       kprintf("cpu \"%s\", features: %#08x\n", vendor, features);
     }
     else {
+      console_set_fg(ERROR_COLOUR);
       kprintf("cpuid not supported\n");
+      console_reset_fg();
     }
   }
   else {
+    console_set_fg(ERROR_COLOUR);
     kprintf("unknown command: %s\n", cmd);
+    console_reset_fg();
   }
 }
 

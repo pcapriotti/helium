@@ -53,6 +53,7 @@ void ata_read_closure(void *data, void *buf,
 void root_task()
 {
   if (graphics_mode.number) {
+    console_set_fg(0x005799d0);
     kprintf("mode %#x: %ux%u %u bits\n",
             (uint32_t) graphics_mode.number,
             (uint32_t) graphics_mode.width,
@@ -60,6 +61,7 @@ void root_task()
             (uint32_t) graphics_mode.bpp);
     kprintf("console %dx%d\n",
             console.width, console.height);
+    console_reset_fg();
   }
 
   drivers_init();
@@ -67,7 +69,9 @@ void root_task()
 
   sched_spawn_task(shell_main);
 
+  console_set_fg(0x007c9a59);
   kprintf("Ok.\n");
+  console_reset_fg();
 }
 
 void kernel_start(void *multiboot, uint32_t magic)
