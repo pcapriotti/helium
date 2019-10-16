@@ -1,21 +1,55 @@
 #include "core/debug.h"
 #include "drivers/drivers.h"
 #include "drivers/rtl8139/driver.h"
+#include "core/gdt.h"
+#include "core/interrupts.h"
 #include "core/io.h"
 #include "memory.h"
 #include "pci.h"
+#include "scheduler.h"
 
-#define LOCAL_DEBUG 1
+#define DEBUG_LOCAL 1
 
-#define RXBUF_SIZE (8192 + 16)
+#define RXBUF_SIZE 8192
+
+typedef uint8_t mac_t[6];
+
+void debug_mac(mac_t mac)
+{
+  for (int i = 0; i < 6; i++) {
+    serial_printf("%s%02x", i == 0 ? "" : ":", mac[i]);
+  }
+}
+
+typedef struct eth_frame {
+  mac_t destination;
+  mac_t source;
+  uint16_t type;
+  uint8_t payload[];
+} __attribute__((packed)) eth_frame_t;
+
+typedef struct {
+  uint16_t info;
+  uint16_t length;
+  eth_frame_t frame;
+} __attribute__((packed)) packet_t;
 
 typedef struct {
   uint8_t irq;
   uint16_t iobase;
 
-  uint8_t rxbuf[RXBUF_SIZE];
+  uint8_t rxbuf[RXBUF_SIZE + 0x10];
   uint8_t *rx;
 } data_t;
+
+data_t rtl8139_data = {0};
+
+/* rx tasklet */
+static uint32_t tasklet_stack[256];
+static task_t tasklet = {
+  .state = TASK_STOPPED,
+};
+static int tasklet_running = 0;
 
 enum {
   REG_MAC = 0x00,
@@ -68,6 +102,56 @@ uint16_t iobase(device_t *dev)
   return 0;
 }
 
+void handle_rx(void)
+{
+  data_t *data = &rtl8139_data;
+
+  while (1) {
+#if DEBUG_LOCAL
+    serial_printf("[rtl8139] rx capr: %#x: cbr: %#x\n",
+                  inw(data->iobase + REG_CAPR),
+                  inw(data->iobase + REG_CBR));
+#endif
+    while (!(inb(data->iobase + REG_CMD) & CMD_BUFE)) {
+      packet_t *packet = (packet_t *)data->rx;
+
+      uint16_t cbr = inw(data->iobase + REG_CBR);
+      uint16_t capr = inw(data->iobase + REG_CAPR);
+#if DEBUG_LOCAL
+      serial_printf("[rtl8139] rx info: %#x length: %#x\n",
+                    packet->info, packet->length);
+      for (int i = 0; i < packet->length; i++) {
+        serial_printf("%02x ", data->rx[i]);
+      }
+      serial_printf("\n");
+      debug_mac(packet->frame.source);
+      serial_printf(" => ");
+      debug_mac(packet->frame.destination);
+      serial_printf("\n");
+#endif
+
+      /* advance rx pointer and align */
+      data->rx += packet->length + 4;
+      data->rx = (uint8_t *) ALIGNED(data->rx + 3, 2);
+      while (data->rx > data->rxbuf + RXBUF_SIZE) {
+        data->rx -= RXBUF_SIZE;
+      }
+
+      uint16_t offset = data->rx - data->rxbuf - 0x10;
+      outw(data->iobase + REG_CAPR, offset);
+    }
+
+    uint16_t intr = inw(data->iobase + REG_INT_STATUS);
+    outw(data->iobase + REG_INT_STATUS, intr | INT_MASK_ROK);
+
+    sched_disable_preemption();
+    sched_current->state = TASK_WAITING;
+    tasklet_running = 0;
+    pic_eoi(data->irq);
+    sched_yield();
+  }
+}
+
 int rtl8139_init(void *_data, device_t *dev)
 {
   data_t *data = _data;
@@ -76,18 +160,27 @@ int rtl8139_init(void *_data, device_t *dev)
   data->irq = dev->irq;
   data->rx = data->rxbuf;
 
-#if LOCAL_DEBUG
+#if DEBUG_LOCAL
   serial_printf("[rtl8139] irq: %u\n", data->irq);
   serial_printf("[rtl8139] iobase: %#x\n", data->iobase);
 #endif
 
   if (!data->iobase) {
-#if LOCAL_DEBUG
+#if DEBUG_LOCAL
     serial_printf("[rtl8139] FATAL: could not find IO base address for device\n");
     return -1;
 #endif
   }
 
+  /* initialise rx tasklet */
+  isr_stack_t *stack = (void *)tasklet_stack + sizeof(tasklet_stack) - sizeof(isr_stack_t);
+  stack->eip = (uint32_t) handle_rx;
+  stack->eflags = EFLAGS_IF;
+  stack->cs = GDT_SEL(GDT_CODE);
+  tasklet.stack = stack;
+  tasklet.state = TASK_WAITING;
+
+  /* set bus master bit in PCI configuration */
   device_command_set_mask(dev, PCI_CMD_BUS_MASTER);
 
   /* reset */
@@ -111,7 +204,7 @@ int rtl8139_init(void *_data, device_t *dev)
   /* start rx and tx */
   outb(data->iobase + REG_CMD, CMD_TE | CMD_RE);
 
-#if LOCAL_DEBUG
+#if DEBUG_LOCAL
   serial_printf("[rtl8139] cmd: %#02x\n", inb(data->iobase + REG_CMD));
   serial_printf("[rtl8139] mac: ");
   for (int i = 0; i < 6; i++) {
@@ -129,74 +222,22 @@ int rtl8139_matches(void *data, device_t *dev)
   return dev->id == 0x813910ec;
 }
 
-data_t rtl8139_data = {0};
-driver_t rtl8139_driver = {
-  .matches = rtl8139_matches,
-  .init = rtl8139_init,
-  .data = &rtl8139_data,
-};
-
-typedef uint8_t mac_t[6];
-
-void debug_mac(mac_t mac)
-{
-  for (int i = 0; i < 6; i++) {
-    serial_printf("%s%02x", i == 0 ? "" : ":", mac[i]);
-  }
-}
-
-typedef struct eth_frame {
-  mac_t destination;
-  mac_t source;
-  uint16_t type;
-  uint8_t payload[];
-} __attribute__((packed)) eth_frame_t;
-
-typedef struct {
-  uint16_t info;
-  uint16_t length;
-  eth_frame_t frame;
-} __attribute__((packed)) packet_t;
-
 void rtl8139_irq(void)
 {
   data_t *data = &rtl8139_data;
 
   uint16_t intr = inw(data->iobase + REG_INT_STATUS);
-  serial_printf("[rtl8139] intr: %#04x\n", intr);
-
   if (intr & INT_MASK_ROK) {
-    serial_printf("[rtl8139] rx capr: %#x: cbr: %#x\n", inw(data->iobase + REG_CAPR), inw(data->iobase + REG_CBR));
-    serial_printf("  cmd: %#02x\n", inb(data->iobase + REG_CMD));
-    while (!(inb(data->iobase + REG_CMD) & CMD_BUFE)) {
-      packet_t *packet = (packet_t *)data->rx;
-
-      uint16_t cbr = inw(data->iobase + REG_CBR);
-      uint16_t capr = inw(data->iobase + REG_CAPR);
-      serial_printf("[rtl8139] rx info: %#x capr: %#x: length: %#x cbr: %#x\n",
-                    packet->info, capr, packet->length, cbr);
-      for (int i = 0; i < packet->length; i++) {
-        serial_printf("%02x ", data->rx[i]);
-      }
-      serial_printf("\n");
-      debug_mac(packet->frame.source);
-      serial_printf(" => ");
-      debug_mac(packet->frame.destination);
-      serial_printf("\n");
-
-      /* advance rx pointer and align */
-      data->rx += packet->length + 4;
-      data->rx = (uint8_t *) ALIGNED(data->rx + 3, 2);
-
-      uint16_t offset = data->rx - data->rxbuf - 0x10;
-      serial_printf("new offset: %#x\n", offset);
-      outw(data->iobase + REG_CAPR, offset);
-      serial_printf("  read back: %#x\n", inw(data->iobase + REG_CAPR));
+    if (!tasklet_running) {
+      tasklet.state = TASK_RUNNING;
+      list_add(&sched_runqueue, &tasklet.head);
+      tasklet_running = 1;
     }
-
-    outw(data->iobase + REG_INT_STATUS, intr | INT_MASK_ROK);
   }
-
-  serial_printf("[rtl8319] irq done\n");
-  pic_eoi(data->irq);
 }
+
+driver_t rtl8139_driver = {
+  .matches = rtl8139_matches,
+  .init = rtl8139_init,
+  .data = &rtl8139_data,
+};

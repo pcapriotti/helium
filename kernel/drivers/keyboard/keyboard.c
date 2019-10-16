@@ -213,7 +213,7 @@ void kb_irq(void)
 
   /* add tasklet to scheduler */
   if (!kb_tasklet_running) {
-    /* note that we can't just check the task state to deterine if the
+    /* note that we can't just check the task state to determine if the
     tasklet is running, because it may be blocked on a semaphore, in
     which case we don't want to wake it prematurely */
     kb_tasklet.state = TASK_RUNNING;

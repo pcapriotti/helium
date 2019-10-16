@@ -85,8 +85,8 @@ void handle_interrupt(isr_stack_t *stack)
     handle_page_fault(stack);
 
   if (!done) {
-    kprintf("Unhandled exception %#x (code: %#x)\n", stack->int_num, stack->error);
-    kprintf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
+    serial_printf("Unhandled exception %#x (code: %#x)\n", stack->int_num, stack->error);
+    serial_printf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
     panic();
   }
 }
