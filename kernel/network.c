@@ -54,6 +54,7 @@ void dispatch(void *data, uint8_t *payload, size_t size)
 
 void start_network(nic_ops_t *ops, void *ops_data)
 {
+  arp_init();
   ops->grab(ops_data, dispatch, 0);
 }
 

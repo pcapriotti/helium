@@ -5,5 +5,6 @@
 #include <stddef.h>
 
 void arp_receive_packet(uint8_t *payload, size_t size);
+void arp_init(void);
 
 #endif /* ARP_H */
