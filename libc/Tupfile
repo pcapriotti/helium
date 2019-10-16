@@ -1,8 +1,4 @@
 include_rules
 
-CFLAGS += $(CFLAGS_HELIUM)
-
-CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
-
-: foreach *.c |> !cc |>
-: *.o |> !ar |> libc.a $(ROOT)/<libs>
+: foreach *.c |> !cc |> | <objs>
+: <objs> |> ^ AR %o^ $(AR) rcs %o %<objs> |> libc.a $(ROOT)/<libs>
