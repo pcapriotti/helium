@@ -4,6 +4,10 @@
 struct driver;
 extern struct driver rtl8139_driver;
 
+struct nic_ops;
+extern struct nic_ops rtl8139_ops;
+extern void *rtl8139_ops_data;
+
 void rtl8139_irq(void);
 
 #endif /* DRIVER_H */

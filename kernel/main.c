@@ -16,6 +16,7 @@
 #include "mbr.h"
 #include "memory.h"
 #include "multiboot.h"
+#include "network.h"
 #include "paging/paging.h"
 #include "pci.h"
 #include "scheduler.h"
@@ -67,6 +68,7 @@ void root_task()
   drivers_init();
   list_t *devices = pci_scan();
 
+  sched_spawn_task(network_init);
   sched_spawn_task(shell_main);
 
   console_set_fg(0x007c9a59);

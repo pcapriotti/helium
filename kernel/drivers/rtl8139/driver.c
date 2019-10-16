@@ -6,6 +6,7 @@
 #include "core/interrupts.h"
 #include "core/io.h"
 #include "memory.h"
+#include "network.h"
 #include "pci.h"
 #include "scheduler.h"
 #include "semaphore.h"
@@ -48,6 +49,9 @@ typedef struct {
 
   semaphore_t tx_sem;
 
+  void (*on_packet)(void *data, uint8_t *payload, size_t length);
+  void *on_packet_data;
+  semaphore_t on_packet_sem;
 
   uint8_t rxbuf[RXBUF_SIZE + 0x10];
 } data_t;
@@ -173,6 +177,10 @@ void receive(void)
       serial_printf("\n");
 #endif
 
+      if (data->on_packet) {
+        data->on_packet(data->on_packet_data, &data->rx[4], packet->length);
+      }
+
       /* advance rx pointer and align */
       data->rx += packet->length + 4;
       data->rx = (uint8_t *) ALIGNED(data->rx + 3, 2);
@@ -204,6 +212,7 @@ int rtl8139_init(void *_data, device_t *dev)
   data->rx = data->rxbuf;
   sem_init(&data->tx_index_mutex, 1);
   sem_init(&data->tx_sem, NUM_TX_SLOTS);
+  sem_init(&data->on_packet_sem, 1);
 
 #if DEBUG_LOCAL
   serial_printf("[rtl8139] irq: %u\n", data->irq);
@@ -243,7 +252,9 @@ int rtl8139_init(void *_data, device_t *dev)
 
   /* configure rx */
   outl(data->iobase + REG_RX_CONF,
-       RX_CONF_AAP | RX_CONF_APM | RX_CONF_AM | RX_CONF_AB);
+       RX_CONF_AAP | RX_CONF_APM |
+       RX_CONF_AM | RX_CONF_AB |
+       RX_CONF_WRAP);
 
   /* start rx and tx */
   outb(data->iobase + REG_CMD, CMD_TE | CMD_RE);
@@ -264,6 +275,25 @@ int rtl8139_init(void *_data, device_t *dev)
 int rtl8139_matches(void *data, device_t *dev)
 {
   return dev->id == 0x813910ec;
+}
+
+int rtl8139_grab(void *_data,
+                 void (*on_packet)(void *data,
+                                   uint8_t *payload,
+                                   size_t length),
+                 void *on_packet_data)
+{
+  data_t *data = _data;
+
+  sem_wait(&data->on_packet_sem);
+  if (on_packet && data->on_packet) {
+    serial_printf("rtl8139 has already been grabbed\n");
+    return -1;
+  }
+  data->on_packet = on_packet;
+  data->on_packet_data = on_packet_data;
+  sem_signal(&data->on_packet_sem);
+  return 0;
 }
 
 void rtl8139_irq(void)
@@ -292,3 +322,9 @@ driver_t rtl8139_driver = {
   .init = rtl8139_init,
   .data = &rtl8139_data,
 };
+
+nic_ops_t rtl8139_ops = {
+  .grab = rtl8139_grab,
+};
+
+void *rtl8139_ops_data = &rtl8139_data;
