@@ -53,9 +53,11 @@ typedef struct device {
   uint8_t class;
   uint8_t subclass;
   uint32_t id;
+  uint8_t irq;
 } device_t;
 
 #define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
+#define PCI_NUM_BARS 6
 
 struct driver;
 

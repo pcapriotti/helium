@@ -245,10 +245,10 @@ int ata_init(void *data, device_t *ide)
   kprintf("initialising ATA driver\n");
 #endif
 
-  ata_channels[0].base = ide->bars[0] ? ide->bars[0] : ATA_PRIMARY_BASE;
-  ata_channels[0].ctrl = ide->bars[1] ? ide->bars[1] : ATA_PRIMARY_CTRL;
-  ata_channels[1].base = ide->bars[2] ? ide->bars[2] : ATA_SECONDARY_BASE;
-  ata_channels[1].ctrl = ide->bars[3] ? ide->bars[3] : ATA_SECONDARY_CTRL;
+  ata_channels[0].base = ide->bars[0] ? (ide->bars[0] & ~3) : ATA_PRIMARY_BASE;
+  ata_channels[0].ctrl = ide->bars[1] ? (ide->bars[1] & ~3) : ATA_PRIMARY_CTRL;
+  ata_channels[1].base = ide->bars[2] ? (ide->bars[2] & ~3) : ATA_SECONDARY_BASE;
+  ata_channels[1].ctrl = ide->bars[3] ? (ide->bars[3] & ~3) : ATA_SECONDARY_CTRL;
 
   /* initialise drives */
   uint8_t i = 0;

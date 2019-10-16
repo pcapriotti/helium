@@ -8,7 +8,7 @@
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 0
+#define PCI_DEBUG 1
 
 enum {
   PCI_VENDOR_DEVICE = 0,
@@ -21,6 +21,10 @@ enum {
 enum {
   PCI_H1_BUS_NUMBER = 6,
   PCI_H1_STATUS = 6,
+};
+
+enum {
+  PCI_H0_IRQ = 0xf,
 };
 
 #define PCI_MAX_DRIVERS 64
@@ -54,19 +58,21 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
     /* uint8_t prog_if = (cl >> 8) & 0xff; */
     {
       uint32_t id = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
-#if PCI_DEBUG
-      kprintf("found device: bus %u no %u id %#x cl %#x\n",
-              bus, device, id, cl);
-#endif
+      uint32_t irq = pci_read(bus, device, func, PCI_H0_IRQ);
       device_t *dev = kmalloc(sizeof(device_t));
       dev->class = class;
       dev->subclass = subclass;
       dev->id = id;
-      for (unsigned int i = 0; i < 6; i++) {
-        dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i) & ~3;
+      dev->irq = irq & 0xff;
+#if PCI_DEBUG
+      kprintf("found device: bus %u no %u id %#x cl %#x\n",
+              bus, device, id, cl);
+#endif
+      for (unsigned int i = 0; i < PCI_NUM_BARS; i++) {
+        dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i);
       }
 #if PCI_DEBUG
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < PCI_NUM_BARS; i++) {
         if (dev->bars[i])
           kprintf("  bar%d: %p\n", i, dev->bars[i]);
       }
