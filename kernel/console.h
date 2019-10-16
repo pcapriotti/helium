@@ -29,8 +29,8 @@ extern console_t console;
 
 int console_init(void);
 uint32_t *console_at(point_t point);
-void console_print_str(const char *s, uint8_t colour);
-void console_print_char(char c, uint8_t colour);
+void console_print_str(const char *s);
+void console_print_char(char c);
 void console_delete_char(point_t p);
 void console_set_cursor(point_t c);
 

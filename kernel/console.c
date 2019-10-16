@@ -228,7 +228,7 @@ void console_clear_line(int y)
 }
 
 /* print a character */
-static inline void _console_putchar_at(point_t p, char c, uint8_t colour)
+static inline void _console_putchar_at(point_t p, char c)
 {
   if (c < 0x20 || c > 0x7e) return;
 
@@ -260,9 +260,9 @@ void _console_advance_cursor(void)
   _console_set_cursor(point_next(console.cur));
 }
 
-void _console_print_char(char c, uint8_t colour)
+void _console_print_char(char c)
 {
-  _console_putchar_at(console.cur, c, colour);
+  _console_putchar_at(console.cur, c);
   if (c == '\n') {
     _console_set_cursor((point_t) { 0, console.cur.y + 1 });
   }
@@ -281,11 +281,11 @@ void _console_print_char(char c, uint8_t colour)
     sem_signal(&console.paint_sem); \
   } while (0)
 
-void console_print_char(char c, uint8_t colour)
+void console_print_char(char c)
 {
   CONSOLE_LOCK_BEGIN();
 
-  _console_print_char(c, colour);
+  _console_print_char(c);
 
   CONSOLE_LOCK_END();
 }
@@ -308,14 +308,14 @@ void console_set_cursor(point_t c) {
   CONSOLE_LOCK_END();
 }
 
-void console_print_str(const char *s, uint8_t colour)
+void console_print_str(const char *s)
 {
   CONSOLE_LOCK_BEGIN();
 
   while (1) {
     char c = *s++;
     if (!c) break;
-    _console_print_char(c, colour);
+    _console_print_char(c);
   }
 
   CONSOLE_LOCK_END();
@@ -323,5 +323,5 @@ void console_print_str(const char *s, uint8_t colour)
 
 void console_debug_print_char(char c)
 {
-  console_print_char(c, 7);
+  console_print_char(c);
 }
