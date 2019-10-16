@@ -16,7 +16,7 @@ typedef struct {
 
   int width, height;
   int offset;
-  uint16_t *buffer;
+  uint8_t *buffer;
   point_t cur;
 
   semaphore_t write_sem;

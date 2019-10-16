@@ -104,7 +104,7 @@ int console_init(void)
   console.offset = 0;
   if (console.width <= 0 || console.height <= 0) return -1;
 
-  console.buffer = (uint16_t *) falloc(console.width * console.height * sizeof(uint16_t));
+  console.buffer = (uint8_t *) falloc(console.width * console.height * sizeof(uint8_t));
 
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
@@ -191,10 +191,10 @@ void console_render_buffer()
   uint32_t *pos = at(p);
 
   while (point_le(p, p1)) {
-    uint16_t c = console.buffer
+    uint8_t c = console.buffer
       [(p.x + (p.y % console.height) * console.width)];
-    uint32_t fg = palette[(c >> 8) & 0x7];
-    uint32_t bg = palette[(c >> 12) & 0x7];
+    uint32_t fg = 0x00aaaaaa;
+    uint32_t bg = 0x00000000;
     console_render_char(pos, c, fg, bg);
 
     pos += graphics_font.header.width;
@@ -203,7 +203,7 @@ void console_render_buffer()
     }
     p = point_next(p);
   }
-  console_render_cursor(0x00ffffff);
+  console_render_cursor(0x00aaaaaa);
 
   console.dirty.end = console.dirty.start;
   TRACE("done rendering\n");
@@ -211,9 +211,9 @@ void console_render_buffer()
 
 void console_clear_line(int y)
 {
-  uint16_t *p = console.buffer +
+  uint8_t *p = console.buffer +
     (y % console.height) * console.width;
-  memset(p, 0, console.width * sizeof(uint16_t));
+  memset(p, 0, console.width * sizeof(uint8_t));
 }
 
 /* print a character */
@@ -221,11 +221,10 @@ static inline void _console_putchar_at(point_t p, char c, uint8_t colour)
 {
   if (c < 0x20 || c > 0x7e) return;
 
-  uint16_t *dst = console.buffer +
+  uint8_t *dst = console.buffer +
     p.x + (p.y % console.height) * console.width;
-  uint16_t col = colour << 8;
   if (p.x < console.width) {
-    *dst = col | c;
+    *dst = c;
     span_include_point(&console.dirty, p);
   }
 }
@@ -284,7 +283,7 @@ void console_delete_char(point_t c)
 {
   CONSOLE_LOCK_BEGIN();
 
-  uint16_t *p = console.buffer + c.x +
+  uint8_t *p = console.buffer + c.x +
     (c.y % console.height) * console.width;
   *p = 0;
   span_include_point(&console.dirty, c);
