@@ -53,14 +53,15 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
     /* uint8_t revision = cl & 0xff; */
     /* uint8_t prog_if = (cl >> 8) & 0xff; */
     {
+      uint32_t id = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
 #if PCI_DEBUG
-      uint32_t vd = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
-      kprintf("found device: bus %u no %u vd %#x cl %#x\n",
-              bus, device, vd, cl);
+      kprintf("found device: bus %u no %u id %#x cl %#x\n",
+              bus, device, id, cl);
 #endif
       device_t *dev = kmalloc(sizeof(device_t));
       dev->class = class;
       dev->subclass = subclass;
+      dev->id = id;
       for (unsigned int i = 0; i < 6; i++) {
         dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i) & ~3;
       }

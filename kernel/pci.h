@@ -52,6 +52,7 @@ typedef struct device {
   uint32_t bars[6];
   uint8_t class;
   uint8_t subclass;
+  uint32_t id;
 } device_t;
 
 #define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
