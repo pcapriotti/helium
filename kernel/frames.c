@@ -1,6 +1,6 @@
 #include "frames.h"
 #if _HELIUM
-#include "paging.h"
+#include "paging/paging.h"
 #endif
 
 #include <assert.h>

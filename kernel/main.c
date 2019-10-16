@@ -15,7 +15,7 @@
 #include "mbr.h"
 #include "memory.h"
 #include "multiboot.h"
-#include "paging.h"
+#include "paging/paging.h"
 #include "pci.h"
 #include "scheduler.h"
 #include "shell.h"

@@ -1,6 +1,6 @@
 #include "core/debug.h"
 #include "core/x86.h"
-#include "paging.h"
+#include "paging/paging.h"
 #include "paging/pae.h"
 
 #include <assert.h>

@@ -4,7 +4,7 @@
 #include "core/v8086.h"
 #include "handlers.h"
 #include "drivers/keyboard/keyboard.h"
-#include "paging.h"
+#include "paging/paging.h"
 #include "scheduler.h"
 #include "timer.h"
 

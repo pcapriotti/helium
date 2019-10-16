@@ -4,7 +4,7 @@
 #include "frames.h"
 #include "graphics.h"
 #include "memory.h"
-#include "paging.h"
+#include "paging/paging.h"
 
 #define GRAPHICS_DEBUG 0
 

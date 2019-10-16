@@ -5,7 +5,7 @@
 #include "kmalloc.h"
 #include "memory.h"
 #include "multiboot.h"
-#include "paging.h"
+#include "paging/paging.h"
 
 #include <stdint.h>
 #include <string.h>

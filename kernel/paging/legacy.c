@@ -1,7 +1,7 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
 #include "frames.h"
-#include "paging.h"
+#include "paging/paging.h"
 #include "paging/legacy.h"
 
 #include <assert.h>

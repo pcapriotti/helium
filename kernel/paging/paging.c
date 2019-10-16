@@ -1,4 +1,4 @@
-#include "paging.h"
+#include "paging/paging.h"
 #include "paging/legacy.h"
 #include "paging/pae.h"
 #include "core/debug.h"
