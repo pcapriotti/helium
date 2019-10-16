@@ -2,15 +2,14 @@ include_rules
 
 CFLAGS += $(CFLAGS_HELIUM)
 CFLAGS += -D_HELIUM_LOADER
-CFLAGS += -I..
 
 CC=$HOME/.local/opt/cross/bin/$(TARGET)-gcc
 LD=$HOME/.local/opt/cross/bin/$(TARGET)-ld
 
 LDFLAGS += -T loader.ld
 
-: foreach *.S |> !cc |>
-: foreach *.c |> !cc |>
-: foreach ../kernel/fs/ext2/*.c |> !cc |>
-: *.o ../libc/libc.a ../core/core.a |> !ld |> loader.elf
+: foreach *.S |> !cc |> | <objs>
+: foreach *.c |> !cc |> | <objs>
+: foreach ../kernel/fs/ext2/*.c |> !cc |> | <objs>
+: <objs> $(ROOT)/<libs> |> !ld %<objs> %<libs> |> loader.elf
 : loader.elf |> ^ BIN %o^ objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin
