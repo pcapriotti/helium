@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "../kernel/fs/ext2/ext2.h"
+#include "kernel/fs/ext2/ext2.h"
 
 void test_read(void *data, void *buf,
                unsigned int offset, unsigned int bytes)
