@@ -1,5 +1,7 @@
 #include "core/debug.h"
 #include "core/io.h"
+#include "drivers/drivers.h"
+#include "drivers/ata/ata.h"
 #include "kmalloc.h"
 #include "pci.h"
 
@@ -20,6 +22,10 @@ enum {
   PCI_H1_BUS_NUMBER = 6,
   PCI_H1_STATUS = 6,
 };
+
+#define PCI_MAX_DRIVERS 64
+driver_t pci_drivers[PCI_MAX_DRIVERS];
+size_t pci_num_drivers = 0;
 
 uint32_t pci_read(uint8_t bus, uint8_t device,
                   uint8_t func, uint8_t offset)
@@ -111,19 +117,41 @@ list_t *pci_scan_bus(uint8_t bus)
   return ret;
 }
 
+void pci_device_init(device_t *dev)
+{
+  for (size_t i = 0; i < pci_num_drivers; i++) {
+    driver_t *driver = &pci_drivers[i];
+    if (driver->matches(driver->data, dev)) {
+      driver->init(driver->data, dev);
+      return;
+    }
+  }
+}
+
 list_t *pci_scan()
 {
   list_t *ret = pci_scan_bus(0);
-#if PCI_DEBUG
   {
     list_t *p = ret ? ret->next : 0;
     while (p != ret) {
       device_t *dev = DEV_LIST_ENTRY(p);
+#if PCI_DEBUG
       kprintf("found device %p class: %#x subclass: %#x\n",
               dev, dev->class, dev->subclass);
+#endif
+      pci_device_init(dev);
       p = p->next;
     }
   }
-#endif
   return ret;
+}
+
+void pci_add_driver(driver_t *drv)
+{
+  if (pci_num_drivers >= PCI_MAX_DRIVERS) {
+    serial_printf("too many drivers\n");
+    panic();
+  }
+
+  pci_drivers[pci_num_drivers++] = *drv;
 }

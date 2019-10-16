@@ -1,6 +1,7 @@
 #include "ata.h"
 #include "core/debug.h"
 #include "core/io.h"
+#include "drivers/drivers.h"
 #include "pci.h"
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
@@ -204,18 +205,10 @@ drive_t *ata_get_drive(uint8_t index)
   return &drives[index];
 }
 
-device_t *ata_find_ide_controller(list_t *devices)
+int ata_is_ide_controller(void *data, device_t *dev)
 {
-  list_t *p = devices ? devices->next : 0;
-  while (p != devices) {
-    device_t *dev = DEV_LIST_ENTRY(p);
-    if (dev->class == PCI_CLS_STORAGE &&
-        dev->subclass == PCI_STORAGE_IDE) {
-      return dev;
-    }
-    p = p->next;
-  }
-  return 0;
+  return (dev->class == PCI_CLS_STORAGE &&
+          dev->subclass == PCI_STORAGE_IDE);
 }
 
 void ata_list_drives(void)
@@ -242,16 +235,15 @@ void ata_list_drives(void)
   }
 }
 
-int ata_init(list_t *devices)
+int ata_init(void *data, device_t *ide)
 {
+  if (!ide) return -1;
   if (ata_initialised) return 0;
   ata_initialised = 1;
 
 #if ATA_DEBUG
   kprintf("initialising ATA driver\n");
 #endif
-  device_t *ide = ata_find_ide_controller(devices);
-  if (!ide) return -1;
 
   ata_channels[0].base = ide->bars[0] ? ide->bars[0] : ATA_PRIMARY_BASE;
   ata_channels[0].ctrl = ide->bars[1] ? ide->bars[1] : ATA_PRIMARY_CTRL;
@@ -292,3 +284,9 @@ int ata_init(list_t *devices)
 
   return 0;
 }
+
+driver_t ata_driver = {
+  .data = 0,
+  .matches = ata_is_ide_controller,
+  .init = ata_init,
+};

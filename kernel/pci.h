@@ -47,8 +47,7 @@ enum {
   PCI_BRIDGE_OTHER = 0x80,
 };
 
-
-typedef struct {
+typedef struct device {
   list_t head;
   uint32_t bars[6];
   uint8_t class;
@@ -57,7 +56,10 @@ typedef struct {
 
 #define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
 
+struct driver;
+
 list_t *pci_scan();
 list_t *pci_scan_bus(uint8_t bus);
+void pci_add_driver(struct driver *drv);
 
 #endif /* PCI_H */

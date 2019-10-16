@@ -7,6 +7,7 @@
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "drivers/ata/ata.h"
+#include "drivers/drivers.h"
 #include "drivers/keyboard/keyboard.h"
 #include "fs/ext2/ext2.h"
 #include "graphics.h"
@@ -61,10 +62,8 @@ void root_task()
             console.width, console.height);
   }
 
+  drivers_init();
   list_t *devices = pci_scan();
-  if (ata_init(devices) == -1) {
-    kprintf("ERROR: could not initialise ATA\n");
-  }
 
   sched_spawn_task(shell_main);
 
