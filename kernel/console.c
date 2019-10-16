@@ -44,6 +44,11 @@ point_t point_next(point_t p)
   }
 }
 
+unsigned int point_index(point_t p)
+{
+  return p.x + (p.y % console.height) * console.width;
+}
+
 int span_is_empty(span_t *span)
 {
   return point_equal(span->start, span->end);
@@ -105,9 +110,13 @@ int console_init(void)
   if (console.width <= 0 || console.height <= 0) return -1;
 
   console.buffer = (uint8_t *) falloc(console.width * console.height * sizeof(uint8_t));
+  console.fg_buffer = (uint32_t *) falloc(console.width * console.height * sizeof(uint32_t));
+  console.bg_buffer = (uint32_t *) falloc(console.width * console.height * sizeof(uint32_t));
 
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
+    console.fg_buffer[i] = 0x00aaaaaa;
+    console.bg_buffer[i] = 0;
   }
 
   console.dirty.end.y = console.height;
@@ -139,9 +148,10 @@ uint32_t *console_at(point_t p)
   return at(p);
 }
 
-void console_render_cursor(uint32_t fg)
+void console_render_cursor()
 {
   uint32_t *pos = at(console.cur);
+  uint32_t fg = console.fg_buffer[point_index(console.cur)];
   static const int cursor_height = 2;
   pos += (graphics_font.header.height - cursor_height) * console.pitch;
   for (int i = 0; i < cursor_height; i++) {
@@ -191,10 +201,10 @@ void console_render_buffer()
   uint32_t *pos = at(p);
 
   while (point_le(p, p1)) {
-    uint8_t c = console.buffer
-      [(p.x + (p.y % console.height) * console.width)];
-    uint32_t fg = 0x00aaaaaa;
-    uint32_t bg = 0x00000000;
+    unsigned int index = point_index(p);
+    uint8_t c = console.buffer[index];
+    uint32_t fg = console.fg_buffer[index];
+    uint32_t bg = console.bg_buffer[index];
     console_render_char(pos, c, fg, bg);
 
     pos += graphics_font.header.width;
@@ -203,7 +213,8 @@ void console_render_buffer()
     }
     p = point_next(p);
   }
-  console_render_cursor(0x00aaaaaa);
+
+  console_render_cursor();
 
   console.dirty.end = console.dirty.start;
   TRACE("done rendering\n");
