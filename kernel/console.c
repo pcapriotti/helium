@@ -16,6 +16,8 @@
 #endif
 
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
+#define DEFAULT_FG 0x00aaaaaa
+#define DEFAULT_BG 0
 
 console_t console = {0};
 
@@ -115,9 +117,11 @@ int console_init(void)
 
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
-    console.fg_buffer[i] = 0x00aaaaaa;
-    console.bg_buffer[i] = 0;
+    console.fg_buffer[i] = DEFAULT_FG;
+    console.bg_buffer[i] = DEFAULT_BG;
   }
+  console.fg = DEFAULT_FG;
+  console.bg = DEFAULT_BG;
 
   console.dirty.end.y = console.height;
 
@@ -228,14 +232,15 @@ void console_clear_line(int y)
 }
 
 /* print a character */
-static inline void _console_putchar_at(point_t p, char c)
+static inline void _console_putchar_at(point_t p, char c, uint32_t fg, uint32_t bg)
 {
   if (c < 0x20 || c > 0x7e) return;
 
-  uint8_t *dst = console.buffer +
-    p.x + (p.y % console.height) * console.width;
+  unsigned int index = point_index(p);
   if (p.x < console.width) {
-    *dst = c;
+    console.buffer[index] = c;
+    console.fg_buffer[index] = fg;
+    console.bg_buffer[index] = bg;
     span_include_point(&console.dirty, p);
   }
 }
@@ -262,7 +267,7 @@ void _console_advance_cursor(void)
 
 void _console_print_char(char c)
 {
-  _console_putchar_at(console.cur, c);
+  _console_putchar_at(console.cur, c, console.fg, console.bg);
   if (c == '\n') {
     _console_set_cursor((point_t) { 0, console.cur.y + 1 });
   }
@@ -324,4 +329,24 @@ void console_print_str(const char *s)
 void console_debug_print_char(char c)
 {
   console_print_char(c);
+}
+
+void console_set_fg(uint32_t fg)
+{
+  console.fg = fg;
+}
+
+void console_reset_fg(void)
+{
+  console.fg = DEFAULT_FG;
+}
+
+void console_set_bg(uint32_t bg)
+{
+  console.fg = bg;
+}
+
+void console_reset_bg(void)
+{
+  console.fg = DEFAULT_BG;
 }

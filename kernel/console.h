@@ -19,7 +19,9 @@ typedef struct {
   uint8_t *buffer;
   uint32_t *fg_buffer;
   uint32_t *bg_buffer;
+
   point_t cur;
+  uint32_t fg, bg;
 
   semaphore_t write_sem;
   semaphore_t paint_sem;
@@ -40,5 +42,10 @@ void console_render_buffer(void);
 
 void console_debug_print_char(char c);
 void console_start_background_task();
+
+void console_set_fg(uint32_t fg);
+void console_reset_fg();
+void console_set_bg(uint32_t bg);
+void console_reset_bg();
 
 #endif /* CONSOLE_H */
