@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
   uint8_t irq;
   uint16_t iobase;
+  mac_t mac;
 
   uint8_t *rx;
 
@@ -64,6 +65,8 @@ enum {
 };
 
 enum {
+  TSD_TOK = 1 << 15,
+  TSD_TUN = 1 << 14,
   TSD_OWN = 1 << 13,
 };
 
@@ -106,23 +109,35 @@ uint16_t iobase(device_t *dev)
   return 0;
 }
 
-void transmit(data_t *data, void *buf, size_t len)
+int transmit(void *_data, void *buf, size_t len)
 {
+  data_t *data = _data;
+
   assert(len <= 0x700); /* maximum tx packet size */
+
+#if DEBUG_LOCAL
+  serial_printf("[rtl8139] tx (len %u): ", len);
+  for (size_t i = 0; i < len; i++) {
+    serial_printf("%02x ", ((uint8_t *)buf)[i]);
+  }
+  serial_printf("\n");
+#endif
 
   /* only NUM_TX_SLOTS thread allowed at one time */
   sem_wait(&data->tx_sem);
 
-  /* writing to a tx slow needs to be serialised to make sure that
+  /* writing to a tx slot needs to be serialised to make sure that
   tx_index is in sync with the hardware */
   sem_wait(&data->tx_index_mutex);
 
-  /* write address and size to tx slot */
   const uint8_t index = data->tx_index;
   const uint16_t tsd = data->iobase + REG_TSD + 4 * index;
   const uint16_t tsad = data->iobase + REG_TSAD + 4 * index;
-  outb(tsad, (size_t) buf);
-  outb(tsd, (len & 0xfff) | TSD_OWN);
+#if DEBUG_LOCAL
+  serial_printf("  writing to slot: %d tsd: %#x tsad: %#x\n", index, tsd, tsad);
+#endif
+  outl(tsad, (size_t) buf);
+  outl(tsd, len & 0x1fff);
 
   /* switch to the next slot */
   data->tx_index = (data->tx_index + 1) % NUM_TX_SLOTS;
@@ -130,6 +145,7 @@ void transmit(data_t *data, void *buf, size_t len)
 
   /* tx_sem will be signalled when the card notifies that the
   transmission is successful */
+  return 0;
 }
 
 void receive(void)
@@ -178,6 +194,7 @@ void receive(void)
     sched_disable_preemption();
     sched_current->state = TASK_WAITING;
     tasklet_running = 0;
+    serial_printf("[rtl8139] eoi\n");
     pic_eoi(data->irq);
     sched_yield();
   }
@@ -226,9 +243,9 @@ int rtl8139_init(void *_data, device_t *dev)
   outl(data->iobase + REG_RBSTART, (size_t) data->rxbuf);
 
   /* set interrupt mask */
-  outw(data->iobase + REG_INT_MASK,
-       INT_MASK_TOK | INT_MASK_ROK |
-       INT_MASK_TER | INT_MASK_RER);
+  outw(data->iobase + REG_INT_MASK, INT_MASK_ROK | INT_MASK_TOK);
+       /* INT_MASK_TOK | INT_MASK_ROK | */
+       /* INT_MASK_TER | INT_MASK_RER); */
 
   /* configure rx */
   outl(data->iobase + REG_RX_CONF,
@@ -239,13 +256,14 @@ int rtl8139_init(void *_data, device_t *dev)
   /* start rx and tx */
   outb(data->iobase + REG_CMD, CMD_TE | CMD_RE);
 
-#if DEBUG_LOCAL
-  serial_printf("[rtl8139] cmd: %#02x\n", inb(data->iobase + REG_CMD));
-  serial_printf("[rtl8139] mac: ");
+  /* store mac address */
   for (int i = 0; i < 6; i++) {
-    serial_printf("%s%02x", i == 0 ? "" : ":",
-                  inb(data->iobase + REG_MAC + i));
+    data->mac.data[i] = inb(data->iobase + REG_MAC + i);
   }
+
+#if DEBUG_LOCAL
+  serial_printf("[rtl8139] mac: ");
+  debug_mac(data->mac);
   serial_printf("\n");
 #endif
 
@@ -255,6 +273,13 @@ int rtl8139_init(void *_data, device_t *dev)
 int rtl8139_matches(void *data, device_t *dev)
 {
   return dev->id == 0x813910ec;
+}
+
+mac_t rtl8139_get_mac(void *_data)
+{
+  data_t *data = _data;
+
+  return data->mac;
 }
 
 int rtl8139_grab(void *_data,
@@ -282,6 +307,10 @@ void rtl8139_irq(void)
   int need_eoi = 1;
 
   uint16_t intr = inw(data->iobase + REG_INT_STATUS);
+  outw(data->iobase + REG_INT_STATUS, intr);
+#ifdef DEBUG_LOCAL
+  serial_printf("[rtl8139] interrupt: %#x flags: %#x\n", intr, cpu_flags());
+#endif
   if (intr & INT_MASK_ROK) {
     if (!tasklet_running) {
       tasklet.state = TASK_RUNNING;
@@ -291,7 +320,18 @@ void rtl8139_irq(void)
     need_eoi = 0; /* EOI will be sent by the tasklet */
   }
   if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
-    sem_signal(&data->tx_sem);
+    for (int i = 0; i < 4; i++) {
+      uint16_t tsd = data->iobase + REG_TSD + i * 4;
+      uint32_t status = inl(tsd);
+      serial_printf("[rtl8139] transmit status %d: #%x\n", i, status);
+      if (status & TSD_TOK) outl(tsd, TSD_OWN);
+    }
+    intr = inw(data->iobase + REG_INT_STATUS);
+    outb(data->iobase + REG_INT_STATUS, intr | INT_MASK_TOK);
+    serial_printf("  current intr: %#x\n", intr);
+    intr = inw(data->iobase + REG_INT_STATUS);
+    serial_printf("  updated intr: %#x\n", intr);
+    _sem_signal(&data->tx_sem);
   }
 
   if (need_eoi) pic_eoi(data->irq);
@@ -305,6 +345,8 @@ driver_t rtl8139_driver = {
 
 nic_ops_t rtl8139_ops = {
   .grab = rtl8139_grab,
+  .transmit = transmit,
+  .mac = rtl8139_get_mac,
 };
 
 void *rtl8139_ops_data = &rtl8139_data;

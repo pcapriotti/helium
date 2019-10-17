@@ -11,16 +11,18 @@
 
 #define ARP_BUFSIZE 64
 
+#define ASSIGNED_IP 0x0205a8c0
+
 typedef struct arp_packet {
   uint16_t htype;
   uint16_t ptype;
   uint8_t hlen;
   uint8_t plen;
   uint16_t operation;
-  uint8_t sender_mac[6];
-  uint32_t sender_ip;
-  uint8_t target_mac[6];
-  uint32_t target_ip;
+  mac_t sender_mac;
+  ipv4_t sender_ip;
+  mac_t target_mac;
+  ipv4_t target_ip;
 } __attribute__((packed)) arp_packet_t;
 
 enum {
@@ -33,13 +35,22 @@ typedef struct arp_data {
   unsigned int begin, end;
   semaphore_t buffer_sem;
   semaphore_t buffer_ready;
+  nic_ops_t *ops;
+  void *ops_data;
 } arp_data_t;
 
 arp_data_t arp_data = {0};
 
+static uint8_t packet_buffer[ETH_MTU];
+
 uint16_t arp_packet_htype(arp_packet_t *packet)
 {
   return ntohs(packet->htype);
+}
+
+void arp_packet_set_htype(arp_packet_t *packet, uint16_t htype)
+{
+  packet->htype = htons(htype);
 }
 
 uint16_t arp_packet_ptype(arp_packet_t *packet)
@@ -47,9 +58,19 @@ uint16_t arp_packet_ptype(arp_packet_t *packet)
   return ntohs(packet->ptype);
 }
 
+void arp_packet_set_ptype(arp_packet_t *packet, uint16_t ptype)
+{
+  packet->ptype = htons(ptype);
+}
+
 uint16_t arp_packet_operation(arp_packet_t *packet)
 {
   return ntohs(packet->operation);
+}
+
+void arp_packet_set_operation(arp_packet_t *packet, uint16_t operation)
+{
+  packet->operation = htons(operation);
 }
 
 void arp_receive_packet(uint8_t *payload, size_t size)
@@ -100,8 +121,32 @@ void process_packets(void)
         debug_ipv4(packet->sender_ip);
         serial_printf(" (");
         debug_mac(packet->sender_mac);
-        serial_printf(")\n");
+        serial_printf("), ip = %#x\n", packet->target_ip);
 #endif
+
+        if (packet->target_ip == ASSIGNED_IP) {
+          /* reply with our mac address */
+
+          eth_frame_t *reply_eth = (eth_frame_t *) packet_buffer;
+          /* leave some space for the nic header */
+          reply_eth->destination = packet->sender_mac;
+          reply_eth->source = data->ops->mac(data->ops_data);
+          reply_eth->type = ETYPE_ARP;
+          arp_packet_t *reply = (arp_packet_t *) reply_eth->payload;
+          reply->target_mac = reply_eth->destination;
+          reply->sender_mac = reply_eth->source;
+          reply->target_ip = packet->sender_ip;
+          reply->sender_ip = ASSIGNED_IP;
+          reply->hlen = 6;
+          reply->plen = 4;
+          arp_packet_set_htype(reply, 1);
+          arp_packet_set_ptype(reply, ETYPE_IPV4);
+          arp_packet_set_operation(reply, OP_REPLY);
+
+          sem_signal(&data->buffer_sem);
+          network_transmit(data->ops, data->ops_data, reply_eth, sizeof(arp_packet_t));
+          sem_wait(&data->buffer_sem);
+        }
         break;
       case OP_REPLY:
         break;
@@ -117,9 +162,12 @@ void process_packets(void)
   }
 }
 
-void arp_init(void)
+void arp_init(nic_ops_t *ops, void *ops_data)
 {
   arp_data_t *data = &arp_data;
+
+  data->ops = ops;
+  data->ops_data = ops_data;
 
   sem_init(&data->buffer_sem, 1);
   sem_init(&data->buffer_ready, 0);

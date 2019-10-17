@@ -2,6 +2,7 @@
 #include "core/interrupts.h"
 #include "core/io.h"
 #include "core/v8086.h"
+#include "core/x86.h"
 #include "handlers.h"
 #include "drivers/keyboard/keyboard.h"
 #include "drivers/rtl8139/driver.h"
@@ -78,6 +79,7 @@ int __attribute__((noinline)) handle_page_fault(isr_stack_t *stack)
 
 void handle_interrupt(isr_stack_t *stack)
 {
+  /* if (stack->int_num != IDT_IRQ) serial_printf("[handlers] interrupt %#x @ %p flags: %#x\n", stack->int_num, stack, cpu_flags()); */
   int done =
     v8086_manager(stack) ||
     handle_irq(stack) ||
@@ -89,5 +91,7 @@ void handle_interrupt(isr_stack_t *stack)
     serial_printf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
     panic();
   }
+
+  /* if (stack->int_num != IDT_IRQ) serial_printf("[handlers] returning from interrupt %#x @ %p flags: %#x\n", stack->int_num, stack, cpu_flags()); */
 }
 
