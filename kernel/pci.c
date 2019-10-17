@@ -8,7 +8,7 @@
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 1
+#define PCI_DEBUG 0
 
 enum {
   PCI_VENDOR_DEVICE = 0,
