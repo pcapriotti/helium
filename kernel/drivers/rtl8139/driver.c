@@ -6,7 +6,7 @@
 #include "core/interrupts.h"
 #include "core/io.h"
 #include "memory.h"
-#include "network.h"
+#include "network/network.h"
 #include "pci.h"
 #include "scheduler.h"
 #include "semaphore.h"

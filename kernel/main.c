@@ -16,7 +16,7 @@
 #include "mbr.h"
 #include "memory.h"
 #include "multiboot.h"
-#include "network.h"
+#include "network/network.h"
 #include "paging/paging.h"
 #include "pci.h"
 #include "scheduler.h"
