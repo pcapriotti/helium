@@ -5,9 +5,10 @@
 #include "drivers/ata/ata.h"
 #include "drivers/keyboard/keyboard.h"
 #include "frames.h"
+#include "kmalloc.h"
 #include "memory.h"
 #include "semaphore.h"
-#include "kmalloc.h"
+#include "timer.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -35,8 +36,12 @@ void shell_process_command(shell_t *shell)
   if (!strcmp("reboot", cmd)) {
     kb_reset_system();
   }
-  if (!strcmp("poweroff", cmd)) {
+  else if (!strcmp("poweroff", cmd)) {
     bios_shutdown();
+  }
+  else if (!strcmp("ticks", cmd)) {
+    uint32_t tick = timer_get_tick();
+    kprintf("%u\n", tick);
   }
   else if (!strcmp("drives", cmd)) {
     ata_list_drives();
