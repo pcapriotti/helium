@@ -107,4 +107,6 @@ void cpuid_vendor(char *vendor);
 uint32_t cpuid_features(void);
 int cpuid_check_features(uint32_t mask);
 
+uint32_t cpu_flags();
+
 #endif /* X86_H */

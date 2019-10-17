@@ -56,3 +56,13 @@ int cpuid_check_features(uint32_t mask)
   if (!cpuid_is_supported()) return 0;
   return (cpuid_features() & mask) == mask;
 }
+
+uint32_t cpu_flags()
+{
+  uint32_t flags;
+  __asm__
+    ("pushf\n"
+     "pop %0\n"
+     : "=r"(flags));
+  return flags;
+}

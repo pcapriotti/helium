@@ -72,16 +72,6 @@ void isort(void *base, size_t nmemb, size_t size,
 
 extern int v8086_tracing;
 
-uint32_t cpu_flags()
-{
-  uint32_t flags;
-  __asm__
-    ("pushf\n"
-     "pop %0\n"
-     : "=r"(flags));
-  return flags;
-}
-
 void get_memory_map(multiboot_t *multiboot, memory_map_entry_t *entry, int *num_entries)
 {
   if (multiboot && multiboot->flags & MB_INFO_MMAP) {

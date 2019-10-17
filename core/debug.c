@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "io.h"
+#include "core/x86.h"
 
 #include <stdarg.h>
 #include <math.h>
@@ -86,6 +87,7 @@ void hang_system(void) {
 void _panic(const char *filename, int line)
 {
   serial_printf("kernel panic: %s:%d\n", filename, line);
+  serial_printf("  flags: %#x\n", cpu_flags());
   kprintf("kernel panic %s:%d\n", filename, line);
   __asm__ volatile("cli");
   hang_system();
