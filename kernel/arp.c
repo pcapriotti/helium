@@ -131,7 +131,7 @@ void process_packets(void)
           /* leave some space for the nic header */
           reply_eth->destination = packet->sender_mac;
           reply_eth->source = data->ops->mac(data->ops_data);
-          reply_eth->type = ETYPE_ARP;
+          reply_eth->type = htons(ETYPE_ARP);
           arp_packet_t *reply = (arp_packet_t *) reply_eth->payload;
           reply->target_mac = reply_eth->destination;
           reply->sender_mac = reply_eth->source;

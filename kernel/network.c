@@ -2,6 +2,7 @@
 #include "arpa/inet.h"
 #include "drivers/rtl8139/driver.h"
 #include "core/debug.h"
+#include "ipv4.h"
 #include "network.h"
 
 #include <string.h>
@@ -20,7 +21,7 @@ void dispatch(void *data, uint8_t *payload, size_t size)
   eth_frame_t *frame = (eth_frame_t *) payload;
 
 #if DEBUG_LOCAL
-  serial_printf("[network] packet received, size = %u\n", size);
+  serial_printf("[network] packet received, size: %u protocol: %#x\n", size, eth_frame_type(frame));
   serial_printf("[network] ");
   debug_mac(frame->source);
   serial_printf(" => ");
@@ -40,14 +41,14 @@ void dispatch(void *data, uint8_t *payload, size_t size)
   uint16_t type = eth_frame_type(frame);
   switch (type) {
   case ETYPE_ARP:
-    {
-      arp_receive_packet(frame->payload, size - sizeof(eth_frame_t));
-    }
+    arp_receive_packet(frame->payload, size - sizeof(eth_frame_t));
+    break;
+  case ETYPE_IPV4:
+    ipv4_receive_packet(frame->payload, size - sizeof(eth_frame_t));
     break;
   case ETYPE_IPV6:
-  case ETYPE_IPV4:
 #if DEBUG_LOCAL
-    serial_printf("[network] IP protocol not implemented yet\n", type);
+    serial_printf("[network] IPv6 not supported\n", type);
 #endif
     break;
   default:
