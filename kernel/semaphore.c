@@ -42,16 +42,19 @@ void sem_wait(semaphore_t *sem)
   }
 }
 
-void sem_signal(semaphore_t *sem)
+void _sem_signal(semaphore_t *sem)
 {
-  spin_lock(&sem->lock);
-
   if (sem->value++ < 0 && sem->waiting) {
     TRACE("sem (%p): waking %p\n", sched_current, sem->waiting);
     task_t *task = TASK_LIST_ENTRY(list_pop(&sem->waiting));
     task->state = TASK_RUNNING;
     list_add(&sched_runqueue, &task->head);
   }
+}
 
+void sem_signal(semaphore_t *sem)
+{
+  spin_lock(&sem->lock);
+  _sem_signal(sem);
   spin_unlock(&sem->lock);
 }
