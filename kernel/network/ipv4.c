@@ -1,18 +1,12 @@
 #include "core/debug.h"
-#include "ipv4.h"
+#include "network/icmp.h"
+#include "network/ipv4.h"
 #include "network.h"
 
 #include <arpa/inet.h>
 #include <stdint.h>
 
 #define DEBUG_LOCAL 1
-
-enum {
-  PROTO_ICMP = 0x1,
-  PROTO_IGMP = 0x2,
-  PROTO_TCP = 0x6,
-  PROTO_UDP = 0x11,
-};
 
 typedef struct ipv4_header {
   uint8_t version_ihl;
@@ -56,6 +50,14 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
   }
   serial_printf("\n");
 #endif
+
+  switch (header->protocol) {
+  case IP_PROTO_ICMP:
+    icmp_receive_packet(nic, payload, ipv4_header_length(header));
+    break;
+  default:
+    break;
+  }
 
   return 0;
 }
