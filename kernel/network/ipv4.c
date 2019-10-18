@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #include <stdint.h>
 
-#define DEBUG_LOCAL 1
+#define DEBUG_LOCAL 0
 
 typedef struct ipv4_header {
   uint8_t version_ihl;
@@ -57,10 +57,6 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
   void *payload = header->options + ipv4_header_ihl(header) - 5;
 #if DEBUG_LOCAL
   serial_printf("[ipv4] packet prococol %#x, data:\n", header->protocol);
-  for (size_t i = 0; i < ipv4_header_length(header); i++) {
-    serial_printf("%02x ", ((uint8_t *) payload)[i]);
-  }
-  serial_printf("\n");
 #endif
 
   if (header->destination_ip != nic->ip) return -1;

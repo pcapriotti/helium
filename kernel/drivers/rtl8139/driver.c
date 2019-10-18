@@ -12,7 +12,7 @@
 #include "scheduler.h"
 #include "semaphore.h"
 
-#define DEBUG_LOCAL 1
+#define DEBUG_LOCAL 0
 
 #define RXBUF_SIZE 8192
 #define NUM_TX_SLOTS 4
@@ -212,9 +212,6 @@ static void receive(void)
     sched_disable_preemption();
     sched_current->state = TASK_WAITING;
     tasklet_running = 0;
-#if DEBUG_LOCAL
-    serial_printf("[rtl8139] unmasking irq\n");
-#endif
     pic_unmask(data->irq);
     sched_yield();
   }
@@ -255,9 +252,6 @@ void rtl8139_irq(isr_stack_t *stack)
 
   uint16_t intr = inw(data->iobase + REG_INT_STATUS);
   outw(data->iobase + REG_INT_STATUS, intr);
-#ifdef DEBUG_LOCAL
-  serial_printf("[rtl8139] interrupt: %#x flags: %#x\n", intr, cpu_flags());
-#endif
 
   if (!tasklet_running) {
     tasklet.state = TASK_RUNNING;
@@ -271,9 +265,6 @@ void rtl8139_irq(isr_stack_t *stack)
   /* we need to mask interrupts here, because the interrupt pin
   won't be cleared until we update CAPR; the tasklet will unmask
   them when all the packets have been processed. */
-#if DEBUG_LOCAL
-  serial_printf("[rtl8139] masking irq\n");
-#endif
   pic_mask(data->irq);
   pic_eoi(data->irq);
 }

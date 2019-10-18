@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-#define DEBUG_LOCAL 1
+#define DEBUG_LOCAL 0
 
 typedef struct icmp_packet {
   uint8_t type, code;

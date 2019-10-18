@@ -9,7 +9,7 @@
 
 #include <string.h>
 
-#define DEBUG_LOCAL 1
+#define DEBUG_LOCAL 0
 
 #define CRC_OK 0xdebb20e3
 
@@ -106,9 +106,6 @@ void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
     ipv4_receive_packet(nic, frame->payload, payload_size);
     break;
   case ETYPE_IPV6:
-#if DEBUG_LOCAL
-    serial_printf("[network] IPv6 not supported\n", type);
-#endif
     break;
   default:
 #if DEBUG_LOCAL
