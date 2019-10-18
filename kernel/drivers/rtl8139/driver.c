@@ -110,7 +110,7 @@ uint16_t iobase(device_t *dev)
   return 0;
 }
 
-int transmit(void *_data, void *buf, size_t len)
+static int transmit(void *_data, void *buf, size_t len)
 {
   data_t *data = _data;
 
@@ -149,7 +149,22 @@ int transmit(void *_data, void *buf, size_t len)
   return 0;
 }
 
-void receive(void)
+static void cleanup_transmissions(data_t *data)
+{
+  for (int i = 0; i < 4; i++) {
+    uint16_t tsd = data->iobase + REG_TSD + i * 4;
+    uint32_t status = inl(tsd);
+#if DEBUG_LOCAL
+    serial_printf("[rtl8139] transmit status %d: #%x\n", i, status);
+#endif
+    if (status & TSD_TOK) {
+      outl(tsd, TSD_OWN);
+      _sem_signal(&data->tx_sem);
+    }
+  }
+}
+
+static void receive(void)
 {
   data_t *data = &rtl8139_data;
 
@@ -160,6 +175,11 @@ void receive(void)
                   inw(data->iobase + REG_CBR));
 #endif
     while (!(inb(data->iobase + REG_CMD) & CMD_BUFE)) {
+      uint16_t intr = inw(data->iobase + REG_INT_STATUS);
+#if DEBUG_LOCAL
+      serial_printf("[rtl8139] tasklet intr: %#x\n", intr);
+#endif
+
       packet_t *packet = (packet_t *)data->rx;
 
       uint16_t cbr = inw(data->iobase + REG_CBR);
@@ -188,9 +208,6 @@ void receive(void)
       uint16_t offset = data->rx - data->rxbuf - 0x10;
       outw(data->iobase + REG_CAPR, offset);
     }
-
-    uint16_t intr = inw(data->iobase + REG_INT_STATUS);
-    outw(data->iobase + REG_INT_STATUS, intr | INT_MASK_ROK);
 
     sched_disable_preemption();
     sched_current->state = TASK_WAITING;
@@ -241,24 +258,23 @@ void rtl8139_irq(isr_stack_t *stack)
 #ifdef DEBUG_LOCAL
   serial_printf("[rtl8139] interrupt: %#x flags: %#x\n", intr, cpu_flags());
 #endif
-  if (intr & INT_MASK_ROK) {
-    if (!tasklet_running) {
-      tasklet.state = TASK_RUNNING;
-      list_add(&sched_runqueue, &tasklet.head);
-      tasklet_running = 1;
-    }
-    /* we need to mask interrupts here, because the interrupt pin
-    won't be cleared until we update CAPR; the tasklet will unmask
-    them when all the packets have been processed. */
-#if DEBUG_LOCAL
-    serial_printf("[rtl8139] masking irq\n");
-#endif
-    pic_mask(data->irq);
-  }
-  if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
-    _sem_signal(&data->tx_sem);
+
+  if (!tasklet_running) {
+    tasklet.state = TASK_RUNNING;
+    list_add(&sched_runqueue, &tasklet.head);
+    tasklet_running = 1;
   }
 
+  if (intr & INT_MASK_TOK)
+    cleanup_transmissions(data);
+
+  /* we need to mask interrupts here, because the interrupt pin
+  won't be cleared until we update CAPR; the tasklet will unmask
+  them when all the packets have been processed. */
+#if DEBUG_LOCAL
+  serial_printf("[rtl8139] masking irq\n");
+#endif
+  pic_mask(data->irq);
   pic_eoi(data->irq);
 }
 
