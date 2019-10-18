@@ -100,7 +100,6 @@ void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
 
 void start_network(nic_t *nic)
 {
-  arp_init(nic);
   nic->ops->grab(nic->ops_data, eth_receive_packet, 0);
 }
 

@@ -7,6 +7,5 @@
 struct nic;
 
 void arp_receive_packet(struct nic *nic, uint8_t *payload, size_t size);
-void arp_init(struct nic *nic);
 
 #endif /* ARP_H */
