@@ -23,11 +23,12 @@ struct HT_STRUCT {
 
 HT_TYPE *P(new)(heap_t *heap)
 {
-  HT_TYPE *ret = heap_malloc(heap, sizeof(HT_TYPE));
-  ret->size = 0;
-  ret->capacity = 0;
-  ret->table = 0;
-  return ret;
+  HT_TYPE *ht = heap_malloc(heap, sizeof(HT_TYPE));
+  ht->size = 0;
+  ht->capacity = 0;
+  ht->table = 0;
+  ht->heap = heap;
+  return ht;
 }
 
 void P(insert0)(HT_TYPE *ht, HT_KEY_TYPE key, void *value)

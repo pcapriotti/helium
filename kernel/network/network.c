@@ -3,7 +3,8 @@
 #include "drivers/rtl8139/driver.h"
 #include "core/debug.h"
 #include "ipv4.h"
-#include "kmalloc.h"
+#include "heap.h"
+#include "memory.h"
 #include "network.h"
 #include "scheduler.h"
 
@@ -190,4 +191,17 @@ uint32_t crc_sum(uint8_t *buf, size_t size, uint32_t crc)
 uint32_t crc32(uint8_t *buf, size_t size)
 {
   return crc_sum(buf, size, 0xffffffff);
+}
+
+heap_t *network_get_heap(void)
+{
+  static heap_t *heap = 0;
+
+  if (!heap) {
+    sched_disable_preemption();
+    heap = heap_new(&kernel_frames);
+    sched_enable_preemption();
+  }
+
+  return heap;
 }

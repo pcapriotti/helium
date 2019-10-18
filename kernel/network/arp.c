@@ -1,5 +1,10 @@
+#define HT_KEY_TYPE uint32_t
+#define HT_NAME u32
+
 #include "arpa/inet.h"
 #include "core/debug.h"
+#include "hashtable.h"
+#include "heap.h"
 #include "network/network.h"
 #include "network/arp.h"
 #include "scheduler.h"
@@ -25,6 +30,14 @@ enum {
   OP_REQUEST = 1,
   OP_REPLY = 2,
 };
+
+hashtable_u32_t *arp_table = 0;
+
+hashtable_u32_t *arp_get_table(void) {
+  heap_t *heap = network_get_heap();
+  if (!arp_table) arp_table = ht_u32_new(heap);
+  return arp_table;
+}
 
 uint16_t arp_packet_htype(arp_packet_t *packet)
 {
@@ -91,6 +104,12 @@ int process_packet(nic_t *nic, arp_packet_t *packet)
       arp_packet_set_operation(reply, OP_REPLY);
 
       eth_transmit(nic, reply, sizeof(arp_packet_t));
+
+      /* save mapping in the table */
+      hashtable_u32_t *table = arp_get_table();
+      void *mac = heap_malloc(network_get_heap(), sizeof(mac_t));
+      memcpy(mac, &packet->sender_mac, sizeof(mac_t));
+      ht_u32_insert(table, packet->sender_ip, mac);
     }
     break;
   case OP_REPLY:
@@ -119,7 +138,18 @@ void arp_receive_packet(nic_t *nic, uint8_t *payload, size_t size)
 
 int arp_resolve(ipv4_t ip, mac_t *mac)
 {
-  /* TODO */
-  *mac = (mac_t) {{ 0x1e, 0x83, 0x5a, 0xf5, 0x85, 0x2c }};
-  return 0;
+  hashtable_u32_t *table = arp_get_table();
+  mac_t *ret = ht_u32_get(table, ip);
+  if (ret) {
+#if DEBUG_LOCAL
+    serial_printf("[arp] resolved ");
+    debug_ipv4(ip);
+    serial_printf(" => ");
+    debug_mac(*ret);
+    serial_printf("\n");
+#endif
+    *mac = *ret;
+    return 0;
+  }
+  return -1;
 }

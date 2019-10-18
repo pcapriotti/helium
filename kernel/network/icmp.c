@@ -26,6 +26,10 @@ int icmp_echo_reply(nic_t *nic, ipv4_t source,
   icmp_packet_t *reply = ipv4_packet_new
     (ETH_FRAME_STATIC, nic, IP_PROTO_ICMP,
      size, source, &error);
+  if (reply == 0) {
+    serial_printf("[icmp] error while creating IPv4 packet: %d\n", error);
+    return -1;
+  }
 
   reply->type = ICMP_ECHO_REPLY;
   reply->code = 0;

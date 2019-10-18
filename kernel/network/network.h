@@ -4,14 +4,15 @@
 #include "list.h"
 #include "network/types.h"
 
+struct heap;
+struct nic;
+
 typedef struct eth_frame {
   mac_t destination;
   mac_t source;
   uint16_t type;
   uint8_t payload[];
 } __attribute__((packed)) eth_frame_t;
-
-struct nic;
 
 typedef void (*nic_on_packet_t)(void *data,
                                 struct nic *nic,
@@ -53,6 +54,7 @@ padding and CRC */
 int eth_transmit(nic_t *ops, void *payload, size_t length);
 
 void network_init(void);
+struct heap *network_get_heap(void);
 
 void debug_mac(mac_t mac);
 void debug_ipv4(ipv4_t ip);
