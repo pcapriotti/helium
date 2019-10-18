@@ -27,7 +27,10 @@ typedef struct eth_frame {
   uint8_t payload[];
 } __attribute__((packed)) eth_frame_t;
 
+struct nic;
+
 typedef void (*nic_on_packet_t)(void *data,
+                                struct nic *nic,
                                 uint8_t *payload,
                                 size_t size);
 

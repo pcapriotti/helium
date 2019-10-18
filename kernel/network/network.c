@@ -55,7 +55,7 @@ int eth_transmit(nic_t *nic, eth_frame_t *frame, size_t payload_size)
 }
 
 
-void eth_receive_packet(void *data, uint8_t *payload, size_t size)
+void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
 {
   eth_frame_t *frame = (eth_frame_t *) payload;
 
@@ -108,17 +108,7 @@ void network_init(void)
 {
   /* just use rtl8139 for now */
   /* TODO: use a device manager */
-  /* TODO: use a task-local heap */
-  sched_disable_preemption();
-  nic_t *nic = kmalloc(sizeof(nic_t));
-  sched_enable_preemption();
-
-  nic->ops_data = rtl8139_ops_data;
-  nic->ops = &rtl8139_ops;
-  nic->name = "eth0";
-  nic->ip = 0x0205a8c0; /* hardcoded ip: 192.168.5.2 */
-
-  start_network(nic);
+  start_network(&rtl8139_nic);
 }
 
 void debug_mac(mac_t mac)

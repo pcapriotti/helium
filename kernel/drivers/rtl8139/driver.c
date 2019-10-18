@@ -35,7 +35,7 @@ typedef struct {
 
   semaphore_t tx_sem;
 
-  void (*on_packet)(void *data, uint8_t *payload, size_t length);
+  nic_on_packet_t on_packet;
   void *on_packet_data;
   semaphore_t on_packet_sem;
 
@@ -175,7 +175,7 @@ void receive(void)
 #endif
 
       if (data->on_packet) {
-        data->on_packet(data->on_packet_data, packet->payload, packet->length);
+        data->on_packet(data->on_packet_data, &rtl8139_nic, packet->payload, packet->length);
       }
 
       /* advance rx pointer and align */
@@ -214,9 +214,7 @@ mac_t rtl8139_get_mac(void *_data)
 }
 
 int rtl8139_grab(void *_data,
-                 void (*on_packet)(void *data,
-                                   uint8_t *payload,
-                                   size_t length),
+                 nic_on_packet_t on_packet,
                  void *on_packet_data)
 {
   data_t *data = _data;
@@ -345,4 +343,9 @@ nic_ops_t rtl8139_ops = {
   .mac = rtl8139_get_mac,
 };
 
-void *rtl8139_ops_data = &rtl8139_data;
+nic_t rtl8139_nic = {
+  .name = "eth0",
+  .ops = &rtl8139_ops,
+  .ops_data = &rtl8139_data,
+  .ip = 0x0205a8c0,
+};
