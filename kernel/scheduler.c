@@ -102,19 +102,17 @@ void sched_spawn_task(task_entry_t entry)
   task->stack_top = falloc(0x4000);
 
   void *stack = task->stack_top + 0x4000;
-  /* add stack guard */
-  stack -= sizeof(void *);
-  {
-    void **guard = (void **)stack;
-    *guard = task_terminate;
-  }
 
+  /* add return ip */
+  stack -= sizeof(void *);
+  *(void **)stack = task_terminate;
+
+  /* set isr stack frame */
   stack -= sizeof(isr_stack_t);
   task->stack = stack;
   task->state = TASK_RUNNING;
   task->timeout = timer_get_tick(); /* start immediately */
 
-  /* TODO set up a stack guard for when the task terminates */
   task->stack->eip = (uint32_t) entry;
   task->stack->cs = GDT_SEL(GDT_CODE);
   task->stack->eflags = EFLAGS_IF;

@@ -132,7 +132,7 @@ void shell_init(shell_t *shell)
   shell_draw_prompt(shell);
 }
 
-void shell_main(void)
+void shell_main(void *data)
 {
   shell_t *shell = kmalloc(sizeof(shell_t));
   shell_init(shell);

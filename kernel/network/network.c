@@ -3,7 +3,9 @@
 #include "drivers/rtl8139/driver.h"
 #include "core/debug.h"
 #include "ipv4.h"
+#include "kmalloc.h"
 #include "network.h"
+#include "scheduler.h"
 
 #include <string.h>
 
@@ -21,19 +23,18 @@ void eth_frame_set_type(eth_frame_t *frame, uint16_t type)
   frame->type = htons(type);
 }
 
-void *eth_frame_init(nic_ops_t *ops, void *ops_data,
+void *eth_frame_init(nic_t *nic,
                      eth_frame_t *frame,
                      uint16_t type,
                      mac_t destination)
 {
-  frame->source = ops->mac(ops_data);
+  frame->source = nic->ops->mac(nic->ops_data);
   frame->destination = destination;
   eth_frame_set_type(frame, type);
   return frame->payload;
 }
 
-int eth_transmit(nic_ops_t *ops, void *ops_data,
-                 eth_frame_t *frame, size_t payload_size)
+int eth_transmit(nic_t *nic, eth_frame_t *frame, size_t payload_size)
 {
   /* check maximum size */
   size_t total_size = payload_size + sizeof(eth_frame_t) + sizeof(uint32_t);
@@ -50,11 +51,11 @@ int eth_transmit(nic_ops_t *ops, void *ops_data,
   uint32_t *crc = payload + payload_size;
   *crc = crc32((uint8_t *) frame, sizeof(eth_frame_t) + payload_size);
 
-  return ops->transmit(ops_data, frame, total_size);
+  return nic->ops->transmit(nic->ops_data, frame, total_size);
 }
 
 
-void dispatch(void *data, uint8_t *payload, size_t size)
+void eth_receive_packet(void *data, uint8_t *payload, size_t size)
 {
   eth_frame_t *frame = (eth_frame_t *) payload;
 
@@ -97,17 +98,27 @@ void dispatch(void *data, uint8_t *payload, size_t size)
   }
 }
 
-void start_network(nic_ops_t *ops, void *ops_data)
+void start_network(nic_t *nic)
 {
-  arp_init(ops, ops_data);
-  ops->grab(ops_data, dispatch, 0);
+  arp_init(nic);
+  nic->ops->grab(nic->ops_data, eth_receive_packet, 0);
 }
 
 void network_init(void)
 {
   /* just use rtl8139 for now */
   /* TODO: use a device manager */
-  start_network(&rtl8139_ops, rtl8139_ops_data);
+  /* TODO: use a task-local heap */
+  sched_disable_preemption();
+  nic_t *nic = kmalloc(sizeof(nic_t));
+  sched_enable_preemption();
+
+  nic->ops_data = rtl8139_ops_data;
+  nic->ops = &rtl8139_ops;
+  nic->name = "eth0";
+  nic->ip = 0x0205a8c0; /* hardcoded ip: 192.168.5.2 */
+
+  start_network(nic);
 }
 
 void debug_mac(mac_t mac)

@@ -51,7 +51,7 @@ void ata_read_closure(void *data, void *buf,
                  buf);
 }
 
-void root_task()
+void root_task(void)
 {
   if (graphics_mode.number) {
     console_set_fg(0x005799d0);

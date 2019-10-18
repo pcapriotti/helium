@@ -4,9 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct nic_ops;
+struct nic;
 
 void arp_receive_packet(uint8_t *payload, size_t size);
-void arp_init(struct nic_ops *ops, void *ops_data);
+void arp_init(struct nic *nic);
 
 #endif /* ARP_H */

@@ -11,8 +11,6 @@
 
 #define ARP_BUFSIZE 64
 
-#define ASSIGNED_IP 0x0205a8c0
-
 typedef struct arp_packet {
   uint16_t htype;
   uint16_t ptype;
@@ -35,8 +33,7 @@ typedef struct arp_data {
   unsigned int begin, end;
   semaphore_t buffer_sem;
   semaphore_t buffer_ready;
-  nic_ops_t *ops;
-  void *ops_data;
+  nic_t *nic;
 } arp_data_t;
 
 arp_data_t arp_data = {0};
@@ -124,11 +121,10 @@ void process_packets(void)
         serial_printf("), ip = %#x\n", packet->target_ip);
 #endif
 
-        if (packet->target_ip == ASSIGNED_IP) {
+        if (packet->target_ip == data->nic->ip) {
           /* reply with our mac address */
           eth_frame_t *frame = (eth_frame_t *) packet_buffer;
-          arp_packet_t *reply = eth_frame_init(data->ops,
-                                               data->ops_data,
+          arp_packet_t *reply = eth_frame_init(data->nic,
                                                frame,
                                                ETYPE_ARP,
                                                packet->sender_mac);
@@ -139,16 +135,15 @@ void process_packets(void)
           /* release buffer mutex early */
           sem_signal(&data->buffer_sem);
 
-          reply->sender_mac = data->ops->mac(data->ops_data);
-          reply->sender_ip = ASSIGNED_IP;
+          reply->sender_mac = data->nic->ops->mac(data->nic->ops_data);
+          reply->sender_ip = data->nic->ip;
           reply->hlen = 6;
           reply->plen = 4;
           arp_packet_set_htype(reply, 1);
           arp_packet_set_ptype(reply, ETYPE_IPV4);
           arp_packet_set_operation(reply, OP_REPLY);
 
-          eth_transmit(data->ops, data->ops_data,
-                       frame, sizeof(arp_packet_t));
+          eth_transmit(data->nic, frame, sizeof(arp_packet_t));
           continue; /* do not signal buffer_sem again */
         }
         break;
@@ -166,16 +161,15 @@ void process_packets(void)
   }
 }
 
-void arp_init(nic_ops_t *ops, void *ops_data)
+void arp_init(nic_t *nic)
 {
+  /* TODO: extend to multiple NICs */
   arp_data_t *data = &arp_data;
 
-  data->ops = ops;
-  data->ops_data = ops_data;
+  data->nic = nic;
 
   sem_init(&data->buffer_sem, 1);
   sem_init(&data->buffer_ready, 0);
 
   sched_spawn_task(process_packets);
 }
-
