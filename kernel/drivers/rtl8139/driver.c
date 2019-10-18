@@ -195,8 +195,10 @@ void receive(void)
     sched_disable_preemption();
     sched_current->state = TASK_WAITING;
     tasklet_running = 0;
-    serial_printf("[rtl8139] eoi\n");
-    pic_eoi(data->irq);
+#if DEBUG_LOCAL
+    serial_printf("[rtl8139] unmasking irq\n");
+#endif
+    pic_unmask(data->irq);
     sched_yield();
   }
 }
@@ -245,6 +247,13 @@ void rtl8139_irq(isr_stack_t *stack)
       list_add(&sched_runqueue, &tasklet.head);
       tasklet_running = 1;
     }
+    /* we need to mask interrupts here, because the interrupt pin
+    won't be cleared until we update CAPR; the tasklet will unmask
+    them when all the packets have been processed. */
+#if DEBUG_LOCAL
+    serial_printf("[rtl8139] masking irq\n");
+#endif
+    pic_mask(data->irq);
   }
   if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
     _sem_signal(&data->tx_sem);
@@ -297,8 +306,6 @@ int rtl8139_init(void *_data, device_t *dev)
 
   /* set interrupt mask */
   outw(data->iobase + REG_INT_MASK, INT_MASK_ROK | INT_MASK_TOK);
-       /* INT_MASK_TOK | INT_MASK_ROK | */
-       /* INT_MASK_TER | INT_MASK_RER); */
 
   /* configure rx */
   outl(data->iobase + REG_RX_CONF,
