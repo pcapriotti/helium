@@ -56,7 +56,7 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
 
   void *payload = header->options + ipv4_header_ihl(header) - 5;
 #if DEBUG_LOCAL
-  serial_printf("[ipv4] packet prococol %#x, data:\n", header->protocol);
+  serial_printf("[ipv4] packet prococol %#x\n", header->protocol);
 #endif
 
   if (header->destination_ip != nic->ip) return -1;
