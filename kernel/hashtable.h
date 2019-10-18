@@ -1,15 +1,26 @@
-#ifndef HASHTABLE_H
-#define HASHTABLE_H
+#ifndef HT_KEY_TYPE
+# error "define HT_KEY_TYPE before including hashtable.h"
+#else
 
-typedef const char *ht_key_t;
+#ifndef HT_NAME
+# define HT_NAME HT_KEY_TYPE
+#endif
 
-struct hashtable_struct_t;
-typedef struct hashtable_struct_t hashtable_t;
+#define _CAT(a, b) a##_##b
+#define CAT(a, b) _CAT(a, b)
 
-hashtable_t *ht_new();
-void ht_insert(hashtable_t *ht, ht_key_t key, void *value);
-void *ht_get(hashtable_t *ht, ht_key_t key);
-void ht_del(hashtable_t *ht);
-int ht_size(hashtable_t *ht);
+#define HT_STRUCT CAT(hashtable, HT_NAME)
+#define HT_TYPE CAT(HT_STRUCT, t)
 
-#endif /* HASHTABLE_H */
+#define HT_PREFIX CAT(ht, HT_NAME)
+#define P(x) CAT(HT_PREFIX, x)
+
+typedef struct HT_STRUCT HT_TYPE;
+
+HT_TYPE *P(new)();
+void P(insert)(HT_TYPE *ht, HT_KEY_TYPE key, void *value);
+void *P(get)(HT_TYPE *ht, HT_KEY_TYPE key);
+void P(del)(HT_TYPE *ht);
+int P(size)(HT_TYPE *ht);
+
+#endif
