@@ -17,6 +17,11 @@
 /* this can only be used in the main thread */
 static uint8_t main_packet_buffer[ETH_MTU];
 
+static inline size_t eth_frame_total_size(size_t payload_size)
+{
+  return payload_size + sizeof(eth_frame_t);
+}
+
 uint16_t eth_frame_type(eth_frame_t *frame)
 {
   return ntohs(frame->type);
@@ -29,7 +34,7 @@ void eth_frame_set_type(eth_frame_t *frame, uint16_t type)
 
 eth_frame_t *eth_frame_alloc(int flags, size_t payload_size)
 {
-  size_t total_size = payload_size + sizeof(eth_frame_t) + sizeof(uint32_t);
+  size_t total_size = eth_frame_total_size(payload_size);
   if (total_size > ETH_MTU) return 0;
 
   if (flags == ETH_FRAME_STATIC)
@@ -52,7 +57,7 @@ void *eth_frame_init(nic_t *nic,
 int eth_transmit(nic_t *nic, void *payload, size_t length)
 {
   eth_frame_t *frame = payload - sizeof(eth_frame_t);
-  size_t total_size = length + sizeof(eth_frame_t) + sizeof(uint32_t);
+  size_t total_size = eth_frame_total_size(length);
 
   /* add padding */
   if (length < ETH_MIN_PAYLOAD_SIZE) {
@@ -91,12 +96,14 @@ void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
   }
 
   uint16_t type = eth_frame_type(frame);
+  size_t payload_size = size - sizeof(eth_frame_t) - sizeof(crc);
+
   switch (type) {
   case ETYPE_ARP:
-    arp_receive_packet(nic, frame->payload, size - sizeof(eth_frame_t));
+    arp_receive_packet(nic, frame->payload, payload_size);
     break;
   case ETYPE_IPV4:
-    ipv4_receive_packet(nic, frame->payload, size - sizeof(eth_frame_t));
+    ipv4_receive_packet(nic, frame->payload, payload_size);
     break;
   case ETYPE_IPV6:
 #if DEBUG_LOCAL

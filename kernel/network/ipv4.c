@@ -44,6 +44,11 @@ uint16_t ipv4_header_length(ipv4_header_t *header)
   return ntohs(header->length);
 }
 
+void ipv4_header_set_length(ipv4_header_t *header, uint16_t length)
+{
+  header->length = htons(length);
+}
+
 int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
 {
   ipv4_header_t *header = packet;
@@ -60,10 +65,11 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
 
   if (header->destination_ip != nic->ip) return -1;
 
+  size_t length = size - (payload - packet);
   switch (header->protocol) {
   case IP_PROTO_ICMP:
     icmp_receive_packet(nic, header->source_ip,
-                        payload, ipv4_header_length(header));
+                        payload, length);
     break;
   default:
     break;
@@ -72,15 +78,18 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
   return 0;
 }
 
-uint16_t checksum16(void *data, size_t length)
+uint16_t checksum16(void *data, uint16_t length)
 {
-  uint16_t ret = 0;
+  uint32_t sum = 0;
   uint16_t *p = data;
   length = length >> 1;
   while (length--) {
-    ret += *p++;
+    sum += ntohs(*p++);
   }
-  return ~ret;
+  sum = (sum & 0xffff) + (sum >> 16);
+  sum = (sum & 0xffff) + (sum >> 16);
+  assert((sum & 0xffff0000) == 0);
+  return ~htons(sum);
 }
 
 void *ipv4_packet_new(int flags, nic_t *nic,
@@ -109,7 +118,7 @@ void *ipv4_packet_new(int flags, nic_t *nic,
 
   ipv4_header_set_version_ihl(header, 4, 5);
   header->dscp_ecn = 0;
-  header->length = length;
+  ipv4_header_set_length(header, length);
   header->ident = 0;
   header->flags_fragment = 0;
   header->ttl = IP_DEFAULT_TTL;
@@ -120,7 +129,7 @@ void *ipv4_packet_new(int flags, nic_t *nic,
   header->checksum = checksum16(header, sizeof(ipv4_header_t));
 
   *error = 0;
-  return (void *) header + ipv4_header_length(header);
+  return (void *) header + sizeof(ipv4_header_t);
 }
 
 int ipv4_transmit(nic_t *nic, void *payload, size_t size)

@@ -29,7 +29,7 @@ int icmp_echo_reply(nic_t *nic, ipv4_t source,
 
   reply->type = ICMP_ECHO_REPLY;
   reply->code = 0;
-  reply->checksum = packet->checksum + reply->type - packet->type;
+  reply->checksum = packet->checksum - reply->type + packet->type;
   memcpy(reply->payload, packet->payload, size);
 
   return ipv4_transmit(nic, reply, size);
@@ -38,7 +38,7 @@ int icmp_echo_reply(nic_t *nic, ipv4_t source,
 int icmp_receive_packet(nic_t *nic, ipv4_t source, void *_packet, size_t size)
 {
 #if DEBUG_LOCAL
-  serial_printf("[icmp] packet\n");
+  serial_printf("[icmp] packet size: %u\n", size);
 #endif
 
   if (size < sizeof(icmp_packet_t)) return -1;
