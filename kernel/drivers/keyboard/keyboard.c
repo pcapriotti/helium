@@ -5,6 +5,7 @@
 #include "core/interrupts.h"
 #include "core/io.h"
 #include "core/v8086.h"
+#include "handlers.h"
 #include "scheduler.h"
 #include "timer.h"
 
@@ -183,22 +184,7 @@ void kb_process_scancodes()
   }
 }
 
-int kb_init(void)
-{
-  /* flush PS2 buffer */
-  inb(PS2_DATA);
-
-  isr_stack_t *stack = (void *)kb_tasklet_stack + sizeof(kb_tasklet_stack) - sizeof(isr_stack_t);
-  stack->eip = (uint32_t) kb_process_scancodes;
-  stack->eflags = EFLAGS_IF;
-  stack->cs = GDT_SEL(GDT_CODE);
-  kb_tasklet.stack = stack;
-  kb_tasklet.state = TASK_WAITING;
-
-  return 0;
-}
-
-void kb_irq(void)
+void kb_irq(struct isr_stack *stack)
 {
   /* get scancode and save it */
   uint8_t scancode = inb(PS2_DATA);
@@ -228,6 +214,25 @@ void kb_irq(void)
 #endif
 
   pic_eoi(IRQ_KEYBOARD);
+}
+
+int kb_init(void)
+{
+  /* flush PS2 buffer */
+  inb(PS2_DATA);
+
+  /* prepare tasklet */
+  isr_stack_t *stack = (void *)kb_tasklet_stack + sizeof(kb_tasklet_stack) - sizeof(isr_stack_t);
+  stack->eip = (uint32_t) kb_process_scancodes;
+  stack->eflags = EFLAGS_IF;
+  stack->cs = GDT_SEL(GDT_CODE);
+  kb_tasklet.stack = stack;
+  kb_tasklet.state = TASK_WAITING;
+
+  /* register irq handler */
+  irq_grab(IRQ_KEYBOARD, kb_irq);
+
+  return 0;
 }
 
 void kb_grab(void (*on_event)(kb_event_t *event, void *data), void *data)

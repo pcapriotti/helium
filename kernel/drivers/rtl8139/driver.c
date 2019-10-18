@@ -5,6 +5,7 @@
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "handlers.h"
 #include "memory.h"
 #include "network/network.h"
 #include "pci.h"
@@ -200,6 +201,73 @@ void receive(void)
   }
 }
 
+int rtl8139_matches(void *data, device_t *dev)
+{
+  return dev->id == 0x813910ec;
+}
+
+mac_t rtl8139_get_mac(void *_data)
+{
+  data_t *data = _data;
+
+  return data->mac;
+}
+
+int rtl8139_grab(void *_data,
+                 void (*on_packet)(void *data,
+                                   uint8_t *payload,
+                                   size_t length),
+                 void *on_packet_data)
+{
+  data_t *data = _data;
+
+  sem_wait(&data->on_packet_sem);
+  if (on_packet && data->on_packet) {
+    serial_printf("rtl8139 has already been grabbed\n");
+    return -1;
+  }
+  data->on_packet = on_packet;
+  data->on_packet_data = on_packet_data;
+  sem_signal(&data->on_packet_sem);
+  return 0;
+}
+
+void rtl8139_irq(isr_stack_t *stack)
+{
+  data_t *data = &rtl8139_data;
+  int need_eoi = 1;
+
+  uint16_t intr = inw(data->iobase + REG_INT_STATUS);
+  outw(data->iobase + REG_INT_STATUS, intr);
+#ifdef DEBUG_LOCAL
+  serial_printf("[rtl8139] interrupt: %#x flags: %#x\n", intr, cpu_flags());
+#endif
+  if (intr & INT_MASK_ROK) {
+    if (!tasklet_running) {
+      tasklet.state = TASK_RUNNING;
+      list_add(&sched_runqueue, &tasklet.head);
+      tasklet_running = 1;
+    }
+    need_eoi = 0; /* EOI will be sent by the tasklet */
+  }
+  if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
+    for (int i = 0; i < 4; i++) {
+      uint16_t tsd = data->iobase + REG_TSD + i * 4;
+      uint32_t status = inl(tsd);
+      serial_printf("[rtl8139] transmit status %d: #%x\n", i, status);
+      if (status & TSD_TOK) outl(tsd, TSD_OWN);
+    }
+    intr = inw(data->iobase + REG_INT_STATUS);
+    outb(data->iobase + REG_INT_STATUS, intr | INT_MASK_TOK);
+    serial_printf("  current intr: %#x\n", intr);
+    intr = inw(data->iobase + REG_INT_STATUS);
+    serial_printf("  updated intr: %#x\n", intr);
+    _sem_signal(&data->tx_sem);
+  }
+
+  if (need_eoi) pic_eoi(data->irq);
+}
+
 int rtl8139_init(void *_data, device_t *dev)
 {
   data_t *data = _data;
@@ -267,74 +335,15 @@ int rtl8139_init(void *_data, device_t *dev)
   serial_printf("\n");
 #endif
 
-  return 0;
-}
-
-int rtl8139_matches(void *data, device_t *dev)
-{
-  return dev->id == 0x813910ec;
-}
-
-mac_t rtl8139_get_mac(void *_data)
-{
-  data_t *data = _data;
-
-  return data->mac;
-}
-
-int rtl8139_grab(void *_data,
-                 void (*on_packet)(void *data,
-                                   uint8_t *payload,
-                                   size_t length),
-                 void *on_packet_data)
-{
-  data_t *data = _data;
-
-  sem_wait(&data->on_packet_sem);
-  if (on_packet && data->on_packet) {
-    serial_printf("rtl8139 has already been grabbed\n");
-    return -1;
-  }
-  data->on_packet = on_packet;
-  data->on_packet_data = on_packet_data;
-  sem_signal(&data->on_packet_sem);
-  return 0;
-}
-
-void rtl8139_irq(void)
-{
-  data_t *data = &rtl8139_data;
-  int need_eoi = 1;
-
-  uint16_t intr = inw(data->iobase + REG_INT_STATUS);
-  outw(data->iobase + REG_INT_STATUS, intr);
-#ifdef DEBUG_LOCAL
-  serial_printf("[rtl8139] interrupt: %#x flags: %#x\n", intr, cpu_flags());
+  /* register irq */
+  int ret = irq_grab(data->irq, rtl8139_irq);
+  if (ret == -1) {
+#if DEBUG_LOCAL
+    serial_printf("[rtl8139] could not register irq handler\n");
 #endif
-  if (intr & INT_MASK_ROK) {
-    if (!tasklet_running) {
-      tasklet.state = TASK_RUNNING;
-      list_add(&sched_runqueue, &tasklet.head);
-      tasklet_running = 1;
-    }
-    need_eoi = 0; /* EOI will be sent by the tasklet */
-  }
-  if (intr & (INT_MASK_TOK | INT_MASK_TER)) {
-    for (int i = 0; i < 4; i++) {
-      uint16_t tsd = data->iobase + REG_TSD + i * 4;
-      uint32_t status = inl(tsd);
-      serial_printf("[rtl8139] transmit status %d: #%x\n", i, status);
-      if (status & TSD_TOK) outl(tsd, TSD_OWN);
-    }
-    intr = inw(data->iobase + REG_INT_STATUS);
-    outb(data->iobase + REG_INT_STATUS, intr | INT_MASK_TOK);
-    serial_printf("  current intr: %#x\n", intr);
-    intr = inw(data->iobase + REG_INT_STATUS);
-    serial_printf("  updated intr: %#x\n", intr);
-    _sem_signal(&data->tx_sem);
   }
 
-  if (need_eoi) pic_eoi(data->irq);
+  return 0;
 }
 
 driver_t rtl8139_driver = {

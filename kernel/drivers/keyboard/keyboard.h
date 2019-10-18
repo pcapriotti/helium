@@ -25,7 +25,6 @@ typedef enum {
 } kb_keycode_t;
 
 int kb_init(void);
-void kb_irq(void);
 
 typedef struct {
   int pressed;

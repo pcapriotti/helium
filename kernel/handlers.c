@@ -4,11 +4,33 @@
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "handlers.h"
-#include "drivers/keyboard/keyboard.h"
-#include "drivers/rtl8139/driver.h"
 #include "paging/paging.h"
 #include "scheduler.h"
-#include "timer.h"
+
+#define DEBUG_LOCAL 1
+
+static handler_t irq_handlers[NUM_IRQ] = {0};
+
+int irq_grab(int irq, handler_t handler)
+{
+  if (irq < 0 || irq >= NUM_IRQ) return -1;
+  if (irq_handlers[irq] != 0) {
+#if DEBUG_LOCAL
+    serial_printf("irq %#x is already grabbed\n");
+#endif
+    return -1;
+  }
+
+  irq_handlers[irq] = handler;
+  return 0;
+}
+
+int irq_ungrab(int irq)
+{
+  if (irq < 0 || irq >= NUM_IRQ) return -1;
+  irq_handlers[irq] = 0;
+  return 0;
+}
 
 int handle_irq(isr_stack_t *stack)
 {
@@ -16,37 +38,22 @@ int handle_irq(isr_stack_t *stack)
   int irq = stack->int_num - IDT_IRQ;
   if (irq >= NUM_IRQ) return 0;
 
-  switch (irq) {
-  case IRQ_TIMER:
-    timer_irq(stack);
-    break;
-  case IRQ_KEYBOARD:
-    if (debug_paging) {
-      uint8_t scancode = inb(0x60);
-      if ((scancode & 0x80) == 0)
-        debug_key_pressed = 1;
-      pic_eoi(irq);
-      break;
-    }
-    kb_irq();
-    break;
-  case 11: /* TODO: make this dynamic */
-    rtl8139_irq();
-    break;
-  default:
-    {
-      outb(PIC_MASTER_CMD, 0x0b);
-      outb(PIC_SLAVE_CMD, 0x0b);
-      uint16_t isr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
-      outb(PIC_MASTER_CMD, 0x0a);
-      outb(PIC_SLAVE_CMD, 0x0a);
-      uint16_t irr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
-      serial_printf("unhandled irq: %u isr: %#04x irr: %#04x\n", irq, isr, irr);
-      pic_eoi(irq);
-    }
-    break;
+  handler_t h = irq_handlers[irq];
+  if (!h) {
+#if DEBUG_LOCAL
+    outb(PIC_MASTER_CMD, 0x0b);
+    outb(PIC_SLAVE_CMD, 0x0b);
+    uint16_t isr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
+    outb(PIC_MASTER_CMD, 0x0a);
+    outb(PIC_SLAVE_CMD, 0x0a);
+    uint16_t irr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
+    serial_printf("unhandled irq: %u isr: %#04x irr: %#04x\n", irq, isr, irr);
+#endif
+    pic_eoi(irq);
+    return 1;
   }
 
+  h(stack);
   return 1;
 }
 

@@ -2,6 +2,7 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "handlers.h"
 #include "scheduler.h"
 #include "timer.h"
 
@@ -56,13 +57,6 @@ void timer_set_divider(uint16_t d)
   timer_send_command(PIT_MODE_SQUARE_WAVE, d);
 }
 
-int timer_init(void)
-{
-  timer_set_divider(PIT_FREQ / 1000);
-  timer.quantum = 25;
-  return 0;
-}
-
 void timer_irq(isr_stack_t *stack)
 {
   pic_eoi(0);
@@ -81,6 +75,14 @@ void timer_irq(isr_stack_t *stack)
 
   /* run scheduler */
   sched_schedule(stack);
+}
+
+int timer_init(void)
+{
+  timer_set_divider(PIT_FREQ / 1000);
+  timer.quantum = 25;
+  irq_grab(IRQ_TIMER, timer_irq);
+  return 0;
 }
 
 unsigned long timer_get_tick(void)
