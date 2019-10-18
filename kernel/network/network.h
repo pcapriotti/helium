@@ -37,12 +37,18 @@ typedef struct nic_ops {
   mac_t (*mac)(void *data);
 } nic_ops_t;
 
-void network_init(void);
+/* initialise a preallocated frame, return pointer to payload */
+void *eth_frame_init(nic_ops_t *ops, void *ops_data,
+                     eth_frame_t *frame,
+                     uint16_t type,
+                     mac_t destination);
 
-/* transmit a packet: frame must contain an ethernet header and have
-space for padding and CRC */
-int network_transmit(nic_ops_t *ops, void *ops_data,
-                     eth_frame_t *frame, size_t payload_size);
+/* transmit a packet: frame must be initialised and have space for
+padding and CRC */
+int eth_transmit(nic_ops_t *ops, void *ops_data,
+                 eth_frame_t *frame, size_t payload_size);
+
+void network_init(void);
 
 void debug_mac(mac_t mac);
 void debug_ipv4(ipv4_t ip);

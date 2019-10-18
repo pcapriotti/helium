@@ -16,6 +16,44 @@ uint16_t eth_frame_type(eth_frame_t *frame)
   return ntohs(frame->type);
 }
 
+void eth_frame_set_type(eth_frame_t *frame, uint16_t type)
+{
+  frame->type = htons(type);
+}
+
+void *eth_frame_init(nic_ops_t *ops, void *ops_data,
+                     eth_frame_t *frame,
+                     uint16_t type,
+                     mac_t destination)
+{
+  frame->source = ops->mac(ops_data);
+  frame->destination = destination;
+  eth_frame_set_type(frame, type);
+  return frame->payload;
+}
+
+int eth_transmit(nic_ops_t *ops, void *ops_data,
+                 eth_frame_t *frame, size_t payload_size)
+{
+  /* check maximum size */
+  size_t total_size = payload_size + sizeof(eth_frame_t) + sizeof(uint32_t);
+  if (total_size > ETH_MTU) return -1;
+
+  /* add padding */
+  void *payload = frame + 1;
+  if (payload_size < ETH_MIN_PAYLOAD_SIZE) {
+    memset(payload + payload_size, 0, ETH_MIN_PAYLOAD_SIZE - payload_size);
+    payload_size = ETH_MIN_PAYLOAD_SIZE;
+  }
+
+  /* note: possibly unaligned pointer */
+  uint32_t *crc = payload + payload_size;
+  *crc = crc32((uint8_t *) frame, sizeof(eth_frame_t) + payload_size);
+
+  return ops->transmit(ops_data, frame, total_size);
+}
+
+
 void dispatch(void *data, uint8_t *payload, size_t size)
 {
   eth_frame_t *frame = (eth_frame_t *) payload;
@@ -70,26 +108,6 @@ void network_init(void)
   /* just use rtl8139 for now */
   /* TODO: use a device manager */
   start_network(&rtl8139_ops, rtl8139_ops_data);
-}
-
-int network_transmit(nic_ops_t *ops, void *ops_data,
-                     eth_frame_t *frame, size_t payload_size)
-{
-  /* add padding */
-  void *payload = frame + 1;
-  if (payload_size < ETH_MIN_PAYLOAD_SIZE) {
-    memset(payload + payload_size, 0, ETH_MIN_PAYLOAD_SIZE - payload_size);
-    payload_size = ETH_MIN_PAYLOAD_SIZE;
-  }
-
-  /* note: possibly unaligned pointer */
-  uint32_t *crc = payload + payload_size;
-  *crc = crc32((uint8_t *) frame, sizeof(eth_frame_t) + payload_size);
-
-  return ops->transmit(ops_data, frame,
-                       sizeof(eth_frame_t) +
-                       payload_size +
-                       sizeof(uint32_t));
 }
 
 void debug_mac(mac_t mac)

@@ -126,16 +126,20 @@ void process_packets(void)
 
         if (packet->target_ip == ASSIGNED_IP) {
           /* reply with our mac address */
+          eth_frame_t *frame = (eth_frame_t *) packet_buffer;
+          arp_packet_t *reply = eth_frame_init(data->ops,
+                                               data->ops_data,
+                                               frame,
+                                               ETYPE_ARP,
+                                               packet->sender_mac);
 
-          eth_frame_t *reply_eth = (eth_frame_t *) packet_buffer;
-          /* leave some space for the nic header */
-          reply_eth->destination = packet->sender_mac;
-          reply_eth->source = data->ops->mac(data->ops_data);
-          reply_eth->type = htons(ETYPE_ARP);
-          arp_packet_t *reply = (arp_packet_t *) reply_eth->payload;
-          reply->target_mac = reply_eth->destination;
-          reply->sender_mac = reply_eth->source;
+          reply->target_mac = packet->sender_mac;
           reply->target_ip = packet->sender_ip;
+          packet = 0;
+          /* release buffer mutex early */
+          sem_signal(&data->buffer_sem);
+
+          reply->sender_mac = data->ops->mac(data->ops_data);
           reply->sender_ip = ASSIGNED_IP;
           reply->hlen = 6;
           reply->plen = 4;
@@ -143,9 +147,9 @@ void process_packets(void)
           arp_packet_set_ptype(reply, ETYPE_IPV4);
           arp_packet_set_operation(reply, OP_REPLY);
 
-          sem_signal(&data->buffer_sem);
-          network_transmit(data->ops, data->ops_data, reply_eth, sizeof(arp_packet_t));
-          sem_wait(&data->buffer_sem);
+          eth_transmit(data->ops, data->ops_data,
+                       frame, sizeof(arp_packet_t));
+          continue; /* do not signal buffer_sem again */
         }
         break;
       case OP_REPLY:
