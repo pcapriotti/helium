@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
-int ipv4_receive_packet(void *payload, size_t size);
+struct nic;
+
+int ipv4_receive_packet(struct nic *nic, void *payload, size_t size);
 
 #endif /* IPV4_H */

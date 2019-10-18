@@ -80,10 +80,10 @@ void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
   uint16_t type = eth_frame_type(frame);
   switch (type) {
   case ETYPE_ARP:
-    arp_receive_packet(frame->payload, size - sizeof(eth_frame_t));
+    arp_receive_packet(nic, frame->payload, size - sizeof(eth_frame_t));
     break;
   case ETYPE_IPV4:
-    ipv4_receive_packet(frame->payload, size - sizeof(eth_frame_t));
+    ipv4_receive_packet(nic, frame->payload, size - sizeof(eth_frame_t));
     break;
   case ETYPE_IPV6:
 #if DEBUG_LOCAL

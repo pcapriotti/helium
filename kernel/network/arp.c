@@ -70,7 +70,7 @@ void arp_packet_set_operation(arp_packet_t *packet, uint16_t operation)
   packet->operation = htons(operation);
 }
 
-void arp_receive_packet(uint8_t *payload, size_t size)
+void arp_receive_packet(nic_t *nic, uint8_t *payload, size_t size)
 {
   arp_packet_t *packet = (arp_packet_t *) payload;
 

@@ -43,7 +43,7 @@ uint16_t ipv4_header_length(ipv4_header_t *header)
   return ntohs(header->length);
 }
 
-int ipv4_receive_packet(void *packet, size_t size)
+int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
 {
   ipv4_header_t *header = packet;
   if (ipv4_header_version(header) != 4) return -1;
