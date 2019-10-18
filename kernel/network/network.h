@@ -2,23 +2,7 @@
 #define NETWORK_H
 
 #include "list.h"
-
-#include <stddef.h>
-#include <stdint.h>
-
-#define ETH_MTU 1500
-#define ETH_MIN_PAYLOAD_SIZE 46
-
-enum {
-  ETYPE_IPV4 = 0x0800,
-  ETYPE_IPV6 = 0x86dd,
-  ETYPE_ARP = 0x0806,
-};
-
-typedef struct mac {
-  uint8_t data[6];
-} __attribute__((packed)) mac_t;
-typedef uint32_t ipv4_t;
+#include "network/types.h"
 
 typedef struct eth_frame {
   mac_t destination;
@@ -50,6 +34,14 @@ typedef struct nic {
   const char *name;
 } nic_t;
 
+enum {
+  /* reserved for the main task */
+  ETH_FRAME_STATIC,
+};
+
+/* allocate a new frame */
+eth_frame_t *eth_frame_alloc(int flags, size_t payload_size);
+
 /* initialise a preallocated frame, return pointer to payload */
 void *eth_frame_init(nic_t *nic,
                      eth_frame_t *frame,
@@ -58,7 +50,7 @@ void *eth_frame_init(nic_t *nic,
 
 /* transmit a packet: frame must be initialised and have space for
 padding and CRC */
-int eth_transmit(nic_t *ops, eth_frame_t *frame, size_t payload_size);
+int eth_transmit(nic_t *ops, void *payload, size_t length);
 
 void network_init(void);
 

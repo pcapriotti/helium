@@ -1,15 +1,13 @@
 #include "arpa/inet.h"
-#include "arp.h"
 #include "core/debug.h"
-#include "network.h"
+#include "network/network.h"
+#include "network/arp.h"
 #include "scheduler.h"
 #include "semaphore.h"
 
 #include <string.h>
 
 #define DEBUG_LOCAL 1
-
-#define ARP_BUFSIZE 64
 
 typedef struct arp_packet {
   uint16_t htype;
@@ -27,8 +25,6 @@ enum {
   OP_REQUEST = 1,
   OP_REPLY = 2,
 };
-
-static uint8_t packet_buffer[ETH_MTU];
 
 uint16_t arp_packet_htype(arp_packet_t *packet)
 {
@@ -77,7 +73,8 @@ int process_packet(nic_t *nic, arp_packet_t *packet)
 
     if (packet->target_ip == nic->ip) {
       /* reply with our mac address */
-      eth_frame_t *frame = (eth_frame_t *) packet_buffer;
+      eth_frame_t *frame = eth_frame_alloc(ETH_FRAME_STATIC,
+                                           sizeof(arp_packet_t));
       arp_packet_t *reply = eth_frame_init(nic, frame,
                                            ETYPE_ARP,
                                            packet->sender_mac);
@@ -93,7 +90,7 @@ int process_packet(nic_t *nic, arp_packet_t *packet)
       arp_packet_set_ptype(reply, ETYPE_IPV4);
       arp_packet_set_operation(reply, OP_REPLY);
 
-      eth_transmit(nic, frame, sizeof(arp_packet_t));
+      eth_transmit(nic, reply, sizeof(arp_packet_t));
     }
     break;
   case OP_REPLY:
@@ -118,4 +115,11 @@ void arp_receive_packet(nic_t *nic, uint8_t *payload, size_t size)
   if (packet->plen != 4) return;
 
   process_packet(nic, packet);
+}
+
+int arp_resolve(ipv4_t ip, mac_t *mac)
+{
+  /* TODO */
+  *mac = (mac_t) {{ 0x1e, 0x83, 0x5a, 0xf5, 0x85, 0x2c }};
+  return 0;
 }

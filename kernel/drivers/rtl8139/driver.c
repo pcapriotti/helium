@@ -124,7 +124,7 @@ int transmit(void *_data, void *buf, size_t len)
   serial_printf("\n");
 #endif
 
-  /* only NUM_TX_SLOTS thread allowed at one time */
+  /* only NUM_TX_SLOTS threads allowed at one time */
   sem_wait(&data->tx_sem);
 
   /* writing to a tx slot needs to be serialised to make sure that

@@ -13,6 +13,10 @@
 
 #define CRC_OK 0xdebb20e3
 
+/* statically allocated buffer for sending data */
+/* this can only be used in the main thread */
+static uint8_t main_packet_buffer[ETH_MTU];
+
 uint16_t eth_frame_type(eth_frame_t *frame)
 {
   return ntohs(frame->type);
@@ -21,6 +25,17 @@ uint16_t eth_frame_type(eth_frame_t *frame)
 void eth_frame_set_type(eth_frame_t *frame, uint16_t type)
 {
   frame->type = htons(type);
+}
+
+eth_frame_t *eth_frame_alloc(int flags, size_t payload_size)
+{
+  size_t total_size = payload_size + sizeof(eth_frame_t) + sizeof(uint32_t);
+  if (total_size > ETH_MTU) return 0;
+
+  if (flags == ETH_FRAME_STATIC)
+    return (eth_frame_t *) main_packet_buffer;
+
+  return 0;
 }
 
 void *eth_frame_init(nic_t *nic,
@@ -34,22 +49,20 @@ void *eth_frame_init(nic_t *nic,
   return frame->payload;
 }
 
-int eth_transmit(nic_t *nic, eth_frame_t *frame, size_t payload_size)
+int eth_transmit(nic_t *nic, void *payload, size_t length)
 {
-  /* check maximum size */
-  size_t total_size = payload_size + sizeof(eth_frame_t) + sizeof(uint32_t);
-  if (total_size > ETH_MTU) return -1;
+  eth_frame_t *frame = payload - sizeof(eth_frame_t);
+  size_t total_size = length + sizeof(eth_frame_t) + sizeof(uint32_t);
 
   /* add padding */
-  void *payload = frame + 1;
-  if (payload_size < ETH_MIN_PAYLOAD_SIZE) {
-    memset(payload + payload_size, 0, ETH_MIN_PAYLOAD_SIZE - payload_size);
-    payload_size = ETH_MIN_PAYLOAD_SIZE;
+  if (length < ETH_MIN_PAYLOAD_SIZE) {
+    memset(payload + length, 0, ETH_MIN_PAYLOAD_SIZE - length);
+    length = ETH_MIN_PAYLOAD_SIZE;
   }
 
   /* note: possibly unaligned pointer */
-  uint32_t *crc = payload + payload_size;
-  *crc = crc32((uint8_t *) frame, sizeof(eth_frame_t) + payload_size);
+  uint32_t *crc = payload + length;
+  *crc = crc32((uint8_t *) frame, sizeof(eth_frame_t) + length);
 
   return nic->ops->transmit(nic->ops_data, frame, total_size);
 }
