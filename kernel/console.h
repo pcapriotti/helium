@@ -9,7 +9,6 @@ typedef struct { int x, y; } point_t;
 typedef struct { point_t start, end; } span_t;
 
 typedef struct {
-  uint32_t white, red, green, blue;
   uint32_t *fb;
   int pitch;
   span_t dirty;
