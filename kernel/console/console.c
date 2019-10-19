@@ -1,4 +1,5 @@
-#include "console.h"
+#include "console/console.h"
+#include "console/point.h"
 #include "core/debug.h"
 #include "font.h"
 #include "graphics.h"
@@ -15,92 +16,29 @@
 #define TRACE(...) do {} while(0)
 #endif
 
-#define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define DEFAULT_FG 0x00aaaaaa
 #define DEFAULT_BG 0
 
 console_t console = {0};
-
-int point_equal(point_t p, point_t q)
-{
-  return p.x == q.x && p.y == q.y;
-}
-
-int point_le(point_t p, point_t q)
-{
-  if (p.y == q.y) {
-    return p.x < q.x;
-  }
-  else {
-    return p.y < q.y;
-  }
-}
-
-point_t point_next(point_t p)
-{
-  if (p.x >= console.width - 1) {
-    return (point_t) { 0, p.y + 1 };
-  }
-  else {
-    return (point_t) { p.x + 1, p.y };
-  }
-}
-
-unsigned int point_index(point_t p)
-{
-  return p.x + (p.y % console.height) * console.width;
-}
-
-int span_is_empty(span_t *span)
-{
-  return point_equal(span->start, span->end);
-}
-
-int span_equal(span_t *a, span_t *b)
-{
-  return point_equal(a->start, b->start) &&
-    point_equal(a->end, b->end);
-}
-
-void span_include_point(span_t *s, point_t p)
-{
-  if (span_is_empty(s)) {
-    s->start = p;
-    s->end = point_next(p);
-    return;
-  }
-
-  if (point_le(p, s->start)) {
-    s->start = p;
-  }
-  else if (point_le(s->end, p)) {
-    s->end = p;
-  }
-}
 
 static inline uint32_t mask(uint8_t size, uint8_t position)
 {
   return ((~0u) << position) & ((~0u) >> size);
 }
 
-static inline uint32_t *at(point_t p)
+static void schedule_repaint(console_t *console)
 {
-  return console.fb +
-    p.x * graphics_font.header.width +
-    (p.y - console.offset) * console.pitch * graphics_font.header.height;
+  console->backend->ops->schedule_repaint(console->backend->ops_data);
 }
 
-int console_init(void)
+int console_init(console_backend_t *backend)
 {
+  console.backend = backend;
   if (graphics_mode.bpp != 32) return -1;
 
-  console.fb = (uint32_t *)graphics_mode.framebuffer;
-
-  if (graphics_mode.pitch % PIXEL_SIZE != 0) return -1;
-  console.pitch = graphics_mode.pitch / PIXEL_SIZE;
-
-  console.width = graphics_mode.width / graphics_font.header.width;
-  console.height = graphics_mode.height / graphics_font.header.height;
+  backend->ops->set_geometry(backend->ops_data,
+                             &console.width,
+                             &console.height);
   console.offset = 0;
   if (console.width <= 0 || console.height <= 0) return -1;
 
@@ -117,10 +55,8 @@ int console_init(void)
   console.bg = DEFAULT_BG;
 
   console.dirty.end.y = console.height;
-  console.needs_repaint = 0;
 
   sem_init(&console.write_sem, 1);
-  sem_init(&console.paint_sem, 0);
 
   return 0;
 }
@@ -129,94 +65,17 @@ static void console_renderer(void)
 {
   while (1) {
     sem_wait(&console.write_sem);
-    console_render_buffer();
-    console.needs_repaint = 0;
+    console.backend->ops->repaint
+      (console.backend->ops_data, &console);
     sem_signal(&console.write_sem);
 
-    sem_wait(&console.paint_sem);
+    console.backend->ops->wait(console.backend->ops_data);
   }
 }
 
 void console_start_background_task()
 {
   sched_spawn_task(console_renderer);
-}
-
-uint32_t *console_at(point_t p)
-{
-  return at(p);
-}
-
-void console_render_cursor()
-{
-  uint32_t *pos = at(console.cur);
-  uint32_t fg = console.fg_buffer[point_index(console.cur)];
-  static const int cursor_height = 2;
-  pos += (graphics_font.header.height - cursor_height) * console.pitch;
-  for (int i = 0; i < cursor_height; i++) {
-    for (size_t x = 0; x < graphics_font.header.width; x++) {
-      *pos++ = fg;
-    }
-    pos += console.pitch - graphics_font.header.width;
-  }
-}
-
-void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg)
-{
-  int pitch = console.pitch - graphics_font.header.width;
-
-  if (!c) {
-    /* just draw background */
-    for (size_t i = 0; i < graphics_font.header.height; i++) {
-      for (size_t j = 0; j < graphics_font.header.width; j++) {
-        *pos++ = bg;
-      }
-      pos += pitch;
-    }
-    return;
-  }
-
-  uint8_t *glyph = font_glyph(&graphics_font, c);
-  for (size_t i = 0; i < graphics_font.header.height; i++) {
-    uint8_t line = glyph[i];
-    for (size_t j = 0; j < graphics_font.header.width; j++) {
-      *pos++ = (line & 0x80) ? fg : bg;
-      line <<= 1;
-    }
-    pos += pitch;
-  }
-}
-
-uint32_t palette[8] = {
-  0x00000000, 0x000000ff, 0x0000ff00, 0x0000ffff,
-  0x00ff0000, 0x00ff00ff, 0x00ffff00, 0x00ffffff,
-};
-
-void console_render_buffer()
-{
-  TRACE("start rendering\n");
-  point_t p = console.dirty.start;
-  point_t p1 = console.dirty.end;
-  uint32_t *pos = at(p);
-
-  while (point_le(p, p1)) {
-    unsigned int index = point_index(p);
-    uint8_t c = console.buffer[index];
-    uint32_t fg = console.fg_buffer[index];
-    uint32_t bg = console.bg_buffer[index];
-    console_render_char(pos, c, fg, bg);
-
-    pos += graphics_font.header.width;
-    if (p.x == console.width - 1) {
-      pos += graphics_font.header.height * console.pitch - graphics_font.header.width * console.width;
-    }
-    p = point_next(p);
-  }
-
-  console_render_cursor();
-
-  console.dirty.end = console.dirty.start;
-  TRACE("done rendering\n");
 }
 
 void console_clear_line(int y)
@@ -231,20 +90,20 @@ static inline void _console_putchar_at(point_t p, char c, uint32_t fg, uint32_t 
 {
   if (c < 0x20 || c > 0x7e) return;
 
-  unsigned int index = point_index(p);
+  unsigned int index = point_index(&console, p);
   if (p.x < console.width) {
     console.buffer[index] = c;
     console.fg_buffer[index] = fg;
     console.bg_buffer[index] = bg;
-    span_include_point(&console.dirty, p);
+    span_include_point(&console, &console.dirty, p);
   }
 }
 
 void _console_set_cursor(point_t p)
 {
-  span_include_point(&console.dirty, console.cur);
+  span_include_point(&console, &console.dirty, console.cur);
   console.cur = p;
-  span_include_point(&console.dirty, console.cur);
+  span_include_point(&console, &console.dirty, console.cur);
   while (console.cur.y - console.offset >= console.height) {
     console_clear_line(console.offset + console.height);
     console.offset++;
@@ -257,7 +116,7 @@ void _console_set_cursor(point_t p)
 
 void _console_advance_cursor(void)
 {
-  _console_set_cursor(point_next(console.cur));
+  _console_set_cursor(point_next(&console, console.cur));
 }
 
 void _console_print_char(char c)
@@ -271,23 +130,13 @@ void _console_print_char(char c)
   }
 }
 
-static void schedule_repaint(void)
-{
-  sem_wait(&console.write_sem);
-  if (!console.needs_repaint) {
-    console.needs_repaint = 1;
-    sem_signal(&console.paint_sem);
-  }
-  sem_signal(&console.write_sem);
-}
-
 void console_print_char(char c)
 {
   sem_wait(&console.write_sem);
   _console_print_char(c);
   sem_signal(&console.write_sem);
 
-  schedule_repaint();
+  schedule_repaint(&console);
 }
 
 void console_delete_char(point_t c)
@@ -296,16 +145,16 @@ void console_delete_char(point_t c)
   uint8_t *p = console.buffer + c.x +
     (c.y % console.height) * console.width;
   *p = 0;
-  span_include_point(&console.dirty, c);
+  span_include_point(&console, &console.dirty, c);
   sem_signal(&console.write_sem);
-  schedule_repaint();
+  schedule_repaint(&console);
 }
 
 void console_set_cursor(point_t c) {
   sem_wait(&console.write_sem);
   _console_set_cursor(c);
   sem_signal(&console.write_sem);
-  schedule_repaint();
+  schedule_repaint(&console);
 }
 
 void console_print_str(const char *s)
@@ -318,7 +167,7 @@ void console_print_str(const char *s)
     sem_signal(&console.write_sem);
   }
 
-  schedule_repaint();
+  schedule_repaint(&console);
 }
 
 void console_debug_print_char(char c)
@@ -344,4 +193,10 @@ void console_set_bg(uint32_t bg)
 void console_reset_bg(void)
 {
   console.fg = DEFAULT_BG;
+}
+
+void console_render_buffer(void)
+{
+  console.backend->ops->repaint
+    (console.backend->ops_data, &console);
 }

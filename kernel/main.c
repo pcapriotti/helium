@@ -1,5 +1,6 @@
 #include "atomic.h"
 #include "console/console.h"
+#include "console/fbcon.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/debug.h"
@@ -120,7 +121,7 @@ void kernel_start(void *multiboot, uint32_t magic)
   }
 
   if (graphics_mode.number) {
-    if (console_init() == -1) panic();
+    if (console_init(fbcon_backend_get()) == -1) panic();
     for (int i = 0; i < 25; i++) {
       int p = console.width * i;
       int q = 80 * i;
