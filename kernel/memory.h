@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define ALIGNED(x, bits) (((uint32_t) (x)) & (~0UL << (bits)))
+#define ALIGN_MASK(bits) (~0UL << (bits))
+#define ALIGNED(x, bits) (((uint32_t) (x)) & ALIGN_MASK(bits))
+#define ALIGNED_UP(x, bits) ALIGNED((((uint32_t) (x)) + ~ALIGN_MASK(bits)), bits)
+#define IS_ALIGNED(x, bits) ((((uint32_t) (x)) & ~ALIGN_MASK(bits)))
+
 #define ALIGNED64(x, bits) (((uint64_t) (x)) & (~0ULL << (bits)))
 #define PAGE_BITS 12
 
