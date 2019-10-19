@@ -4,7 +4,8 @@
 
 #define SEMAPHORE_DEBUG 0
 #if SEMAPHORE_DEBUG
-#define TRACE(...) serial_printf(__VA_ARGS__)
+#define TRACE(fmt, ...) serial_printf("[semaphore] " fmt \
+                                      __VA_OPT__(,) __VA_ARGS__)
 #else
 #define TRACE(...) do {} while(0)
 #endif
@@ -30,7 +31,7 @@ void sem_wait(semaphore_t *sem)
   spin_lock(&sem->lock);
 
   if (--sem->value < 0) {
-    TRACE("sem (%p): sleeping\n", sched_current);
+    TRACE("%p: %p sleeping\n", sem, sched_current);
     sched_current->state = TASK_WAITING;
     list_add(&sem->waiting, &sched_current->head);
     spin_unlock(&sem->lock);
@@ -45,7 +46,7 @@ void sem_wait(semaphore_t *sem)
 void _sem_signal(semaphore_t *sem)
 {
   if (sem->value++ < 0 && sem->waiting) {
-    TRACE("sem (%p): waking %p\n", sched_current, sem->waiting);
+    TRACE("%p: %p waking %p\n", sem, sched_current, sem->waiting);
     task_t *task = TASK_LIST_ENTRY(list_pop(&sem->waiting));
     task->state = TASK_RUNNING;
     list_add(&sched_runqueue, &task->head);

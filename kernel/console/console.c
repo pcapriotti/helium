@@ -10,7 +10,7 @@
 
 #define CONSOLE_DEBUG 0
 #if CONSOLE_DEBUG
-#define TRACE(...) serial_printf(__VA_ARGS__)
+#define TRACE(fmt, ...) serial_printf("[console] " fmt __VA_OPT__(,) __VA_ARGS__)
 #else
 #define TRACE(...) do {} while(0)
 #endif
