@@ -97,9 +97,9 @@ void kernel_start(void *multiboot, uint32_t magic)
 
   kprintf("Helium starting (magic = %#x)\n", magic);
 
+  sti();
   if (timer_init() == -1) panic();
   if (kb_init() == -1) panic();
-  sti();
 
   if (memory_init(multiboot) == -1) panic();
 

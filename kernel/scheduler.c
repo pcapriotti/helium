@@ -144,7 +144,8 @@ void sched_yield(void)
   assert(sched_locked == 1);
   cli();
   sched_locked = 0;
-  TRACE("%p yield (state = %u)\n", sched_current, sched_current ? sched_current->state : 0);
+  TRACE("%p yield (state = %u)\n",
+        sched_current, sched_current ? sched_current->state : 0);
   syscall_yield();
   sti();
 }

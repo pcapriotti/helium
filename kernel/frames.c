@@ -253,6 +253,18 @@ static inline uint64_t list_take(uint64_t *list)
   return 0;
 }
 
+static void frames_lock(frames_t *frames)
+{
+  if (frames->lock)
+    frames->lock(frames);
+}
+
+static void frames_unlock(frames_t *frames)
+{
+  if (frames->unlock)
+    frames->unlock(frames);
+}
+
 static void add_blocks(unsigned int order, uint64_t start, frames_t *frames,
                        int (*mem_info)(uint64_t start, uint64_t size, void *data),
                        void *data)
@@ -363,6 +375,8 @@ int frames_init(frames_t *frames, frames_t *aux_frames,
   frames->end = end;
   frames->min_order = min_order;
   frames->max_order = ORDER64_OF(end - start);
+  frames->lock = 0;
+  frames->unlock = 0;
   if (frames->max_order < frames->min_order) {
     FRAMES_PANIC(-1, "min_order too large\n");
   }
@@ -440,7 +454,11 @@ uint64_t frames_alloc(frames_t *frames, size_t sz)
 {
   unsigned int order = ORDER_OF(sz);
   if (order < frames->min_order) order = frames->min_order;
+
+  frames_lock(frames);
   uint64_t ret = take_block(frames, order);
+  frames_unlock(frames);
+
   TRACE("allocated %#" PRIx64 " size 0x%lx (order %u)\n", ret, sz, order);
   DIAGNOSTICS(frames);
   return ret;
@@ -448,6 +466,7 @@ uint64_t frames_alloc(frames_t *frames, size_t sz)
 
 void frames_dump_diagnostics(frames_t *frames)
 {
+  frames_lock(frames);
   for (unsigned int k = frames->min_order; k <= frames->max_order; k++) {
     uint64_t frame = *block_head(frames, k);
     int nonempty = frame != 0;
@@ -461,6 +480,7 @@ void frames_dump_diagnostics(frames_t *frames)
     }
     if (nonempty) kprintf("\n");
   }
+  frames_unlock(frames);
   kprintf("total memory: %" PRIu64 " B\n  from %#" PRIx64 " to %#" PRIx64 "\n",
           frames->end - frames->start,
           frames->start, frames->end);
@@ -532,7 +552,9 @@ unsigned int frames_find_order(frames_t *frames, uint64_t p)
 
 void frames_free(frames_t *frames, uint64_t p)
 {
+  frames_lock(frames);
   frames_free_order(frames, p, frames_find_order(frames, p));
+  frames_unlock(frames);
 }
 
 int default_mem_info(uint64_t start, uint64_t size, void *data)

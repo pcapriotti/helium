@@ -18,6 +18,9 @@ typedef struct frames {
   unsigned int min_order, max_order;
 
   uint32_t *metadata;
+
+  void (*lock)(struct frames *frames);
+  void (*unlock)(struct frames *frames);
 } frames_t;
 
 typedef struct {

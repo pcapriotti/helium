@@ -6,6 +6,7 @@
 #include "memory.h"
 #include "multiboot.h"
 #include "paging/paging.h"
+#include "scheduler.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -68,6 +69,16 @@ void isort(void *base, size_t nmemb, size_t size,
       j--;
     }
   }
+}
+
+static void _lock_frames(frames_t *frames)
+{
+  sched_disable_preemption();
+}
+
+static void _unlock_frames(frames_t *frames)
+{
+  sched_enable_preemption();
 }
 
 extern int v8086_tracing;
@@ -313,9 +324,15 @@ int chunk_info_init_frame(chunk_info_t *chunk_info,
                           frames_t *aux_frames,
                           unsigned int order)
 {
-  return frames_init(frames, aux_frames,
-                     chunk_info->start, chunk_info->end,
-                     order, &mem_info, chunk_info);
+  int ret = frames_init(frames, aux_frames,
+                        chunk_info->start, chunk_info->end,
+                        order, &mem_info, chunk_info);
+  if (ret == -1) return -1;
+
+  frames->lock = _lock_frames;
+  frames->unlock = _unlock_frames;
+
+  return ret;
 }
 
 int memory_init(multiboot_t *multiboot)
