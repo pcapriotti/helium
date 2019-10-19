@@ -12,11 +12,7 @@ static fbcon_t instance;
 
 int fbcon_init(fbcon_t *fbcon)
 {
-  sem_init(&fbcon->paint_sem, 0);
-  sem_init(&fbcon->paint_mutex, 1);
-
   fbcon->fb = (uint32_t *)graphics_mode.framebuffer;
-  fbcon->needs_repaint = 0;
 
   if (graphics_mode.pitch % PIXEL_SIZE != 0) return -1;
   fbcon->pitch = graphics_mode.pitch / PIXEL_SIZE;
@@ -40,29 +36,10 @@ static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
     (p.y - console->offset) * fbcon->pitch * graphics_font.header.height;
 }
 
-static void wait(void *data)
-{
-  fbcon_t *fbcon = data;
-
-  sem_wait(&fbcon->paint_sem);
-}
-
 static void set_geometry(void *data, int *width, int *height)
 {
   *width = graphics_mode.width / graphics_font.header.width;
   *height = graphics_mode.height / graphics_font.header.height;
-}
-
-static void schedule_repaint(void *data)
-{
-  fbcon_t *fbcon = data;
-
-  sem_wait(&fbcon->paint_mutex);
-  if (!fbcon->needs_repaint) {
-    fbcon->needs_repaint = 1;
-    sem_signal(&fbcon->paint_sem);
-  }
-  sem_signal(&fbcon->paint_mutex);
 }
 
 void render_char(fbcon_t *fbcon, console_t *console,
@@ -133,15 +110,10 @@ static void render_buffer(void *data, console_t *console)
   render_cursor(fbcon, console);
 
   console->dirty.end = console->dirty.start;
-  sem_wait(&fbcon->paint_mutex);
-  fbcon->needs_repaint = 0;
-  sem_signal(&fbcon->paint_mutex);
 }
 
 static console_ops_t ops = {
   .repaint = render_buffer,
-  .schedule_repaint = schedule_repaint,
-  .wait = wait,
   .set_geometry = set_geometry,
 };
 

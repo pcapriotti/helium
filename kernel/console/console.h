@@ -12,8 +12,6 @@ struct console;
 
 typedef struct console_ops {
   void (*repaint)(void *data, struct console *console);
-  void (*schedule_repaint)(void *data);
-  void (*wait)(void *data);
   void (*set_geometry)(void *data, int* width, int *height);
 } console_ops_t;
 
@@ -29,6 +27,8 @@ typedef struct console {
   int width, height;
   int offset;
   semaphore_t write_sem;
+  semaphore_t paint_sem;
+  int needs_repaint;
 
   uint8_t *buffer;
   uint32_t *fg_buffer;

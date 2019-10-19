@@ -28,12 +28,19 @@ static inline uint32_t mask(uint8_t size, uint8_t position)
 
 static void schedule_repaint(console_t *console)
 {
-  console->backend->ops->schedule_repaint(console->backend->ops_data);
+  sem_wait(&console->write_sem);
+  if (!console->needs_repaint) {
+    console->needs_repaint = 1;
+    sem_signal(&console->paint_sem);
+  }
+  sem_signal(&console->write_sem);
 }
 
 int console_init(console_backend_t *backend)
 {
   console.backend = backend;
+  console.needs_repaint = 0;
+
   if (graphics_mode.bpp != 32) return -1;
 
   backend->ops->set_geometry(backend->ops_data,
@@ -67,9 +74,10 @@ static void console_renderer(void)
     sem_wait(&console.write_sem);
     console.backend->ops->repaint
       (console.backend->ops_data, &console);
+    console.needs_repaint = 0;
     sem_signal(&console.write_sem);
 
-    console.backend->ops->wait(console.backend->ops_data);
+    sem_wait(&console.paint_sem);
   }
 }
 
