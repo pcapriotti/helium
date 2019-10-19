@@ -3,6 +3,8 @@
 #include "paging/paging.h"
 #endif
 
+#include "bitset.h"
+
 #include <assert.h>
 #include <inttypes.h>
 #include <string.h>
@@ -42,16 +44,6 @@
 #else
 #define DIAGNOSTICS(frames) do {} while (0)
 #endif
-
-/* operations on bitvectors defined as arrays of uint32_t */
-#define GET_BIT(v, index) \
-  ((v)[(index) >> 5] & (1 << ((index) & 0x1f)))
-#define SET_BIT(v, index) \
-  ((v)[(index) >> 5] |= (1 << ((index) & 0x1f)))
-#define UNSET_BIT(v, index) \
-  ((v)[(index) >> 5] &= ~(1 << ((index) & 0x1f)))
-#define FLIP_BIT(v, index) \
-  ((v)[(index) >> 5] ^= (1 << ((index) & 0x1f)))
 
 typedef struct block_t {
   /* physical pointer to next block */
