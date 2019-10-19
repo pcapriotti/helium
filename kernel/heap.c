@@ -1,3 +1,4 @@
+#include "core/debug.h"
 #include "frames.h"
 #include "heap.h"
 #include "memory.h"

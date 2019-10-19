@@ -1,6 +1,7 @@
 #include "atomic.h"
 #include "console/console.h"
 #include "console/fbcon.h"
+#include "console/textcon.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/debug.h"
@@ -50,6 +51,16 @@ void ata_read_closure(void *data, void *buf,
                  offset + (clo_data->part_offset << 9),
                  bytes,
                  buf);
+}
+
+static console_backend_t *console_backend_get(void)
+{
+  if (graphics_mode.number) {
+    return fbcon_backend_get();
+  }
+  else {
+    return textcon_backend_get();
+  }
 }
 
 void root_task(void)
@@ -120,22 +131,20 @@ void kernel_start(void *multiboot, uint32_t magic)
     (void) mode;
   }
 
-  if (graphics_mode.number) {
-    if (console_init(fbcon_backend_get()) == -1) panic();
-    for (int i = 0; i < 25; i++) {
-      int p = console.width * i;
-      int q = 80 * i;
-      for (int j = 0; j < 80; j++) {
-        console.buffer[p++] = debug_buf[q++];
-      }
+  if (console_init(console_backend_get()) == -1) panic();
+  for (int i = 0; i < 25; i++) {
+    int p = console.width * i;
+    int q = 80 * i;
+    for (int j = 0; j < 80; j++) {
+      console.buffer[p++] = debug_buf[q++];
     }
-    console.cur.x = debug_console.x;
-    console.cur.y = debug_console.y;
-    console_render_buffer();
-    print_char_function = &console_debug_print_char;
-    redraw_screen_function = &console_render_buffer;
-    console_start_background_task();
   }
+  console.cur.x = debug_console.x;
+  console.cur.y = debug_console.y;
+  console_render_buffer();
+  print_char_function = &console_debug_print_char;
+  redraw_screen_function = &console_render_buffer;
+  console_start_background_task();
   ffree(debug_buf);
 
   sched_spawn_task(root_task);
