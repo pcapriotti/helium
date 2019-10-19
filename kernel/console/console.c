@@ -41,8 +41,6 @@ int console_init(console_backend_t *backend)
   console.backend = backend;
   console.needs_repaint = 0;
 
-  if (graphics_mode.bpp != 32) return -1;
-
   backend->ops->set_geometry(backend->ops_data,
                              &console.width,
                              &console.height);

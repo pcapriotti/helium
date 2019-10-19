@@ -14,6 +14,7 @@ int fbcon_init(fbcon_t *fbcon)
 {
   fbcon->fb = (uint32_t *)graphics_mode.framebuffer;
 
+  if (graphics_mode.bpp != 32) return -1;
   if (graphics_mode.pitch % PIXEL_SIZE != 0) return -1;
   fbcon->pitch = graphics_mode.pitch / PIXEL_SIZE;
   return 0;
