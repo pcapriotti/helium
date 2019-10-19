@@ -103,6 +103,9 @@ void sched_spawn_task(task_entry_t entry)
 
   void *stack = task->stack_top + 0x4000;
 
+  /* add space for final return address */
+  stack -= sizeof(void *);
+  *(void **)stack = 0;
   /* add return ip */
   stack -= sizeof(void *);
   *(void **)stack = task_terminate;
