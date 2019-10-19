@@ -9,6 +9,11 @@
 #define KMALLOC_DEBUG 0
 #define KMALLOC_UNIT 4
 
+#ifndef _HELIUM
+# include <stdio.h>
+# define kprintf printf
+#endif
+
 /* simplistic allocator design, with just one list of free blocks */
 
 struct block;
@@ -25,23 +30,31 @@ typedef struct block {
 } block_t;
 
 #define MIN_ALLOC_SIZE sizeof(block_t)
-#define PAGE_GROWTH 16
+#define DEFAULT_PAGE_GROWTH 16
 
 struct heap {
   /* linked list of free blocks, in increasing order
      of address */
   block_t *free_blocks;
   frames_t *frames;
+  int page_growth;
 };
 
 heap_t *heap_new(frames_t *frames)
 {
+  return heap_new_with_growth(frames, DEFAULT_PAGE_GROWTH);
+}
+
+heap_t *heap_new_with_growth(frames_t *frames, int page_growth)
+{
   /* get a block from the frame allocator */
-  uint32_t size = PAGE_GROWTH << PAGE_BITS;
+  uint32_t size = page_growth << PAGE_BITS;
   assert(size >= sizeof(heap_t));
   uint64_t frame = frames_alloc(frames, size);
+#ifdef _HELIUM
   assert(frame < KERNEL_MEMORY_END);
-  void *block = (void *) (uint32_t) frame;
+#endif
+  void *block = (void *) (size_t) frame;
   assert((size_t) block % KMALLOC_UNIT == 0);
   if (!block) return 0;
 
@@ -53,6 +66,7 @@ heap_t *heap_new(frames_t *frames)
   heap->free_blocks->prev = 0;
   heap->free_blocks->next = 0;
   heap->frames = frames;
+  heap->page_growth = page_growth;
   return heap;
 }
 
@@ -111,11 +125,13 @@ void *heap_malloc(heap_t *heap, size_t bytes)
 #endif
       /* request more memory */
       int num_pages = ROUND(bytes, PAGE_BITS) + 1;
-      if (num_pages < PAGE_GROWTH) num_pages = PAGE_GROWTH;
+      if (num_pages < heap->page_growth) num_pages = heap->page_growth;
       unsigned long size = num_pages << PAGE_BITS;
       uint64_t frame = frames_alloc(heap->frames, size);
+#if _HELIUM
       assert(frame < KERNEL_MEMORY_END);
-      block_t *block = (void *) (uint32_t) frame;
+#endif
+      block_t *block = (void *) (size_t) frame;
       b->next = block;
       if (block) {
         block->size = size;
@@ -173,7 +189,7 @@ void heap_print_diagnostics(heap_t *heap)
 {
   block_t *b = heap->free_blocks;
   while (b) {
-    kprintf("block size: %d at %#x\n");
+    kprintf("block size: %d at %p\n", b->size, b);
     b = b->next;
   }
 }

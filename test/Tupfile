@@ -2,10 +2,12 @@ include_rules
 
 CC=gcc
 
-CFLAGS += -g -I..
+CFLAGS += -g -I.. -O0
 
-# recompile frames allocator for the host
-: ../kernel/frames.c |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
+KFILES = ../kernel/frames.c ../kernel/heap.c
+
+# recompile some kernel files for the host
+: foreach $(KFILES) |> ^ CC %f^ $(CC) $(CFLAGS) -c %f -o %o |> buddy/%B.o
 
 : foreach *.c |> !cc |>
 : *.o buddy/*.o |> ^ LINK %o^ $(CC) $(LDFLAGS) %f -o %o |> test
