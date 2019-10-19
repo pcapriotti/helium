@@ -56,7 +56,7 @@
 typedef struct block_t {
   /* physical pointer to next block */
   uint64_t next;
-  /* physica address of this block */
+  /* physical address of this block */
   uint64_t current;
   /* physical pointer to previous block */
   uint64_t prev;
@@ -211,6 +211,7 @@ static inline void list_add(uint64_t *list, block_t *block)
 
   if (*list) {
     block_t *head = map_block(*list);
+    assert(head->current == *list);
     block->next = head->current;
     head->prev = block->current;
     unmap_block(head);
@@ -240,8 +241,10 @@ static inline uint64_t list_take(uint64_t *list)
   if (*list) {
     uint64_t ret = *list;
     block_t *block = map_block(ret);
+    assert(block->current == ret);
     if (block->next) {
       block_t *next = map_block(block->next);
+      assert(next->current == block->next);
       next->prev = 0;
       unmap_block(next);
     }
@@ -443,6 +446,7 @@ uint64_t frames_available_memory(frames_t *frames)
     while (frame) {
       total += size;
       block_t *block = map_block(frame);
+      assert(block->current == frame);
       frame = block->next;
       unmap_block(block);
     }
@@ -475,6 +479,7 @@ void frames_dump_diagnostics(frames_t *frames)
       kprintf("%#" PRIx64 " ", frame);
 
       block_t *block = map_block(frame);
+      assert(block->current == frame);
       frame = block->next;
       unmap_block(block);
     }
