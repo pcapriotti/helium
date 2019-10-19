@@ -279,6 +279,8 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
     }
   }
 
+  return -1;
+
   /* enable mode */
   regs16_t regs;
   regs.eax = 0x4f02;
