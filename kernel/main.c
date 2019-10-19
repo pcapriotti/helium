@@ -1,5 +1,5 @@
 #include "atomic.h"
-#include "console.h"
+#include "console/console.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/debug.h"

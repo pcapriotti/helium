@@ -1,4 +1,4 @@
-#include "console.h"
+#include "console/console.h"
 #include "core/debug.h"
 #include "core/x86.h"
 #include "core/v8086.h"
