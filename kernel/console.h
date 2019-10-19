@@ -9,18 +9,17 @@ typedef struct { int x, y; } point_t;
 typedef struct { point_t start, end; } span_t;
 
 typedef struct {
-  uint32_t *fb;
   int pitch;
   span_t dirty;
+  point_t cur;
+  uint32_t fg, bg;
 
+  uint32_t *fb;
   int width, height;
   int offset;
   uint8_t *buffer;
   uint32_t *fg_buffer;
   uint32_t *bg_buffer;
-
-  point_t cur;
-  uint32_t fg, bg;
 
   semaphore_t write_sem;
   semaphore_t paint_sem;
@@ -35,7 +34,6 @@ void console_print_char(char c);
 void console_delete_char(point_t p);
 void console_set_cursor(point_t c);
 
-void console_renderer(void);
 void console_render_char(uint32_t *pos, char c, uint32_t fg, uint32_t bg);
 void console_render_buffer(void);
 

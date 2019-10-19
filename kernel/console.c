@@ -124,12 +124,7 @@ int console_init(void)
   return 0;
 }
 
-void console_start_background_task()
-{
-  sched_spawn_task(console_renderer);
-}
-
-void console_renderer(void)
+static void console_renderer(void)
 {
   while (1) {
     sem_wait(&console.write_sem);
@@ -138,6 +133,11 @@ void console_renderer(void)
 
     sem_wait(&console.paint_sem);
   }
+}
+
+void console_start_background_task()
+{
+  sched_spawn_task(console_renderer);
 }
 
 uint32_t *console_at(point_t p)
