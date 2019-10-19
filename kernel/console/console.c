@@ -117,6 +117,7 @@ int console_init(void)
   console.bg = DEFAULT_BG;
 
   console.dirty.end.y = console.height;
+  console.needs_repaint = 0;
 
   sem_init(&console.write_sem, 1);
   sem_init(&console.paint_sem, 0);
@@ -129,6 +130,7 @@ static void console_renderer(void)
   while (1) {
     sem_wait(&console.write_sem);
     console_render_buffer();
+    console.needs_repaint = 0;
     sem_signal(&console.write_sem);
 
     sem_wait(&console.paint_sem);
@@ -269,54 +271,54 @@ void _console_print_char(char c)
   }
 }
 
-#define CONSOLE_LOCK_BEGIN() \
-  sem_wait(&console.write_sem); \
-  span_t _dirty = console.dirty; \
-  do { } while(0)
-#define CONSOLE_LOCK_END() do { \
-  sem_signal(&console.write_sem); \
-  if (!span_equal(&_dirty, &console.dirty)) \
-    sem_signal(&console.paint_sem); \
-  } while (0)
+static void schedule_repaint(void)
+{
+  sem_wait(&console.write_sem);
+  if (!console.needs_repaint) {
+    console.needs_repaint = 1;
+    sem_signal(&console.paint_sem);
+  }
+  sem_signal(&console.write_sem);
+}
 
 void console_print_char(char c)
 {
-  CONSOLE_LOCK_BEGIN();
-
+  sem_wait(&console.write_sem);
   _console_print_char(c);
+  sem_signal(&console.write_sem);
 
-  CONSOLE_LOCK_END();
+  schedule_repaint();
 }
 
 void console_delete_char(point_t c)
 {
-  CONSOLE_LOCK_BEGIN();
-
+  sem_wait(&console.write_sem);
   uint8_t *p = console.buffer + c.x +
     (c.y % console.height) * console.width;
   *p = 0;
   span_include_point(&console.dirty, c);
-
-  CONSOLE_LOCK_END();
+  sem_signal(&console.write_sem);
+  schedule_repaint();
 }
 
 void console_set_cursor(point_t c) {
-  CONSOLE_LOCK_BEGIN();
+  sem_wait(&console.write_sem);
   _console_set_cursor(c);
-  CONSOLE_LOCK_END();
+  sem_signal(&console.write_sem);
+  schedule_repaint();
 }
 
 void console_print_str(const char *s)
 {
-  CONSOLE_LOCK_BEGIN();
-
   while (1) {
     char c = *s++;
     if (!c) break;
+    sem_wait(&console.write_sem);
     _console_print_char(c);
+    sem_signal(&console.write_sem);
   }
 
-  CONSOLE_LOCK_END();
+  schedule_repaint();
 }
 
 void console_debug_print_char(char c)

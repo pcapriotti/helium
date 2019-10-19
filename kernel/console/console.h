@@ -13,10 +13,11 @@ typedef struct {
   span_t dirty;
   point_t cur;
   uint32_t fg, bg;
-
-  uint32_t *fb;
   int width, height;
   int offset;
+
+  uint32_t *fb;
+  int needs_repaint;
   uint8_t *buffer;
   uint32_t *fg_buffer;
   uint32_t *bg_buffer;
