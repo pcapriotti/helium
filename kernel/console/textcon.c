@@ -10,6 +10,18 @@
 uint16_t *text_buffer = (uint16_t *) 0xb8000;
 static int cursor_enabled = 0;
 
+static uint8_t quantize(uint32_t colour)
+{
+  uint8_t red = (colour >> 16) & 0xff;
+  uint8_t green = (colour >> 8) & 0xff;
+  uint8_t blue = colour & 0xff;
+  int bright = red >= 0x55 && green >= 0x55 && red >= 0x55;
+
+#define Q(x) (x > 0x80)
+  return (bright << 3) | (Q(red) << 2) | (Q(green) << 1) | Q(blue);
+#undef Q
+}
+
 static void repaint(void *data, console_t *console)
 {
   if (!cursor_enabled) {
@@ -24,7 +36,9 @@ static void repaint(void *data, console_t *console)
     point_index(console, (point_t) { 0, console->offset });
   const unsigned int bufsize = console->width * console->height;
   for (unsigned int i = 0; i < bufsize; i++) {
-    text_buffer[i] = 0x700 | console->buffer[index % bufsize];
+    uint8_t fg = quantize(console->fg_buffer[index % bufsize]);
+    uint8_t bg = quantize(console->bg_buffer[index % bufsize]);
+    text_buffer[i] = (bg << 12) | (fg << 8) | console->buffer[index % bufsize];
     index++;
   }
 
