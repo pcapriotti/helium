@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #define KMALLOC_DEBUG 0
+#define KMALLOC_UNIT 4
 
 /* simplistic allocator design, with just one list of free blocks */
 
@@ -41,6 +42,7 @@ heap_t *heap_new(frames_t *frames)
   uint64_t frame = frames_alloc(frames, size);
   assert(frame < KERNEL_MEMORY_END);
   void *block = (void *) (uint32_t) frame;
+  assert((size_t) block % KMALLOC_UNIT == 0);
   if (!block) return 0;
 
   /* reserve space for the heap data structures */
@@ -59,6 +61,11 @@ void *heap_malloc(heap_t *heap, size_t bytes)
 #if KMALLOC_DEBUG
   kprintf("kmalloc(%u)\n", bytes);
 #endif
+
+  /* only allocate multiples of KMALLOC_UNIT bytes */
+  bytes += KMALLOC_UNIT - 1;
+  bytes = bytes - (bytes % KMALLOC_UNIT);
+
   if (bytes < MIN_ALLOC_SIZE) bytes = MIN_ALLOC_SIZE;
   block_t *b = heap->free_blocks;
   while (b) {
@@ -69,6 +76,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       /* split */
       void *mem = b->memory;
       block_t *b1 = mem + bytes;
+      assert((size_t) b1 % KMALLOC_UNIT == 0);
       if (b->prev) {
         b->prev->next = b1;
       } else {
