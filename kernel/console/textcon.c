@@ -22,6 +22,13 @@ static uint8_t quantize(uint32_t colour)
 #undef Q
 }
 
+static inline uint16_t *at(console_t *console, point_t p)
+{
+  return text_buffer +
+    p.x +
+    (p.y - console->offset) * WIDTH;
+}
+
 static void repaint(void *data, console_t *console)
 {
   if (!cursor_enabled) {
@@ -32,14 +39,17 @@ static void repaint(void *data, console_t *console)
     cursor_enabled = 1;
   }
 
-  unsigned int index =
-    point_index(console, (point_t) { 0, console->offset });
-  const unsigned int bufsize = console->width * console->height;
-  for (unsigned int i = 0; i < bufsize; i++) {
-    uint8_t fg = quantize(console->fg_buffer[index % bufsize]);
-    uint8_t bg = quantize(console->bg_buffer[index % bufsize]);
-    text_buffer[i] = (bg << 12) | (fg << 8) | console->buffer[index % bufsize];
-    index++;
+  point_t p = console->dirty.start;
+  point_t p1 = console->dirty.end;
+  uint16_t *pos = at(console, p);
+
+  while (!point_equal(p, p1)) {
+    unsigned int index = point_index(console, p);
+    uint8_t c = console->buffer[index];
+    uint8_t fg = quantize(console->fg_buffer[index]);
+    uint8_t bg = quantize(console->bg_buffer[index]);
+    *pos++ = (bg << 12) | (fg << 8) | c;
+    p = point_next(console, p);
   }
 
   /* set cursor position */

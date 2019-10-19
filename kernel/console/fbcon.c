@@ -109,8 +109,6 @@ static void render_buffer(void *data, console_t *console)
   }
 
   render_cursor(fbcon, console);
-
-  console->dirty.end = console->dirty.start;
 }
 
 static console_ops_t ops = {

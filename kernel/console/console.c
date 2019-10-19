@@ -73,6 +73,7 @@ static void console_renderer(void)
     unsigned int ticks = timer_get_tick();
     console.backend->ops->repaint
       (console.backend->ops_data, &console);
+    console.dirty.end = console.dirty.start;
     serial_printf("[console] renderered in %u ticks\n",
                   timer_get_tick() - ticks);
     console.needs_repaint = 0;
