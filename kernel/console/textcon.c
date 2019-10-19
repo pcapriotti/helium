@@ -10,13 +10,12 @@ uint16_t *text_buffer = (uint16_t *) 0xb8000;
 
 static void repaint(void *data, console_t *console)
 {
-  serial_printf("repaint\n");
-
-  const unsigned int index =
+  unsigned int index =
     point_index(console, (point_t) { 0, console->offset });
   const unsigned int bufsize = console->width * console->height;
   for (unsigned int i = 0; i < bufsize; i++) {
     text_buffer[i] = 0x700 | console->buffer[index % bufsize];
+    index++;
   }
 }
 

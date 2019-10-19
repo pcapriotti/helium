@@ -65,17 +65,15 @@ static console_backend_t *console_backend_get(void)
 
 void root_task(void)
 {
-  if (graphics_mode.number) {
-    console_set_fg(0x005799d0);
-    kprintf("mode %#x: %ux%u %u bits\n",
-            (uint32_t) graphics_mode.number,
-            (uint32_t) graphics_mode.width,
-            (uint32_t) graphics_mode.height,
-            (uint32_t) graphics_mode.bpp);
-    kprintf("console %dx%d\n",
-            console.width, console.height);
-    console_reset_fg();
-  }
+  console_set_fg(0x005799d0);
+  kprintf("mode %#x: %ux%u %u bits\n",
+          (uint32_t) graphics_mode.number,
+          (uint32_t) graphics_mode.width,
+          (uint32_t) graphics_mode.height,
+          (uint32_t) graphics_mode.bpp);
+  kprintf("console %dx%d\n",
+          console.width, console.height);
+  console_reset_fg();
 
   drivers_init();
   list_t *devices = pci_scan();
@@ -126,7 +124,7 @@ void kernel_start(void *multiboot, uint32_t magic)
     mode.bpp = 32;
     mode.number = 0;
     if (graphics_init(&mode, debug_buf) == -1) {
-      kprintf("ERROR: could not enter graphic mode\n");
+      serial_printf("ERROR: could not enter graphic mode\n");
     }
     (void) mode;
   }
@@ -139,6 +137,7 @@ void kernel_start(void *multiboot, uint32_t magic)
       console.buffer[p++] = debug_buf[q++];
     }
   }
+
   console.cur.x = debug_console.x;
   console.cur.y = debug_console.y;
   console_render_buffer();
