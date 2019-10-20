@@ -424,11 +424,11 @@ int serial_printf(const char *fmt, ...)
 
 void debug_str(const char *s)
 {
-  print_string(debug_print_char, s);
+  print_string(serial_print_char, s);
 }
 
 void debug_byte(uint8_t x)
 {
-  print_digit(debug_print_char, x >> 4);
-  print_digit(debug_print_char, x & 0xf);
+  print_digit(serial_print_char, x >> 4);
+  print_digit(serial_print_char, x & 0xf);
 }
