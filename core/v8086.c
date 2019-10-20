@@ -4,6 +4,7 @@
 #include "io.h"
 
 #include <stddef.h>
+#include <string.h>
 
 int v8086_tracing = 0;
 
@@ -135,7 +136,27 @@ void v8086_gpf_handler(v8086_isr_stack_t *stack)
     if (v8086_tracing) v8086_debug_dump("int", stack);
     {
       ptr16_t *handlers = 0;
-      ptr16_t iv = handlers[addr[1]];
+      uint8_t int_num = addr[1];
+
+      /* special case: copy extended memory */
+      if (int_num == 0x15 && (stack->eax & 0xff00) == 0x8700) {
+        stack->eip += 2;
+        stack->eflags &= ~EFLAGS_CF;
+        stack->eax = 0;
+
+        uint8_t *p = (uint8_t *)seg_off_to_linear
+          (stack->es, stack->esi);
+        void *src = (void *) ((*(uint32_t *)(p + 0x12) & 0xffffff) |
+                              (p[0x17] << 24));
+        void *dst = (void *) ((*(uint32_t *)(p + 0x1a) & 0xffffff) |
+                              (p[0x1f] << 24));
+        size_t len = (stack->ecx & 0xffff) << 1;
+        memcpy(dst, src, len);
+
+        return;
+      }
+
+      ptr16_t iv = handlers[int_num];
 
       stack->esp -= 6;
       uint16_t *st = (uint16_t *)stack->esp;
