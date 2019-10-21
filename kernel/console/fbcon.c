@@ -86,11 +86,16 @@ fbcon_t *fbcon_get(void)
   return &instance;
 }
 
+static inline unsigned ypos(console_t *console, int y)
+{
+  return (y - console->offset) * graphics_font.header.height;
+}
+
 static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
 {
   return fbcon->fb2 +
     p.x * graphics_font.header.width +
-    (p.y - console->offset) * fbcon->pitch * graphics_font.header.height;
+    ypos(console, p.y) * fbcon->pitch;
 }
 
 static void invalidate(void *data, console_t *console, point_t p)
@@ -110,7 +115,7 @@ void render_char(fbcon_t *fbcon, console_t *console,
   int pitch = fbcon->pitch - graphics_font.header.width;
 
   {
-    unsigned int y = (p.y - console->offset) * graphics_font.header.height;
+    unsigned int y = ypos(console, p.y);
     for (size_t i = 0; i < graphics_font.header.height; i++) {
       SET_BIT(fbcon->dirty_lines, y);
       y++;
@@ -151,7 +156,7 @@ static void render_cursor(fbcon_t *fbcon, console_t *console)
   static const int cursor_height = 2;
   pos += (graphics_font.header.height - cursor_height) * fbcon->pitch;
 
-  unsigned int y = console->cur.y * graphics_font.header.height;
+  unsigned int y = ypos(console, console->cur.y);
   for (int i = 0; i < cursor_height; i++) {
     SET_BIT(fbcon->dirty_lines, y + i);
     for (size_t x = 0; x < graphics_font.header.width; x++) {
