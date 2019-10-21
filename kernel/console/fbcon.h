@@ -4,14 +4,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "console/rect.h"
+
 typedef struct fbcon {
   uint32_t *fb;
   uint32_t *fb2;
   size_t fb_size;
 
-  /* bitmap of lines that need repainting */
-  uint32_t *dirty_lines;
-  size_t max_dirty_col;
+  rect_t dirty;
 
   int pitch;
 } fbcon_t;

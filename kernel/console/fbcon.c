@@ -38,37 +38,28 @@ static void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
 
 static void flip_buffers(fbcon_t *fbcon)
 {
-  uint32_t *src = fbcon->fb2;
-  uint32_t *dst = fbcon->fb;
+  unsigned int yoffset = (fbcon->dirty.y * graphics_mode.pitch) >> 2;
+  uint32_t *src = fbcon->fb2 + yoffset;
+  uint32_t *dst = fbcon->fb + yoffset;
 
-  for (size_t i = 0; i < graphics_mode.height; i++) {
-    assert(fbcon->max_dirty_col <= graphics_mode.width);
-    if (GET_BIT(fbcon->dirty_lines, i)) {
-      memcpy32(dst, src, fbcon->max_dirty_col);
-    }
-
-    UNSET_BIT(fbcon->dirty_lines, i);
+  for (int i = 0; i < fbcon->dirty.height; i++) {
+    memcpy32(dst + fbcon->dirty.x, src + fbcon->dirty.x, fbcon->dirty.width);
     dst += graphics_mode.pitch >> 2;
     src += graphics_mode.pitch >> 2;
   }
-  fbcon->max_dirty_col = 0;
 }
 
 int fbcon_init(fbcon_t *fbcon)
 {
   fbcon->fb = (uint32_t *)graphics_mode.framebuffer;
   fbcon->fb_size = graphics_mode.height * graphics_mode.pitch;
+  fbcon->dirty = (rect_t) { 0, 0, graphics_mode.width, graphics_mode.height };
 
-  size_t dirty_lines_size = graphics_mode.height >> 3;
-
-  /* allocate memory for back buffer and dirty lines */
+  /* allocate memory for back buffer */
   uint64_t frame =
-    frames_alloc(&kernel_frames, fbcon->fb_size + dirty_lines_size);
+    frames_alloc(&kernel_frames, fbcon->fb_size);
   assert(frame < KERNEL_MEMORY_END);
   fbcon->fb2 = (uint32_t *) (size_t) frame;
-  fbcon->dirty_lines = (void *)fbcon->fb2 + fbcon->fb_size;
-  memset(fbcon->dirty_lines, 0, dirty_lines_size);
-  fbcon->max_dirty_col = 0;
 
   if (graphics_mode.bpp != 32) return -1;
   if (graphics_mode.pitch % PIXEL_SIZE != 0) return -1;
@@ -114,18 +105,6 @@ void render_char(fbcon_t *fbcon, console_t *console,
 {
   int pitch = fbcon->pitch - graphics_font.header.width;
 
-  {
-    unsigned int y = ypos(console, p.y);
-    for (size_t i = 0; i < graphics_font.header.height; i++) {
-      SET_BIT(fbcon->dirty_lines, y);
-      y++;
-    }
-    unsigned int x = (p.x + 1) * graphics_font.header.width;
-    if (x > fbcon->max_dirty_col) {
-      fbcon->max_dirty_col = x;
-    }
-  }
-
   if (!c || c == ' ') {
     /* just draw background */
     for (size_t i = 0; i < graphics_font.header.height; i++) {
@@ -158,16 +137,11 @@ static void render_cursor(fbcon_t *fbcon, console_t *console)
 
   unsigned int y = ypos(console, console->cur.y);
   for (int i = 0; i < cursor_height; i++) {
-    SET_BIT(fbcon->dirty_lines, y + i);
     for (size_t x = 0; x < graphics_font.header.width; x++) {
       *pos++ = fg;
     }
     pos += fbcon->pitch - graphics_font.header.width;
   }
-
-  unsigned int x = (console->cur.x + 1) * graphics_font.header.width;
-  if (x > fbcon->max_dirty_col)
-    fbcon->max_dirty_col = x;
 }
 
 static void render_buffer(void *data, console_t *console)
