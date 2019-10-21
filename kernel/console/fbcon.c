@@ -121,7 +121,7 @@ void render_char(fbcon_t *fbcon, console_t *console,
     }
   }
 
-  if (!c) {
+  if (!c || c == ' ') {
     /* just draw background */
     for (size_t i = 0; i < graphics_font.header.height; i++) {
       for (size_t j = 0; j < graphics_font.header.width; j++) {
@@ -169,8 +169,8 @@ static void render_buffer(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
 
-  point_t p = (point_t) {0, 0};
-  point_t p1 = (point_t) {0, console->height};
+  point_t p = (point_t) {0, console->offset};
+  point_t p1 = (point_t) {0, console->height + console->offset};
   uint32_t *pos = at(fbcon, console, p);
 
   while (point_le(p, p1)) {
