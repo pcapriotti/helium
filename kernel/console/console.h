@@ -4,9 +4,7 @@
 #include <stdint.h>
 
 #include "semaphore.h"
-
-typedef struct { int x, y; } point_t;
-typedef struct { point_t start, end; } span_t;
+#include "console/point.h"
 
 struct console;
 

@@ -1,7 +1,8 @@
 #ifndef CONSOLE_POINT_H
 #define CONSOLE_POINT_H
 
-#include "console.h"
+typedef struct { int x, y; } point_t;
+typedef struct { point_t start, end; } span_t;
 
 static inline int point_equal(point_t p, point_t q)
 {
@@ -29,9 +30,11 @@ static inline int span_equal(span_t *a, span_t *b)
     point_equal(a->end, b->end);
 }
 
-point_t point_next(console_t *console, point_t p);
-void span_include_point(console_t *console, span_t *s, point_t p);
-unsigned int point_index(console_t *console, point_t p);
+struct console;
+
+point_t point_next(struct console *console, point_t p);
+void span_include_point(struct console *console, span_t *s, point_t p);
+unsigned int point_index(struct console *console, point_t p);
 
 
 #endif /* CONSOLE_POINT_H */

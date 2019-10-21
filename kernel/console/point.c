@@ -1,3 +1,4 @@
+#include "console/console.h"
 #include "console/point.h"
 
 void span_include_point(console_t *console, span_t *s, point_t p)
