@@ -93,6 +93,10 @@ static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
     (p.y - console->offset) * fbcon->pitch * graphics_font.header.height;
 }
 
+static void invalidate(void *data, console_t *console, point_t p)
+{
+}
+
 static void set_geometry(void *data, int *width, int *height)
 {
   *width = graphics_mode.width / graphics_font.header.width;
@@ -165,8 +169,8 @@ static void render_buffer(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
 
-  point_t p = console->dirty.start;
-  point_t p1 = console->dirty.end;
+  point_t p = (point_t) {0, 0};
+  point_t p1 = (point_t) {0, console->height};
   uint32_t *pos = at(fbcon, console, p);
 
   while (point_le(p, p1)) {
@@ -190,6 +194,7 @@ static void render_buffer(void *data, console_t *console)
 static console_ops_t ops = {
   .repaint = render_buffer,
   .set_geometry = set_geometry,
+  .invalidate = invalidate,
 };
 
 static console_backend_t backend;

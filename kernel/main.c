@@ -119,8 +119,8 @@ void kernel_start(void *multiboot, uint32_t magic)
 
   {
     vbe_mode_t mode;
-    mode.width = 2000;
-    mode.height = 1000;
+    mode.width = 600;
+    mode.height = 400;
     mode.bpp = 32;
     mode.number = 0;
     if (graphics_init(&mode, debug_buf) == -1) {

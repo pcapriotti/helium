@@ -39,8 +39,8 @@ static void repaint(void *data, console_t *console)
     cursor_enabled = 1;
   }
 
-  point_t p = console->dirty.start;
-  point_t p1 = console->dirty.end;
+  point_t p = (point_t) {0, 0};
+  point_t p1 = (point_t) {0, console->height};
   uint16_t *pos = at(console, p);
 
   while (!point_equal(p, p1)) {
@@ -69,9 +69,14 @@ static void set_geometry(void *data, int *width, int *height)
   *height = HEIGHT;
 }
 
+static void invalidate(void *data, console_t *console, point_t p)
+{
+}
+
 console_ops_t ops = {
   .repaint = repaint,
   .set_geometry = set_geometry,
+  .invalidate = invalidate,
 };
 
 console_backend_t backend = {

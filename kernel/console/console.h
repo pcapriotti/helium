@@ -13,6 +13,7 @@ struct console;
 typedef struct console_ops {
   void (*repaint)(void *data, struct console *console);
   void (*set_geometry)(void *data, int* width, int *height);
+  void (*invalidate)(void *data, struct console *console, point_t p);
 } console_ops_t;
 
 typedef struct console_backend {
@@ -21,7 +22,6 @@ typedef struct console_backend {
 } console_backend_t;
 
 typedef struct console {
-  span_t dirty;
   point_t cur;
   uint32_t fg, bg;
   int width, height;

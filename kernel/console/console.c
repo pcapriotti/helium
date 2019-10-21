@@ -36,6 +36,13 @@ static void schedule_repaint(console_t *console)
   sem_signal(&console->write_sem);
 }
 
+static void invalidate(console_t *console, point_t p)
+{
+  assert(console->backend->ops->invalidate);
+  console->backend->ops->invalidate
+    (console->backend->ops_data, console, p);
+}
+
 int console_init(console_backend_t *backend)
 {
   console.backend = backend;
@@ -59,8 +66,6 @@ int console_init(console_backend_t *backend)
   console.fg = DEFAULT_FG;
   console.bg = DEFAULT_BG;
 
-  console.dirty.end.y = console.height;
-
   sem_init(&console.write_sem, 1);
 
   return 0;
@@ -73,7 +78,6 @@ static void console_renderer(void)
     unsigned int ticks = timer_get_tick();
     console.backend->ops->repaint
       (console.backend->ops_data, &console);
-    console.dirty.end = console.dirty.start;
     serial_printf("[console] renderered in %u ticks\n",
                   timer_get_tick() - ticks);
     console.needs_repaint = 0;
@@ -105,22 +109,21 @@ static inline void _console_putchar_at(point_t p, char c, uint32_t fg, uint32_t 
     console.buffer[index] = c;
     console.fg_buffer[index] = fg;
     console.bg_buffer[index] = bg;
-    span_include_point(&console, &console.dirty, p);
+    invalidate(&console, p);
   }
 }
 
 void _console_set_cursor(point_t p)
 {
-  span_include_point(&console, &console.dirty, console.cur);
+  if (point_equal(p, console.cur)) return;
+
+  invalidate(&console, console.cur);
+  invalidate(&console, p);
+
   console.cur = p;
-  span_include_point(&console, &console.dirty, console.cur);
   while (console.cur.y - console.offset >= console.height) {
     console_clear_line(console.offset + console.height);
     console.offset++;
-    console.dirty.start.x = 0;
-    console.dirty.start.y = console.offset;
-    console.dirty.end.x = 0;
-    console.dirty.end.y = console.offset + console.height;
   }
 }
 
@@ -149,13 +152,19 @@ void console_print_char(char c)
   schedule_repaint(&console);
 }
 
-void console_delete_char(point_t c)
+void _console_delete_char(point_t c)
 {
-  sem_wait(&console.write_sem);
   uint8_t *p = console.buffer + c.x +
     (c.y % console.height) * console.width;
+  if (*p == 0) return;
   *p = 0;
-  span_include_point(&console, &console.dirty, c);
+  invalidate(&console, c);
+}
+
+void console_delete_char(point_t p)
+{
+  sem_wait(&console.write_sem);
+  _console_delete_char(p);
   sem_signal(&console.write_sem);
   schedule_repaint(&console);
 }
