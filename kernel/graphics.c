@@ -8,9 +8,6 @@
 
 #define GRAPHICS_DEBUG 0
 
-font_t graphics_font;
-vbe_mode_t graphics_mode = {0};
-
 typedef struct {
   uint32_t signature;
   uint16_t version;
@@ -27,6 +24,10 @@ typedef struct {
   uint8_t reserved[216];
   uint8_t scratchpad[256];
 } __attribute__((packed)) vbe_info_t;
+
+
+font_t graphics_font;
+vbe_mode_t graphics_mode = {0};
 
 typedef struct vbe_mode_info_t {
   uint16_t attributes; uint8_t win_a_attrs; uint8_t win_b_attrs;
@@ -213,6 +214,9 @@ static int init_and_find_mode(vbe_info_t *graphics_info,
                               vbe_mode_info_t *tmp_mode_info,
                               vbe_mode_t *req_mode)
 {
+  if (get_graphics_info(graphics_info) == -1)
+    return -1;
+
   if (req_mode->number != 0) {
     if (get_mode(req_mode->number, tmp_mode_info) == -1)
       return -1;
@@ -226,9 +230,6 @@ static int init_and_find_mode(vbe_info_t *graphics_info,
     req_mode->colour_info = tmp_mode_info->colour_info;
   }
   else {
-    if (get_graphics_info(graphics_info) == -1)
-      return -1;
-
     uint16_t *modes = (uint16_t *)
       ptr16_to_linear(graphics_info->modes);
 
@@ -248,6 +249,7 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
   vbe_mode_info_t *tmp_mode_info = (void *) (graphics_info + 1);
 
   int ret = init_and_find_mode(graphics_info, tmp_mode_info, req_mode);
+  size_t info_mem = graphics_info->memory;
 
   frames_free(&dma_frames, (size_t) low_heap);
 
@@ -266,9 +268,13 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
 #endif
 
   /* map framebuffer into virtual memory */
+  req_mode->fb_size = info_mem << 16;
+  serial_printf("fb size %u\n", req_mode->fb_size, info_mem);
+
+  /* only map one page of the framebuffer */
   req_mode->framebuffer = paging_perm_map_pages
     ((size_t) req_mode->framebuffer,
-     req_mode->pitch * req_mode->height);
+     req_mode->height * req_mode->pitch);
 
   /* save debug console */
   for (int i = 0; i < 25; i++) {

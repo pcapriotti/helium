@@ -1,6 +1,7 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define BIOS_FONT_WIDTH 8
@@ -29,6 +30,7 @@ typedef struct {
   uint16_t pitch;
 
   uint8_t *framebuffer;
+  size_t fb_size;
   vbe_colour_info_t colour_info;
 } vbe_mode_t;
 
