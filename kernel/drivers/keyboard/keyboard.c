@@ -13,7 +13,7 @@
 
 #define KB_TASKLET 1
 
-static uint32_t kb_tasklet_stack[256];
+static uint32_t kb_tasklet_stack[512];
 static task_t kb_tasklet = {
   .state = TASK_STOPPED,
 };
