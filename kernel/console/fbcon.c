@@ -38,14 +38,14 @@ static void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
 
 static void flip_buffers(fbcon_t *fbcon)
 {
-  unsigned int yoffset = (fbcon->dirty.y * graphics_mode.pitch) >> 2;
+  unsigned int yoffset = fbcon->dirty.y * fbcon->pitch;
   uint32_t *src = fbcon->fb2 + yoffset;
   uint32_t *dst = fbcon->fb + yoffset;
 
   for (int i = 0; i < fbcon->dirty.height; i++) {
     memcpy32(dst + fbcon->dirty.x, src + fbcon->dirty.x, fbcon->dirty.width);
-    dst += graphics_mode.pitch >> 2;
-    src += graphics_mode.pitch >> 2;
+    dst += fbcon->pitch;
+    src += fbcon->pitch;
   }
 }
 
