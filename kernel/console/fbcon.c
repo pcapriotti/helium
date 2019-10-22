@@ -42,11 +42,26 @@ static void flip_buffers(fbcon_t *fbcon)
   uint32_t *src = fbcon->fb2 + yoffset;
   uint32_t *dst = fbcon->fb + yoffset;
 
+  serial_printf("dirty: %u %u (%u x %u)\n",
+                fbcon->dirty.x,
+                fbcon->dirty.y,
+                fbcon->dirty.width,
+                fbcon->dirty.height);
+  /* intersect with screen */
+  if (fbcon->dirty.x + fbcon->dirty.width > graphics_mode.width) {
+    fbcon->dirty.width = graphics_mode.width - fbcon->dirty.x;
+  }
+  if (fbcon->dirty.y + fbcon->dirty.height > graphics_mode.height) {
+    fbcon->dirty.height = graphics_mode.height - fbcon->dirty.y;
+  }
+
   for (int i = 0; i < fbcon->dirty.height; i++) {
     memcpy32(dst + fbcon->dirty.x, src + fbcon->dirty.x, fbcon->dirty.width);
     dst += fbcon->pitch;
     src += fbcon->pitch;
   }
+
+  fbcon->dirty = (rect_t) { 0, 0, 0, 0 };
 }
 
 int fbcon_init(fbcon_t *fbcon)
@@ -91,6 +106,24 @@ static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
 
 static void invalidate(void *data, console_t *console, point_t p)
 {
+  fbcon_t *fbcon = data;
+  serial_printf("adding point %u %u\n", p.x, p.y);
+  rect_t cell = (rect_t) { p.x, p.y, 1, 1 };
+  cell.x *= graphics_font.header.width;
+  cell.width *= graphics_font.header.width;
+  cell.y *= graphics_font.header.height;
+  cell.height *= graphics_font.header.height;
+  serial_printf("invalidating: %u %u (%u x %u)\n",
+                fbcon->dirty.x,
+                fbcon->dirty.y,
+                fbcon->dirty.width,
+                fbcon->dirty.height);
+  rect_bounding(&fbcon->dirty, &cell);
+  serial_printf("after: %u %u (%u x %u)\n",
+                fbcon->dirty.x,
+                fbcon->dirty.y,
+                fbcon->dirty.width,
+                fbcon->dirty.height);
 }
 
 static void set_geometry(void *data, int *width, int *height)
