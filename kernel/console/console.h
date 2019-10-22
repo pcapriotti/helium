@@ -12,6 +12,7 @@ typedef struct console_ops {
   void (*repaint)(void *data, struct console *console);
   void (*set_geometry)(void *data, int* width, int *height);
   void (*invalidate)(void *data, struct console *console, point_t p);
+  void (*scroll)(void *data, struct console *console);
 } console_ops_t;
 
 typedef struct console_backend {

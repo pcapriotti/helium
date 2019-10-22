@@ -38,16 +38,16 @@ static void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
 
 static void flip_buffers(fbcon_t *fbcon)
 {
-  unsigned int yoffset = fbcon->dirty.y * fbcon->pitch;
-  uint32_t *src = fbcon->fb2 + yoffset;
-  uint32_t *dst = fbcon->fb + yoffset;
+  uint32_t *src = fbcon->fb2 + fbcon->dirty.y * graphics_mode.width;
+  uint32_t *dst = fbcon->fb + fbcon->dirty.y * fbcon->pitch;
 
   serial_printf("dirty: %u %u (%u x %u)\n",
                 fbcon->dirty.x,
                 fbcon->dirty.y,
                 fbcon->dirty.width,
                 fbcon->dirty.height);
-  /* intersect with screen */
+
+  /* intersect dirty rect with screen */
   if (fbcon->dirty.x + fbcon->dirty.width > graphics_mode.width) {
     fbcon->dirty.width = graphics_mode.width - fbcon->dirty.x;
   }
@@ -58,21 +58,22 @@ static void flip_buffers(fbcon_t *fbcon)
   for (int i = 0; i < fbcon->dirty.height; i++) {
     memcpy32(dst + fbcon->dirty.x, src + fbcon->dirty.x, fbcon->dirty.width);
     dst += fbcon->pitch;
-    src += fbcon->pitch;
+    src += graphics_mode.width;
   }
 
   fbcon->dirty = (rect_t) { 0, 0, 0, 0 };
+  fbcon->scroll = 0;
 }
 
 int fbcon_init(fbcon_t *fbcon)
 {
   fbcon->fb = (uint32_t *)graphics_mode.framebuffer;
-  fbcon->fb_size = graphics_mode.height * graphics_mode.pitch;
+  fbcon->fb_size = graphics_mode.height * graphics_mode.width;
   fbcon->dirty = (rect_t) { 0, 0, graphics_mode.width, graphics_mode.height };
 
   /* allocate memory for back buffer */
   uint64_t frame =
-    frames_alloc(&kernel_frames, fbcon->fb_size);
+    frames_alloc(&kernel_frames, fbcon->fb_size * sizeof(uint32_t));
   assert(frame < KERNEL_MEMORY_END);
   fbcon->fb2 = (uint32_t *) (size_t) frame;
 
@@ -101,18 +102,24 @@ static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
 {
   return fbcon->fb2 +
     p.x * graphics_font.header.width +
-    ypos(console, p.y) * fbcon->pitch;
+    ypos(console, p.y) * graphics_mode.width;
 }
 
 static void invalidate(void *data, console_t *console, point_t p)
 {
   fbcon_t *fbcon = data;
-  rect_t cell = (rect_t) { p.x, p.y, 1, 1 };
+  rect_t cell = (rect_t) { p.x, p.y - console->offset, 1, 1 };
   cell.x *= graphics_font.header.width;
   cell.width *= graphics_font.header.width;
   cell.y *= graphics_font.header.height;
   cell.height *= graphics_font.header.height;
   rect_bounding(&fbcon->dirty, &cell);
+}
+
+static void scroll(void *data, console_t *console)
+{
+  fbcon_t *fbcon = data;
+  fbcon->scroll++;
 }
 
 static void set_geometry(void *data, int *width, int *height)
@@ -125,7 +132,7 @@ void render_char(fbcon_t *fbcon, console_t *console,
                  point_t p, uint32_t *pos, char c,
                  uint32_t fg, uint32_t bg)
 {
-  int pitch = fbcon->pitch - graphics_font.header.width;
+  int pitch = graphics_mode.width - graphics_font.header.width;
 
   if (!c || c == ' ') {
     /* just draw background */
@@ -155,14 +162,14 @@ static void render_cursor(fbcon_t *fbcon, console_t *console)
   uint32_t *pos = at(fbcon, console, console->cur);
   uint32_t fg = console->fg_buffer[point_index(console, console->cur)];
   static const int cursor_height = 2;
-  pos += (graphics_font.header.height - cursor_height) * fbcon->pitch;
+  pos += (graphics_font.header.height - cursor_height) * graphics_mode.width;
 
   unsigned int y = ypos(console, console->cur.y);
   for (int i = 0; i < cursor_height; i++) {
     for (size_t x = 0; x < graphics_font.header.width; x++) {
       *pos++ = fg;
     }
-    pos += fbcon->pitch - graphics_font.header.width;
+    pos += graphics_mode.width - graphics_font.header.width;
   }
 }
 
@@ -183,10 +190,20 @@ static void render_buffer(void *data, console_t *console)
 
     pos += graphics_font.header.width;
     if (p.x == console->width - 1) {
-      pos += graphics_font.header.height * fbcon->pitch - graphics_font.header.width * console->width;
+      pos += graphics_font.header.height * graphics_mode.width -
+        graphics_font.header.width * console->width;
     }
     p = point_next(console, p);
   }
+
+  /* scroll */
+  size_t scroll_offset = graphics_mode.width * fbcon->scroll;
+  memmove(fbcon->fb2, fbcon->fb2 + scroll_offset,
+          fbcon->fb_size * sizeof(uint32_t) - scroll_offset);
+  rect_t scroll_rect = (rect_t) { 0, 0, 0, 0 };
+  scroll_rect.width = graphics_mode.width;
+  scroll_rect.height = fbcon->scroll * graphics_font.header.height;
+  rect_bounding(&fbcon->dirty, &scroll_rect);
 
   render_cursor(fbcon, console);
   flip_buffers(fbcon);
@@ -196,6 +213,7 @@ static console_ops_t ops = {
   .repaint = render_buffer,
   .set_geometry = set_geometry,
   .invalidate = invalidate,
+  .scroll = scroll,
 };
 
 static console_backend_t backend;

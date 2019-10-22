@@ -43,6 +43,13 @@ static void invalidate(console_t *console, point_t p)
     (console->backend->ops_data, console, p);
 }
 
+static void scroll_up(console_t *console)
+{
+  assert(console->backend->ops->scroll);
+  console->backend->ops->scroll
+    (console->backend->ops_data, console);
+}
+
 int console_init(console_backend_t *backend)
 {
   console.backend = backend;
@@ -94,9 +101,20 @@ void console_start_background_task()
 
 void console_clear_line(int y)
 {
-  uint8_t *p = console.buffer +
-    (y % console.height) * console.width;
-  memset(p, 0, console.width * sizeof(uint8_t));
+  point_t begin = (point_t) { 0, y };
+  unsigned index = point_index(&console, begin);
+  int length = console.width;
+  while (length > 0 && console.buffer[index + length - 1] == 0)
+    length--;
+  memset(&console.buffer[index], 0,
+         length * sizeof(uint8_t));
+  memset(&console.fg_buffer[index], DEFAULT_FG,
+         length * sizeof(uint32_t));
+  memset(&console.fg_buffer[index], DEFAULT_FG,
+         length * sizeof(uint32_t));
+  for (int i = 0; i < length; i++) {
+    invalidate(&console, (point_t) { i, y });
+  }
 }
 
 /* print a character */
@@ -124,6 +142,7 @@ void _console_set_cursor(point_t p)
   while (console.cur.y - console.offset >= console.height) {
     console_clear_line(console.offset + console.height);
     console.offset++;
+    scroll_up(&console);
   }
 }
 

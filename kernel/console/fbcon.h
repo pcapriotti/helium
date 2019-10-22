@@ -12,6 +12,7 @@ typedef struct fbcon {
   size_t fb_size;
 
   rect_t dirty;
+  int scroll;
 
   int pitch;
 } fbcon_t;
