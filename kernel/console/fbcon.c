@@ -107,23 +107,12 @@ static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
 static void invalidate(void *data, console_t *console, point_t p)
 {
   fbcon_t *fbcon = data;
-  serial_printf("adding point %u %u\n", p.x, p.y);
   rect_t cell = (rect_t) { p.x, p.y, 1, 1 };
   cell.x *= graphics_font.header.width;
   cell.width *= graphics_font.header.width;
   cell.y *= graphics_font.header.height;
   cell.height *= graphics_font.header.height;
-  serial_printf("invalidating: %u %u (%u x %u)\n",
-                fbcon->dirty.x,
-                fbcon->dirty.y,
-                fbcon->dirty.width,
-                fbcon->dirty.height);
   rect_bounding(&fbcon->dirty, &cell);
-  serial_printf("after: %u %u (%u x %u)\n",
-                fbcon->dirty.x,
-                fbcon->dirty.y,
-                fbcon->dirty.width,
-                fbcon->dirty.height);
 }
 
 static void set_geometry(void *data, int *width, int *height)

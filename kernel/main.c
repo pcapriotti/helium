@@ -79,11 +79,12 @@ void root_task(void)
   list_t *devices = pci_scan();
 
   sched_spawn_task(network_init);
-  sched_spawn_task(shell_main);
 
   console_set_fg(0x007c9a59);
   kprintf("Ok.\n");
   console_reset_fg();
+
+  sched_spawn_task(shell_main);
 }
 
 void kernel_start(void *multiboot, uint32_t magic)

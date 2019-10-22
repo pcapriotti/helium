@@ -41,7 +41,7 @@ void rect_bounding(rect_t *rect1, rect_t *rect2)
     rect1->height += rect1->y - rect2->y;
     rect1->y = rect2->y;
   }
-  if (rect2->x + rect2->height > rect1->x + rect1->height) {
+  if (rect2->y + rect2->height > rect1->y + rect1->height) {
     rect1->height = rect2->y + rect2->height - rect1->y;
   }
 }
