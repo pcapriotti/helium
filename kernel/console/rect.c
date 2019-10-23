@@ -57,3 +57,25 @@ int rect_intersects(rect_t *rect1, rect_t *rect2)
      || (rect2->y + rect2->height >= rect1->y &&
          rect2->y + rect2->height < rect1->y + rect1->height));
 }
+
+void rect_intersection(rect_t *rect1, rect_t *rect2)
+{
+  int x0 = rect1->x;
+  if (x0 < rect2->x)
+    x0 = rect2->x;
+  int x1 = rect1->x + rect1->width;
+  if (x1 > rect2->x + rect2->width)
+    x1 = rect2->x + rect2->width;
+
+  int y0 = rect1->y;
+  if (y0 < rect2->y)
+    y0 = rect2->y;
+  int y1 = rect1->y + rect1->height;
+  if (y1 > rect2->y + rect2->height)
+    y1 = rect2->y + rect2->height;
+
+  rect1->x = x0;
+  rect1->width = x1 - x0;
+  rect1->y = y0;
+  rect1->height = y1 - y0;
+}

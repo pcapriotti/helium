@@ -13,5 +13,6 @@ void rect_expand(rect_t *rect, point_t p);
 void rect_bounding(rect_t *rect1, rect_t *rect2);
 
 int rect_intersects(rect_t *rect1, rect_t *rect2);
+void rect_intersection(rect_t *rect1, rect_t *rect2);
 
 #endif /* CONSOLE_RECT_H */
