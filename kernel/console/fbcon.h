@@ -7,13 +7,25 @@
 #include "console/rect.h"
 
 typedef struct fbcon {
+  /* front buffer */
   uint32_t *fb;
+
+  /* back buffer */
   uint32_t *fb2;
+
+  /* number of pixels in the back buffer */
   size_t fb_size;
 
-  rect_t dirty;
-  int scroll;
+  /* size in cell units */
+  int width, height;
 
+  /* cells that need to be rerendered */
+  rect_t dirty;
+
+  /* offset of last repaint */
+  int last_offset;
+
+  /* number of pixels per row */
   int pitch;
 } fbcon_t;
 

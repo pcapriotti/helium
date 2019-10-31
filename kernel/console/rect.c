@@ -78,4 +78,7 @@ void rect_intersection(rect_t *rect1, rect_t *rect2)
   rect1->width = x1 - x0;
   rect1->y = y0;
   rect1->height = y1 - y0;
+
+  if (rect1->width < 0) rect1->width = 0;
+  if (rect1->height < 0) rect1->height = 0;
 }

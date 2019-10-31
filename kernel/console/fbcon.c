@@ -13,10 +13,12 @@
 
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FAST_MEMCPY32 1
+#define DEBUG_BLIT 0
+#define BLIT_MINIMISE_TRANSFERS 1
 
 static fbcon_t instance;
 
-static void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
+void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
 {
 #if FAST_MEMCPY32
   __asm__ volatile
@@ -29,47 +31,13 @@ static void memcpy32(uint32_t *dst, uint32_t *src, size_t len)
 #endif
 }
 
-/* static void memset32(uint32_t *dst, uint32_t value, size_t len) */
-/* { */
-/*   for (size_t i = 0; i < len; i++) { */
-/*     dst[i] = value; */
-/*   } */
-/* } */
-
-static void flip_buffers(fbcon_t *fbcon)
-{
-  uint32_t *src = fbcon->fb2 + fbcon->dirty.y * graphics_mode.width;
-  uint32_t *dst = fbcon->fb + fbcon->dirty.y * fbcon->pitch;
-
-  serial_printf("dirty: %u %u (%u x %u)\n",
-                fbcon->dirty.x,
-                fbcon->dirty.y,
-                fbcon->dirty.width,
-                fbcon->dirty.height);
-
-  /* intersect dirty rect with screen */
-  if (fbcon->dirty.x + fbcon->dirty.width > graphics_mode.width) {
-    fbcon->dirty.width = graphics_mode.width - fbcon->dirty.x;
-  }
-  if (fbcon->dirty.y + fbcon->dirty.height > graphics_mode.height) {
-    fbcon->dirty.height = graphics_mode.height - fbcon->dirty.y;
-  }
-
-  for (int i = 0; i < fbcon->dirty.height; i++) {
-    memcpy32(dst + fbcon->dirty.x, src + fbcon->dirty.x, fbcon->dirty.width);
-    dst += fbcon->pitch;
-    src += graphics_mode.width;
-  }
-
-  fbcon->dirty = (rect_t) { 0, 0, 0, 0 };
-  fbcon->scroll = 0;
-}
-
 int fbcon_init(fbcon_t *fbcon)
 {
   fbcon->fb = (uint32_t *)graphics_mode.framebuffer;
   fbcon->fb_size = graphics_mode.height * graphics_mode.width;
-  fbcon->dirty = (rect_t) { 0, 0, graphics_mode.width, graphics_mode.height };
+  fbcon->width = graphics_mode.width / graphics_font.header.width;
+  fbcon->height = graphics_mode.height / graphics_font.header.height;
+  fbcon->dirty = (rect_t) { 0, 0, fbcon->width, fbcon->height };
 
   /* allocate memory for back buffer */
   uint64_t frame =
@@ -93,33 +61,56 @@ fbcon_t *fbcon_get(void)
   return &instance;
 }
 
-static inline unsigned ypos(console_t *console, int y)
+static inline unsigned ypos(fbcon_t *fbcon, int y)
 {
-  return (y - console->offset) * graphics_font.header.height;
+  return (y % fbcon->height) * graphics_font.header.height;
 }
 
-static inline uint32_t *at(fbcon_t *fbcon, console_t *console, point_t p)
+static inline uint32_t *at(fbcon_t *fbcon, point_t p)
 {
   return fbcon->fb2 +
     p.x * graphics_font.header.width +
-    ypos(console, p.y) * graphics_mode.width;
+    ypos(fbcon, p.y) * graphics_mode.width;
+}
+
+void clear_line_console(fbcon_t *fbcon, int line, int length)
+{
+  rect_t r = (rect_t) {
+    0, line * graphics_font.header.height,
+    length * graphics_font.header.width,
+    graphics_font.header.height
+  };
+#if DEBUG_BLIT
+  serial_printf("[fbcon] clearing %u,%u (%ux%u)\n",
+                r.x, r.y, r.width, r.height);
+#endif
+
+  uint32_t *dst = fbcon->fb2 + r.x + r.y * graphics_mode.width;
+  for (int y = 0; y < r.height; y++) {
+    for (int x = 0; x < r.width; x++) {
+      dst[x] = 0;
+    }
+    dst += graphics_mode.width;
+  }
 }
 
 static void invalidate(void *data, console_t *console, point_t p)
 {
   fbcon_t *fbcon = data;
-  rect_t cell = (rect_t) { p.x, p.y - console->offset, 1, 1 };
-  cell.x *= graphics_font.header.width;
-  cell.width *= graphics_font.header.width;
-  cell.y *= graphics_font.header.height;
-  cell.height *= graphics_font.header.height;
+  rect_t cell = (rect_t) { p.x, p.y % fbcon->height, 1, 1 };
   rect_bounding(&fbcon->dirty, &cell);
 }
 
 static void scroll(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
-  fbcon->scroll++;
+  /* clear_line_console(fbcon, */
+  /*                    (console->offset - 1) % fbcon->height, */
+  /*                    fbcon->width); */
+  rect_t line = (rect_t)
+    { 0, (console->offset - 1) % fbcon->height,
+      fbcon->width, 1 };
+  rect_bounding(&fbcon->dirty, &line);
 }
 
 static void set_geometry(void *data, int *width, int *height)
@@ -131,16 +122,8 @@ static void set_geometry(void *data, int *width, int *height)
 void render_char(fbcon_t *fbcon, console_t *console,
                  point_t p, char c, uint32_t fg, uint32_t bg)
 {
-  rect_t cell;
-  cell.x = p.x * graphics_font.header.width;
-  cell.y = (p.y - console->offset) * graphics_font.header.height;
-  cell.width = graphics_font.header.width;
-  cell.height = graphics_font.header.height;
-
-  if (!rect_intersects(&fbcon->dirty, &cell)) return;
-
   int pitch = graphics_mode.width - graphics_font.header.width;
-  uint32_t *pos = fbcon->fb2 + cell.x + cell.y * graphics_mode.width;
+  uint32_t *pos = at(fbcon, p);
 
   if (!c || c == ' ') {
     /* just draw background */
@@ -167,12 +150,12 @@ void render_char(fbcon_t *fbcon, console_t *console,
 
 static void render_cursor(fbcon_t *fbcon, console_t *console)
 {
-  uint32_t *pos = at(fbcon, console, console->cur);
+  uint32_t *pos = at(fbcon, console->cur);
   uint32_t fg = console->fg_buffer[point_index(console, console->cur)];
   static const int cursor_height = 2;
   pos += (graphics_font.header.height - cursor_height) * graphics_mode.width;
 
-  unsigned int y = ypos(console, console->cur.y);
+  unsigned int y = ypos(fbcon, console->cur.y);
   for (int i = 0; i < cursor_height; i++) {
     for (size_t x = 0; x < graphics_font.header.width; x++) {
       *pos++ = fg;
@@ -181,37 +164,115 @@ static void render_cursor(fbcon_t *fbcon, console_t *console)
   }
 }
 
+static void blit(fbcon_t *fbcon, rect_t *rect, point_t p)
+{
+  if (rect->width == 0 || rect->height == 0) return;
+
+#if DEBUG_BLIT
+  serial_printf("    [blit] %d,%d => %d,%d (%d x %d)\n",
+                rect->x, rect->y, p.x, p.y,
+                rect->width, rect->height);
+#endif
+  uint32_t *src = fbcon->fb2 + rect->x + rect->y * graphics_mode.width;
+  uint32_t *dst = fbcon->fb + p.x + p.y * fbcon->pitch;
+
+  for (int y = 0; y < rect->height; y++) {
+    for (int x = 0; x < rect->width; x++) {
+#if BLIT_MINIMISE_TRANSFERS
+      if (src[x] == dst[x]) continue;
+#endif
+      dst[x] = src[x];
+    }
+    src += graphics_mode.width;
+    dst += fbcon->pitch;
+  }
+}
+
+static void _blit_console(fbcon_t *fbcon, rect_t *rect, point_t p)
+{
+  if (rect->width == 0 || rect->height == 0) return;
+#if DEBUG_BLIT
+  serial_printf("  [_blit_console] %d,%d => %d,%d (%d x %d)\n",
+                rect->x, rect->y, p.x, p.y,
+                rect->width, rect->height);
+#endif
+  rect->x *= graphics_font.header.width;
+  rect->width *= graphics_font.header.width;
+  rect->y *= graphics_font.header.height;
+  rect->height *= graphics_font.header.height;
+  p.x *= graphics_font.header.width;
+  p.y *= graphics_font.header.height;
+
+  blit(fbcon, rect, p);
+}
+
+static void blit_console(fbcon_t *fbcon, rect_t *rect, console_t *console)
+{
+#if DEBUG_BLIT
+  serial_printf("[blit_console] %d,%d (%d x %d)\n",
+                rect->x, rect->y, rect->width, rect->height);
+#endif
+
+  int off = console->offset % fbcon->height;
+
+  /* top */
+  rect_t r = (rect_t) {
+    0,
+    off,
+    fbcon->width,
+    fbcon->height - off
+  };
+  rect_intersection(&r, rect);
+  point_t p = (point_t) { r.x, r.y - off };
+  _blit_console(fbcon, &r, p);
+
+  /* bottom */
+  r = (rect_t) { 0, 0, fbcon->width, off };
+  rect_intersection(&r, rect);
+  p = (point_t) { r.x, r.y + fbcon->height - off };
+  _blit_console(fbcon, &r, p);
+}
+
 static void render_buffer(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
 
-  point_t p = (point_t) {0, console->offset};
-  point_t p1 = (point_t) {0, console->height + console->offset};
+  /* render invalidated cells */
+  for (int y = fbcon->dirty.y; y < fbcon->dirty.y + fbcon->dirty.height; y++) {
+    for (int x = fbcon->dirty.x; x < fbcon->dirty.x + fbcon->dirty.width; x++) {
+      point_t p = (point_t) { x, y };
+      unsigned int index = point_index(console, p);
+      uint8_t c = console->buffer[index];
+      uint32_t fg = console->fg_buffer[index];
+      uint32_t bg = console->bg_buffer[index];
 
-  /* scroll */
-  if (fbcon->scroll) {
-    size_t scroll_offset = graphics_mode.width *
-      fbcon->scroll * graphics_font.header.height;
-    memmove(fbcon->fb2, fbcon->fb2 + scroll_offset,
-            fbcon->fb_size * sizeof(uint32_t) - scroll_offset);
+      render_char(fbcon, console, p, c, fg, bg);
+    }
   }
 
-  while (point_le(p, p1)) {
-    unsigned int index = point_index(console, p);
-    uint8_t c = console->buffer[index];
-    uint32_t fg = console->fg_buffer[index];
-    uint32_t bg = console->bg_buffer[index];
-    render_char(fbcon, console, p, c, fg, bg);
-    p = point_next(console, p);
-  }
+  /* render cursor */
   render_cursor(fbcon, console);
 
-  rect_t scroll_rect = (rect_t) { 0, 0, 0, 0 };
-  scroll_rect.width = graphics_mode.width;
-  scroll_rect.height = fbcon->scroll * graphics_font.header.height;
-  rect_bounding(&fbcon->dirty, &scroll_rect);
+  rect_t r;
+  if (1) {
+    if (console->offset == fbcon->last_offset) {
+      blit_console(fbcon, &fbcon->dirty, console);
+    }
+    else {
+      serial_printf("[fbcon] scrolling\n");
+      rect_t r = (rect_t) { 0, 0, fbcon->width, 1 };
+      for (; r.y < fbcon->height; r.y++) {
+        blit_console(fbcon, &r, console);
+      }
+    }
+  }
+  else {
+    r = (rect_t) { 0, 0, graphics_mode.width, graphics_mode.height };
+    blit(fbcon, &r, (point_t) {0, 0});
+  }
 
-  flip_buffers(fbcon);
+  fbcon->last_offset = console->offset;
+  fbcon->dirty = (rect_t) { 0, 0, 0, 0 };
 }
 
 static console_ops_t ops = {
