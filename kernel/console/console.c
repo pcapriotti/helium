@@ -3,6 +3,7 @@
 #include "core/debug.h"
 #include "font.h"
 #include "graphics.h"
+#include "kmalloc.h"
 #include "memory.h"
 #include "scheduler.h"
 #include "timer.h"
@@ -65,6 +66,11 @@ int console_init(console_backend_t *backend)
   console.fg_buffer = (uint32_t *) falloc(console.width * console.height * sizeof(uint32_t));
   console.bg_buffer = (uint32_t *) falloc(console.width * console.height * sizeof(uint32_t));
 
+  console.lengths = kmalloc(console.height * sizeof(int));
+  for (int i = 0; i < console.height; i++) {
+    console.lengths[i] = 0;
+  }
+
   for (int i = 0; i < console.width * console.height; i++) {
     console.buffer[i] = 0;
     console.fg_buffer[i] = DEFAULT_FG;
@@ -103,9 +109,8 @@ void console_clear_line(int y)
 {
   point_t begin = (point_t) { 0, y };
   unsigned index = point_index(&console, begin);
-  int length = console.width;
-  while (length > 0 && console.buffer[index + length - 1] == 0)
-    length--;
+  int length = console.lengths[y % console.height];
+  console.lengths[y % console.height] = 0;
   memset(&console.buffer[index], 0,
          length * sizeof(uint8_t));
   memset(&console.fg_buffer[index], DEFAULT_FG,
@@ -120,6 +125,10 @@ void console_clear_line(int y)
 /* print a character */
 static inline void _console_putchar_at(point_t p, char c, uint32_t fg, uint32_t bg)
 {
+  if (p.x > console.lengths[p.y % console.height]) {
+    console.lengths[p.y % console.height] = p.x + 1;
+  }
+
   if (c < 0x20 || c > 0x7e) return;
 
   unsigned int index = point_index(&console, p);

@@ -24,6 +24,7 @@ typedef struct console {
   point_t cur;
   uint32_t fg, bg;
   int width, height;
+  int *lengths; /* length of each line */
   int offset;
   semaphore_t write_sem;
   semaphore_t paint_sem;

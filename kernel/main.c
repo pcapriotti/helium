@@ -131,10 +131,11 @@ void kernel_start(void *multiboot, uint32_t magic)
   }
 
   if (console_init(console_backend_get()) == -1) panic();
-  for (int i = 0; i < 25; i++) {
+  for (int i = 0; i < 25 && i < console.height; i++) {
     int p = console.width * i;
     int q = 80 * i;
-    for (int j = 0; j < 80; j++) {
+    for (int j = 0; j < 80 && j < console.width; j++) {
+      if (debug_buf[q]) console.lengths[i] = j;
       console.buffer[p++] = debug_buf[q++];
     }
   }

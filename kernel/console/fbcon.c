@@ -14,7 +14,6 @@
 #define PIXEL_SIZE 4 /* 32 bit graphics only for now */
 #define FAST_MEMCPY32 1
 #define DEBUG_BLIT 0
-#define BLIT_MINIMISE_TRANSFERS 1
 
 static fbcon_t instance;
 
@@ -73,27 +72,6 @@ static inline uint32_t *at(fbcon_t *fbcon, point_t p)
     ypos(fbcon, p.y) * graphics_mode.width;
 }
 
-void clear_line_console(fbcon_t *fbcon, int line, int length)
-{
-  rect_t r = (rect_t) {
-    0, line * graphics_font.header.height,
-    length * graphics_font.header.width,
-    graphics_font.header.height
-  };
-#if DEBUG_BLIT
-  serial_printf("[fbcon] clearing %u,%u (%ux%u)\n",
-                r.x, r.y, r.width, r.height);
-#endif
-
-  uint32_t *dst = fbcon->fb2 + r.x + r.y * graphics_mode.width;
-  for (int y = 0; y < r.height; y++) {
-    for (int x = 0; x < r.width; x++) {
-      dst[x] = 0;
-    }
-    dst += graphics_mode.width;
-  }
-}
-
 static void invalidate(void *data, console_t *console, point_t p)
 {
   fbcon_t *fbcon = data;
@@ -104,9 +82,6 @@ static void invalidate(void *data, console_t *console, point_t p)
 static void scroll(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
-  /* clear_line_console(fbcon, */
-  /*                    (console->offset - 1) % fbcon->height, */
-  /*                    fbcon->width); */
   rect_t line = (rect_t)
     { 0, (console->offset - 1) % fbcon->height,
       fbcon->width, 1 };
@@ -178,9 +153,6 @@ static void blit(fbcon_t *fbcon, rect_t *rect, point_t p)
 
   for (int y = 0; y < rect->height; y++) {
     for (int x = 0; x < rect->width; x++) {
-#if BLIT_MINIMISE_TRANSFERS
-      if (src[x] == dst[x]) continue;
-#endif
       dst[x] = src[x];
     }
     src += graphics_mode.width;
