@@ -1,79 +1,12 @@
 #include "debug.h"
 #include "io.h"
+#include "core/serial.h"
 #include "core/x86.h"
 
 #include <stdarg.h>
 #include <math.h>
 
 #define SERIAL_DEBUG 1
-
-enum {
-  COM1_PORT = 0x3f8
-};
-
-enum {
-  SERIAL_RECEIVE_REGISTER = 0,
-  SERIAL_INTERRUPT_ENABLE,
-  SERIAL_FIFO,
-  SERIAL_LINE_CONTROL,
-  SERIAL_MODEM_CONTROL,
-  SERIAL_LINE_STATUS,
-  SERIAL_MODEM_STATUS,
-  SERIAL_SCRATCH,
-};
-
-enum {
-  SERIAL_DIVISOR_LO = 0,
-  SERIAL_DIVISOR_HI,
-};
-
-enum {
-  SERIAL_5_BITS = 0,
-  SERIAL_6_BITS,
-  SERIAL_7_BITS,
-  SERIAL_8_BITS,
-};
-
-enum {
-  SERIAL_1_STOP = 0 << 2,
-  SERIAL_2_STOP = 1 << 2,
-};
-
-
-enum {
-  SERIAL_NO_PARITY = 0 << 3,
-  SERIAL_ODD_PARITY = 1 << 3,
-  SERIAL_EVEN_PARITY = 3 << 3,
-  SERIAL_MARK_PARITY = 5 << 3,
-  SERIAL_SPACE_PARITY = 7 << 3,
-};
-
-enum {
-  SERIAL_SOUT = 1 << 6,
-  SERIAL_DLAB = 1 << 7,
-};
-
-enum {
-  SERIAL_FIFO_ENABLE = 1 << 0,
-  SERIAL_FIFO_CLEAR_RX = 1 << 1,
-  SERIAL_FIFO_CLEAR_TX = 1 << 2,
-  SERIAL_FIFO_DMA = 1 << 3,
-};
-
-enum {
-  SERIAL_FIFO_TRIGGER_1 = 0 << 6,
-  SERIAL_FIFO_TRIGGER_4 = 1 << 6,
-  SERIAL_FIFO_TRIGGER_8 = 2 << 6,
-  SERIAL_FIFO_TRIGGER_14 = 3 << 6,
-};
-
-enum {
-  SERIAL_MODEM_DTR = 1 << 0,
-  SERIAL_MODEM_RTS = 1 << 1,
-  SERIAL_MODEM_OUT1 = 1 << 2,
-  SERIAL_MODEM_OUT2 = 1 << 3,
-  SERIAL_MODEM_LOOPBACK = 1 << 4,
-};
 
 volatile int debug_key_pressed = 0;
 int debug_paging = 0;
@@ -97,24 +30,6 @@ void _panic(const char *filename, int line)
 
 volatile uint16_t *vga_text = VGA_TEXT;
 debug_console_t debug_console = {0, 0, VGA_TEXT};
-
-void serial_port_init() {
-  outb(COM1_PORT + SERIAL_INTERRUPT_ENABLE, 0);
-  outb(COM1_PORT + SERIAL_LINE_CONTROL, SERIAL_DLAB);
-  outb(COM1_PORT + SERIAL_DIVISOR_LO, 1);
-  outb(COM1_PORT + SERIAL_DIVISOR_HI, 0);
-  outb(COM1_PORT + SERIAL_LINE_CONTROL,
-       SERIAL_8_BITS | SERIAL_NO_PARITY | SERIAL_1_STOP);
-  outb(COM1_PORT + SERIAL_FIFO,
-       SERIAL_FIFO_ENABLE |
-       SERIAL_FIFO_CLEAR_RX |
-       SERIAL_FIFO_CLEAR_TX |
-       SERIAL_FIFO_TRIGGER_14);
-  outb(COM1_PORT + SERIAL_MODEM_CONTROL,
-       SERIAL_MODEM_DTR |
-       SERIAL_MODEM_RTS |
-       SERIAL_MODEM_OUT2);
-}
 
 #define DEBUG_CONSOLE_WIDTH 80
 #define DEBUG_CONSOLE_HEIGHT 25
@@ -151,15 +66,7 @@ void debug_print_char(char c)
 void serial_print_char(char c)
 {
 #if SERIAL_DEBUG
-  static int serial_port_initialised = 0;
-  if (!serial_port_initialised) {
-    serial_port_init();
-    serial_port_initialised = 1;
-  }
-  if (c == '\n')
-    serial_print_char('\r');
-  while ((inb(COM1_PORT + 5) & 0x20) == 0);
-  outb(COM1_PORT, c);
+  serial_putchar(c);
 #else
   print_char_function(c);
   redraw_screen_function();

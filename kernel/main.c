@@ -6,6 +6,7 @@
 #include "core/interrupts.h"
 #include "core/debug.h"
 #include "core/io.h"
+#include "core/serial.h"
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "drivers/ata/ata.h"
@@ -92,6 +93,7 @@ void kernel_start(void *multiboot, uint32_t magic)
   /* ignore multiboot info unless we come from a multiboot loader */
   if (magic != MB_MAGIC_EAX) multiboot = 0;
 
+  serial_init();
   gdt_init();
   idt_init();
   pic_init();

@@ -3,6 +3,7 @@
 #include "core/elf.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "core/serial.h"
 #include "core/vfs.h"
 #include "core/v8086.h"
 #include "stage1.h"
@@ -173,6 +174,7 @@ void loader_start(uint32_t drive)
        p < _bss_end; p++) {
     *p = 0;
   }
+  serial_init();
 
   gdt_set_entry(&kernel_gdt[GDT_TASK],
                 (uint32_t)&kernel_tss,
