@@ -6,7 +6,9 @@
 #include "font.h"
 #include "frames.h"
 #include "graphics.h"
+#include "kmalloc.h"
 #include "memory.h"
+#include "util.h"
 
 #include <assert.h>
 #include <string.h>
@@ -37,6 +39,12 @@ int fbcon_init(fbcon_t *fbcon)
   fbcon->width = graphics_mode.width / graphics_font.header.width;
   fbcon->height = graphics_mode.height / graphics_font.header.height;
   fbcon->dirty = (rect_t) { 0, 0, fbcon->width, fbcon->height };
+
+  /* initialise lengths */
+  fbcon->lengths = kmalloc(fbcon->height * sizeof(int));
+  for (int i = 0; i < fbcon->height; i++) {
+    fbcon->lengths[i] = 0;
+  }
 
   /* allocate memory for back buffer */
   uint64_t frame =
@@ -82,9 +90,9 @@ static void invalidate(void *data, console_t *console, point_t p)
 static void scroll(void *data, console_t *console)
 {
   fbcon_t *fbcon = data;
-  rect_t line = (rect_t)
-    { 0, (console->offset - 1) % fbcon->height,
-      fbcon->width, 1 };
+  assert(console->offset >= 1);
+  int y = (console->offset - 1) % fbcon->height;
+  rect_t line = (rect_t) { 0, y, console->lengths[y], 1 };
   rect_bounding(&fbcon->dirty, &line);
 }
 
@@ -211,6 +219,8 @@ static void render_buffer(void *data, console_t *console)
 
   /* render invalidated cells */
   for (int y = fbcon->dirty.y; y < fbcon->dirty.y + fbcon->dirty.height; y++) {
+    fbcon->lengths[y] = max(fbcon->dirty.x + fbcon->dirty.width,
+                            fbcon->lengths[y]);
     for (int x = fbcon->dirty.x; x < fbcon->dirty.x + fbcon->dirty.width; x++) {
       point_t p = (point_t) { x, y };
       unsigned int index = point_index(console, p);
@@ -226,21 +236,41 @@ static void render_buffer(void *data, console_t *console)
   render_cursor(fbcon, console);
 
   rect_t r;
-  if (1) {
-    if (console->offset == fbcon->last_offset) {
-      blit_console(fbcon, &fbcon->dirty, console);
-    }
-    else {
-      serial_printf("[fbcon] scrolling\n");
-      rect_t r = (rect_t) { 0, 0, fbcon->width, 1 };
-      for (; r.y < fbcon->height; r.y++) {
-        blit_console(fbcon, &r, console);
-      }
-    }
+  if (console->offset == fbcon->last_offset) {
+    blit_console(fbcon, &fbcon->dirty, console);
   }
   else {
-    r = (rect_t) { 0, 0, graphics_mode.width, graphics_mode.height };
-    blit(fbcon, &r, (point_t) {0, 0});
+#if DEBUG_BLIT
+    serial_printf("old lengths: ");
+    for (int i = 0; i < console->height; i++) {
+      serial_printf("%02d ", fbcon->lengths[i]);
+    }
+    serial_printf("\n");
+    serial_printf("new lengths: ");
+    for (int i = 0; i < console->height; i++) {
+      serial_printf("%02d ", console->lengths[i]);
+    }
+    serial_printf("\n");
+#endif
+
+    int ysrc = console->offset % fbcon->height;
+    int ydst = fbcon->last_offset % fbcon->height;
+    int delta = console->offset - fbcon->last_offset;
+    for (int y = 0; y < fbcon->height; y++) {
+      int ynew = (y + console->offset - fbcon->last_offset) % fbcon->height;
+      ynew = (ynew + fbcon->height) % fbcon->height; /* make positive */
+
+      int length = max(fbcon->lengths[y],
+                       console->lengths[ynew]);
+
+#if DEBUG_BLT
+      serial_printf("%02d => %02d: length = %d\n", y, ynew, length);
+#endif
+      rect_t r = (rect_t) { 0, ynew, length, 1 };
+      blit_console(fbcon, &r, console);
+    }
+    for (int y = 0; y < fbcon->height; y++)
+      fbcon->lengths[y] = console->lengths[y];
   }
 
   fbcon->last_offset = console->offset;

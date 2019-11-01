@@ -25,6 +25,9 @@ typedef struct fbcon {
   /* offset of last repaint */
   int last_offset;
 
+  /* lengths of renderered lines */
+  int *lengths;
+
   /* number of pixels per row */
   int pitch;
 } fbcon_t;

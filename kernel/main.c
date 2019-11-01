@@ -135,8 +135,9 @@ void kernel_start(void *multiboot, uint32_t magic)
     int p = console.width * i;
     int q = 80 * i;
     for (int j = 0; j < 80 && j < console.width; j++) {
-      if (debug_buf[q]) console.lengths[i] = j;
-      console.buffer[p++] = debug_buf[q++];
+      char c = debug_buf[q++];
+      if (c > 0x20 && c < 0x7f) console.lengths[i] = j + 1;
+      console.buffer[p++] = c;
     }
   }
 

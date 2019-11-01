@@ -125,11 +125,11 @@ void console_clear_line(int y)
 /* print a character */
 static inline void _console_putchar_at(point_t p, char c, uint32_t fg, uint32_t bg)
 {
-  if (p.x > console.lengths[p.y % console.height]) {
+  if (c <= 0x20 || c > 0x7e) return;
+
+  if (p.x + 1 > console.lengths[p.y % console.height]) {
     console.lengths[p.y % console.height] = p.x + 1;
   }
-
-  if (c < 0x20 || c > 0x7e) return;
 
   unsigned int index = point_index(&console, p);
   if (p.x < console.width) {
