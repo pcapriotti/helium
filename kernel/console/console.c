@@ -91,8 +91,10 @@ static void console_renderer(void)
     unsigned int ticks = timer_get_tick();
     console.backend->ops->repaint
       (console.backend->ops_data, &console);
-    serial_printf("[console] renderered in %u ticks\n",
+#if CONSOLE_DEBUG
+    serial_printf("[console] rendered in %u ticks\n",
                   timer_get_tick() - ticks);
+#endif
     console.needs_repaint = 0;
     sem_signal(&console.write_sem);
 

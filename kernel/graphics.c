@@ -269,7 +269,6 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
 
   /* map framebuffer into virtual memory */
   req_mode->fb_size = info_mem << 16;
-  serial_printf("fb size %u\n", req_mode->fb_size, info_mem);
 
   /* only map one page of the framebuffer */
   req_mode->framebuffer = paging_perm_map_pages
