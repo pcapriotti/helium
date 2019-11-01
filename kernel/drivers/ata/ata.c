@@ -108,7 +108,7 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
     status = ata_poll_ready(drive->channel);
 
     if (status & ATA_ST_ERR) {
-      kprintf("ata: error while reading\n");
+      serial_printf("[ata] error while reading\n");
       return 0;
     }
 
@@ -161,13 +161,13 @@ int ata_identify_drive(drive_t *drive)
   /* ata_wait(drive->channel); */
   status = ata_read(drive->channel, ATA_REG_STATUS);
 #if ATA_DEBUG
-  kprintf("ata identify: status %#x\n", status);
+  serial_printf("[ata] identify: status %#x\n", status);
 #endif
   if (!status || (status & ATA_ST_ERR)) return 0;
 
   status = ata_poll_busy(drive->channel);
 #if ATA_DEBUG
-  kprintf("non-busy status: %#x\n", status);
+  serial_printf("[ata] non-busy status: %#x\n", status);
 #endif
 
   /* check if ATAPI */
@@ -176,7 +176,7 @@ int ata_identify_drive(drive_t *drive)
 
   status = ata_poll_ready(drive->channel);
 #if ATA_DEBUG
-  kprintf("ready status: %#x\n", status);
+  serial_printf("[ata] ready status: %#x\n", status);
 #endif
   if (status & ATA_ST_ERR) return 0;
 
@@ -216,21 +216,21 @@ void ata_list_drives(void)
   for (int i = 0; i < 4; i++) {
     drive_t *drive = &drives[i];
     if (drive->present) {
-      kprintf("drive %d: %s ", i, drive->model);
+      serial_printf("[ata] drive %d: %s ", i, drive->model);
 
       uint32_t kb = drives[i].lba_sectors >> 1;
       uint32_t mb = kb >> 10;
       uint32_t gb = mb >> 10;
       if (gb) {
-        kprintf("%u GB", gb);
+        serial_printf("%u GB", gb);
       }
       else if (mb) {
-        kprintf("%u MB", mb);
+        serial_printf("%u MB", mb);
       } else {
-        kprintf("%u kB", kb);
+        serial_printf("%u kB", kb);
       }
 
-      kprintf("\n");
+      serial_printf("\n");
     }
   }
 }
@@ -242,7 +242,7 @@ int ata_init(void *data, device_t *ide)
   ata_initialised = 1;
 
 #if ATA_DEBUG
-  kprintf("initialising ATA driver\n");
+  serial_printf("[ata] initialising\n");
 #endif
 
   ata_channels[0].base = ide->bars[0] ? (ide->bars[0] & ~3) : ATA_PRIMARY_BASE;
@@ -261,21 +261,21 @@ int ata_init(void *data, device_t *ide)
       int ok = ata_identify_drive(&drives[i]);
       if (ok) {
 #if ATA_DEBUG
-        kprintf("drive %u: ", i);
+        serial_printf("[ata] drive %u: ", i);
         {
           uint32_t kb = drives[i].lba_sectors >> 1;
           uint32_t mb = kb >> 10;
           uint32_t gb = mb >> 10;
           if (gb) {
-            kprintf("%u GB", gb);
+            serial_printf("%u GB", gb);
           }
           else if (mb) {
-            kprintf("%u MB", mb);
+            serial_printf("%u MB", mb);
           } else {
-            kprintf("%u kB", kb);
+            serial_printf("%u kB", kb);
           }
         }
-        kprintf("\n");
+        serial_printf("\n");
 #endif
       }
       i++;
