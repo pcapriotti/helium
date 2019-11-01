@@ -6,7 +6,7 @@
 #include "memory.h"
 #include "paging/paging.h"
 
-#define GRAPHICS_DEBUG 0
+#define GRAPHICS_DEBUG 1
 
 typedef struct {
   uint32_t signature;
@@ -59,7 +59,7 @@ int get_graphics_info(vbe_info_t *info)
   regs.edi = infop.offset;
 
 #if GRAPHICS_DEBUG
-  kprintf("get_graphics_info at %04x:%#04x (%p)\n",
+  serial_printf("get_graphics_info at %04x:%#04x (%p)\n",
           infop.segment, infop.offset, info);
 #endif
   bios_int(0x10, &regs);
@@ -72,7 +72,7 @@ int get_graphics_info(vbe_info_t *info)
       count++;
       modes++;
     }
-    kprintf("found %d modes at %#04x:%#04x (%p)\n", count,
+    serial_printf("found %d modes at %#04x:%#04x (%p)\n", count,
             info->modes.segment, info->modes.offset, modes0);
   }
 #endif
@@ -91,7 +91,7 @@ int get_mode(uint16_t number, vbe_mode_info_t *info)
   ptr16_t infop = linear_to_ptr16((uint32_t) info);
 
 #if GRAPHICS_DEBUG
-    kprintf("requesting info for mode %#x at %#04x:%#04x\n",
+    serial_printf("requesting info for mode %#x at %#04x:%#04x\n",
             number, infop.segment, infop.offset);
 #endif
 
@@ -103,7 +103,7 @@ int get_mode(uint16_t number, vbe_mode_info_t *info)
   bios_int(0x10, &regs);
 
 #if GRAPHICS_DEBUG
-    kprintf("results for %#x: %ux%u %u bits, eax = %x\n",
+    serial_printf("results for %#x: %ux%u %u bits, eax = %x\n",
             (uint32_t) number,
             (uint32_t) info->width,
             (uint32_t) info->height,
@@ -157,7 +157,7 @@ int find_mode(void *low_heap, vbe_mode_t *req_mode, uint16_t *modes)
     }
 
 /* #if GRAPHICS_DEBUG */
-/*     kprintf("score: %u\n", score); */
+/*     serial_printf("score: %u\n", score); */
 /* #endif */
 
     if (best == -1 || score < best_score) {
@@ -255,17 +255,13 @@ int graphics_init(vbe_mode_t *req_mode, uint16_t *debug_buf)
 
   if (ret == -1) return -1;
   if (req_mode->bpp != 32) {
-    kprintf("unsupported mode %#x: %ux%u %u bits\n",
+    serial_printf("unsupported mode %#x: %ux%u %u bits\n",
             (uint32_t) req_mode->number,
             (uint32_t) req_mode->width,
             (uint32_t) req_mode->height,
             (uint32_t) req_mode->bpp);
     return -1;
   }
-
-#if GRAPHICS_DEBUG
-  return -1;
-#endif
 
   /* map framebuffer into virtual memory */
   req_mode->fb_size = info_mem << 16;
