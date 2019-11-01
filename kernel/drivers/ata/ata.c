@@ -2,6 +2,7 @@
 #include "core/debug.h"
 #include "core/io.h"
 #include "drivers/drivers.h"
+#include "handlers.h"
 #include "pci.h"
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
@@ -20,6 +21,7 @@ struct channel_struct {
 channel_t ata_channels[2] = {0};
 drive_t drives[4] = {0};
 static int ata_initialised = 0;
+static uint8_t ata_irq_number = 0;
 
 static inline uint16_t reg_port(uint8_t channel, uint8_t reg)
 {
@@ -236,11 +238,22 @@ void ata_list_drives(void)
   }
 }
 
+void ata_irq(struct isr_stack *stack)
+{
+  serial_printf("[ata] interrupt\n");
+  for (int i = 0; i < 4; i++) {
+    if (!drives[i].present) return;
+    uint8_t status = ata_read(drives[i].channel, ATA_REG_STATUS);
+    serial_printf("  drive %d status %02#x\n", i, status);
+  }
+  serial_printf("  sending EOI\n");
+  pic_eoi(ata_irq_number);
+}
+
 int ata_init(void *data, device_t *ide)
 {
   if (!ide) return -1;
   if (ata_initialised) return 0;
-  ata_initialised = 1;
 
 #if ATA_DEBUG
   serial_printf("[ata] initialising\n");
@@ -250,6 +263,13 @@ int ata_init(void *data, device_t *ide)
   ata_channels[0].ctrl = ide->bars[1] ? (ide->bars[1] & ~3) : ATA_PRIMARY_CTRL;
   ata_channels[1].base = ide->bars[2] ? (ide->bars[2] & ~3) : ATA_SECONDARY_BASE;
   ata_channels[1].ctrl = ide->bars[3] ? (ide->bars[3] & ~3) : ATA_SECONDARY_CTRL;
+
+  ata_irq_number = ide->irq & 0xff;
+  serial_printf("ata_irq_number = %u\n", ata_irq_number);
+  if (ata_irq_number) {
+    irq_grab(ata_irq_number, ata_irq);
+    pic_mask(ata_irq_number); /* for now */
+  }
 
   /* initialise drives */
   uint8_t i = 0;
@@ -281,6 +301,7 @@ int ata_init(void *data, device_t *ide)
         }
         serial_printf("\n");
 #endif
+        ata_initialised = 1;
       }
       i++;
     }

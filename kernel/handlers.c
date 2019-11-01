@@ -16,7 +16,7 @@ int irq_grab(int irq, handler_t handler)
   if (irq < 0 || irq >= NUM_IRQ) return -1;
   if (irq_handlers[irq] != 0) {
 #if DEBUG_LOCAL
-    serial_printf("irq %#x is already grabbed\n");
+    serial_printf("irq %#x is already grabbed\n", irq);
 #endif
     return -1;
   }
