@@ -6,7 +6,7 @@
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
 
-#define ATA_DEBUG 0
+#define ATA_DEBUG 1
 
 struct channel_struct {
   /* base IO port */
@@ -147,6 +147,7 @@ int ata_identify_drive(drive_t *drive)
   ata_wait(drive->channel);
   status = ata_read(drive->channel, ATA_REG_STATUS);
   if (status == 0 || status & ATA_ST_BSY) {
+
     return 0;
   }
   ata_channels[drive->channel].last_drive = drive->index;
@@ -216,21 +217,21 @@ void ata_list_drives(void)
   for (int i = 0; i < 4; i++) {
     drive_t *drive = &drives[i];
     if (drive->present) {
-      serial_printf("[ata] drive %d: %s ", i, drive->model);
+      kprintf("drive %d: %s ", i, drive->model);
 
       uint32_t kb = drives[i].lba_sectors >> 1;
       uint32_t mb = kb >> 10;
       uint32_t gb = mb >> 10;
       if (gb) {
-        serial_printf("%u GB", gb);
+        kprintf("%u GB", gb);
       }
       else if (mb) {
-        serial_printf("%u MB", mb);
+        kprintf("%u MB", mb);
       } else {
-        serial_printf("%u kB", kb);
+        kprintf("%u kB", kb);
       }
 
-      serial_printf("\n");
+      kprintf("\n");
     }
   }
 }
@@ -256,12 +257,15 @@ int ata_init(void *data, device_t *ide)
     ata_reset(channel);
 
     for (uint8_t drive = 0; drive < 2; drive++) {
+#if ATA_DEBUG
+      serial_printf("[ata] identify drive %u channel %u\n", drive, channel);
+#endif
       drives[i].channel = channel;
       drives[i].index = drive;
       int ok = ata_identify_drive(&drives[i]);
       if (ok) {
 #if ATA_DEBUG
-        serial_printf("[ata] drive %u: ", i);
+        serial_printf("[ata] drive %u channel %u: ", i);
         {
           uint32_t kb = drives[i].lba_sectors >> 1;
           uint32_t mb = kb >> 10;
