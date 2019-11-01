@@ -136,15 +136,27 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
         serial_printf("  subclass: %s\n", pci_bridge_names[subclass]);
       }
 
-      serial_printf("  irq: %08x\n", irq);
+      serial_printf("  irq: %02x\n", dev->irq);
 #endif
       for (unsigned int i = 0; i < PCI_NUM_BARS; i++) {
         dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i);
       }
 #if PCI_DEBUG
       for (int i = 0; i < PCI_NUM_BARS; i++) {
-        if (dev->bars[i])
-          serial_printf("  bar%d: %p\n", i, dev->bars[i]);
+        uint32_t bar = dev->bars[i];
+        if (bar) {
+          if (bar & 0x2) {
+            /* IO */
+            serial_printf("  bar%d (IO): %04x\n", i, bar & ~3);
+          }
+          else {
+            const char *prefetchable = (dev->bars[i] & 0x8) ?
+              " (prefetchable)" : "";
+            int bits = ((dev->bars[i] >> 1) & 0x3) ? 64 : 32;
+            serial_printf("  bar%d%s: %p (%d bits)\n", i, prefetchable,
+                          dev->bars[i] & ~0xf, bits);
+          }
+        }
       }
 #endif
       dev->head.next = &dev->head;
