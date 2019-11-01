@@ -145,9 +145,9 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
       for (int i = 0; i < PCI_NUM_BARS; i++) {
         uint32_t bar = dev->bars[i];
         if (bar) {
-          if (bar & 0x2) {
+          if (bar & 0x1) {
             /* IO */
-            serial_printf("  bar%d (IO): %04x\n", i, bar & ~3);
+            serial_printf("  bar%d (IO): %#04x\n", i, bar & ~3);
           }
           else {
             const char *prefetchable = (dev->bars[i] & 0x8) ?
