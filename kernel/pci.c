@@ -80,9 +80,9 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
       dev->id = id;
       dev->irq = irq & 0xff;
 #if PCI_DEBUG
-      kprintf("found device: bus %u no %u id %#x cl %#x\n",
+      serial_printf("found device: bus %u no %u id %#x cl %#x\n",
               bus, device, id, cl);
-      kprintf("  irq: %08x\n", irq);
+      serial_printf("  irq: %08x\n", irq);
 #endif
       for (unsigned int i = 0; i < PCI_NUM_BARS; i++) {
         dev->bars[i] = pci_read(bus, device, func, PCI_BAR0 + i);
@@ -90,7 +90,7 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
 #if PCI_DEBUG
       for (int i = 0; i < PCI_NUM_BARS; i++) {
         if (dev->bars[i])
-          kprintf("  bar%d: %p\n", i, dev->bars[i]);
+          serial_printf("  bar%d: %p\n", i, dev->bars[i]);
       }
 #endif
       dev->head.next = &dev->head;
@@ -119,7 +119,7 @@ list_t *pci_check_device(uint8_t bus, uint8_t id)
   }
   uint32_t hd = pci_read(bus, id, 0, PCI_HEADER_TYPE);
 #if PCI_DEBUG
-  kprintf("found device bus %u id %u hd %#x\n",
+  serial_printf("found device bus %u id %u hd %#x\n",
           bus, id, hd);
 #endif
   list_t *ret = pci_check_function(bus, id, 0);
@@ -159,7 +159,7 @@ list_t *pci_scan()
     while (p != ret) {
       device_t *dev = DEV_LIST_ENTRY(p);
 #if PCI_DEBUG
-      kprintf("found device %p class: %#x subclass: %#x\n",
+      serial_printf("found device %p class: %#x subclass: %#x\n",
               dev, dev->class, dev->subclass);
 #endif
       pci_device_init(dev);
