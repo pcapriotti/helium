@@ -1,7 +1,76 @@
 #ifndef SERIAL_H
 #define SERIAL_H
 
+enum {
+  COM1_PORT = 0x3f8
+};
+
+enum {
+  SERIAL_RECEIVE_REGISTER = 0,
+  SERIAL_INTERRUPT_ENABLE,
+  SERIAL_FIFO,
+  SERIAL_LINE_CONTROL,
+  SERIAL_MODEM_CONTROL,
+  SERIAL_LINE_STATUS,
+  SERIAL_MODEM_STATUS,
+  SERIAL_SCRATCH,
+};
+
+enum {
+  SERIAL_DIVISOR_LO = 0,
+  SERIAL_DIVISOR_HI,
+};
+
+enum {
+  SERIAL_5_BITS = 0,
+  SERIAL_6_BITS,
+  SERIAL_7_BITS,
+  SERIAL_8_BITS,
+};
+
+enum {
+  SERIAL_1_STOP = 0 << 2,
+  SERIAL_2_STOP = 1 << 2,
+};
+
+
+enum {
+  SERIAL_NO_PARITY = 0 << 3,
+  SERIAL_ODD_PARITY = 1 << 3,
+  SERIAL_EVEN_PARITY = 3 << 3,
+  SERIAL_MARK_PARITY = 5 << 3,
+  SERIAL_SPACE_PARITY = 7 << 3,
+};
+
+enum {
+  SERIAL_SOUT = 1 << 6,
+  SERIAL_DLAB = 1 << 7,
+};
+
+enum {
+  SERIAL_FIFO_ENABLE = 1 << 0,
+  SERIAL_FIFO_CLEAR_RX = 1 << 1,
+  SERIAL_FIFO_CLEAR_TX = 1 << 2,
+  SERIAL_FIFO_DMA = 1 << 3,
+};
+
+enum {
+  SERIAL_FIFO_TRIGGER_1 = 0 << 6,
+  SERIAL_FIFO_TRIGGER_4 = 1 << 6,
+  SERIAL_FIFO_TRIGGER_8 = 2 << 6,
+  SERIAL_FIFO_TRIGGER_14 = 3 << 6,
+};
+
+enum {
+  SERIAL_MODEM_DTR = 1 << 0,
+  SERIAL_MODEM_RTS = 1 << 1,
+  SERIAL_MODEM_OUT1 = 1 << 2,
+  SERIAL_MODEM_OUT2 = 1 << 3,
+  SERIAL_MODEM_LOOPBACK = 1 << 4,
+};
+
 void serial_putchar(char c);
 void serial_init(void);
+void serial_newline(void);
 
 #endif /* SERIAL_H */

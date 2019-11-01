@@ -45,7 +45,7 @@ typedef struct {
 data_t rtl8139_data = {0};
 
 /* rx tasklet */
-static uint32_t tasklet_stack[256];
+static uint32_t tasklet_stack[512];
 static task_t tasklet = {
   .state = TASK_STOPPED,
 };

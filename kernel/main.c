@@ -12,6 +12,7 @@
 #include "drivers/ata/ata.h"
 #include "drivers/drivers.h"
 #include "drivers/keyboard/keyboard.h"
+#include "drivers/serial/input.h"
 #include "fs/ext2/ext2.h"
 #include "graphics.h"
 #include "list.h"
@@ -94,6 +95,8 @@ void kernel_start(void *multiboot, uint32_t magic)
   if (magic != MB_MAGIC_EAX) multiboot = 0;
 
   serial_init();
+  serial_input_init();
+
   gdt_init();
   idt_init();
   pic_init();

@@ -159,7 +159,13 @@ void kb_propagate_event(uint8_t scancode)
 {
   if (!kb_on_event) return;
   kb_event_t *event = kb_generate_event(scancode);
-  if (event) kb_on_event(event, kb_on_event_data);
+  kb_emit(event);
+}
+
+void kb_emit(kb_event_t *event)
+{
+  if (event && kb_on_event)
+    kb_on_event(event, kb_on_event_data);
 }
 
 void kb_process_scancodes()
