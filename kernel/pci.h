@@ -20,6 +20,8 @@ enum {
   PCI_CLS_WIFI
 };
 
+extern const char *pci_class_names[];
+
 enum {
   PCI_STORAGE_SCSI = 0,
   PCI_STORAGE_IDE,
@@ -32,6 +34,8 @@ enum {
   PCI_STORAGE_NV,
   PCI_STORAGE_OTHER = 0x80,
 };
+
+extern const char *pci_storage_names[];
 
 enum {
   PCI_BRIDGE_HOST = 0,
@@ -46,6 +50,8 @@ enum {
   PCI_BRIDGE_INFINIBAND,
   PCI_BRIDGE_OTHER = 0x80,
 };
+
+extern const char *pci_bridge_names[];
 
 enum {
   PCI_CMD_IO = (1 << 0),

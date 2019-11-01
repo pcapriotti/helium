@@ -8,7 +8,49 @@
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 0
+#define PCI_DEBUG 1
+
+const char *pci_storage_names[] = {
+  "SCSI",
+  "IDE",
+  "floppy",
+  "IPI",
+  "RAID",
+  "ATA",
+  "SATA",
+  "Serial attached SCSI",
+  "Non-volatile memory",
+};
+
+const char *pci_class_names[] = {
+  "unclassified",
+  "storage",
+  "network",
+  "display",
+  "multimedia",
+  "memory",
+  "bridge",
+  "communication",
+  "base system",
+  "input device",
+  "docking station",
+  "processor",
+  "serial bus",
+  "wireless",
+};
+
+const char *pci_bridge_names[] = {
+  "host",
+  "ISA",
+  "EISA",
+  "MCA",
+  "PCI",
+  "PCMCIA",
+  "NuBus",
+  "Cardbus"
+  "PCI2",
+  "Infiniband",
+};
 
 enum {
   PCI_VENDOR_DEVICE = 0,
@@ -82,6 +124,18 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
 #if PCI_DEBUG
       serial_printf("found device: bus %u no %u id %#x cl %#x\n",
               bus, device, id, cl);
+      if (class < sizeof(pci_class_names) / sizeof(char *)) {
+        serial_printf("  class: %s\n", pci_class_names[class]);
+      }
+      if (class == PCI_CLS_STORAGE &&
+          subclass < sizeof(pci_storage_names) / sizeof(char *)) {
+        serial_printf("  subclass: %s\n", pci_storage_names[subclass]);
+      }
+      else if (class == PCI_CLS_BRIDGE &&
+               subclass < sizeof(pci_bridge_names) / sizeof(char *)) {
+        serial_printf("  subclass: %s\n", pci_bridge_names[subclass]);
+      }
+
       serial_printf("  irq: %08x\n", irq);
 #endif
       for (unsigned int i = 0; i < PCI_NUM_BARS; i++) {
