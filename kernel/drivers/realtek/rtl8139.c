@@ -1,6 +1,7 @@
 #include "atomic.h"
 #include "core/debug.h"
 #include "drivers/drivers.h"
+#include "drivers/realtek/common.h"
 #include "drivers/realtek/rtl8139.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
@@ -52,63 +53,10 @@ static task_t tasklet = {
 static int tasklet_running = 0;
 
 enum {
-  REG_MAC = 0x00,
-  REG_TSD = 0x10,
-  REG_TSAD = 0x20,
-  REG_RBSTART = 0x30,
-  REG_CMD = 0x37,
-  REG_CAPR = 0x38,
-  REG_CBR = 0x3a,
-  REG_INT_MASK = 0x3c,
-  REG_INT_STATUS = 0x3e,
-  REG_RX_CONF = 0x44,
-  REG_CONFIG_1 = 0x52,
-};
-
-enum {
   TSD_TOK = 1 << 15,
   TSD_TUN = 1 << 14,
   TSD_OWN = 1 << 13,
 };
-
-enum {
-  CMD_BUFE = 1 << 0,
-  CMD_TE = 1 << 2,
-  CMD_RE = 1 << 3,
-  CMD_RST = 1 << 4,
-};
-
-enum {
-  INT_MASK_ROK = 1 << 0,
-  INT_MASK_RER = 1 << 1,
-  INT_MASK_TOK = 1 << 2,
-  INT_MASK_TER = 1 << 3,
-  INT_MASK_RXOVW = 1 << 4,
-  INT_MASK_PUN = 1 << 5,
-  INT_MASK_FOVW = 1 << 6,
-  INT_MASK_LEN_CHG = 1 << 13,
-  INT_MASK_TIMEOUT = 1 << 14,
-  INT_MASK_SERR = 1 << 15,
-};
-
-enum {
-  RX_CONF_AAP = 1 << 0, /* all packets */
-  RX_CONF_APM = 1 << 1, /* physical match */
-  RX_CONF_AM = 1 << 2, /* multicast */
-  RX_CONF_AB = 1 << 3, /* broadcast */
-  RX_CONF_WRAP = 1 << 7,
-};
-
-uint16_t iobase(device_t *dev)
-{
-  for (int i = 0; i < PCI_NUM_BARS; i++) {
-    if (dev->bars[i] && dev->bars[i] & 1) {
-      return dev->bars[i] & ~3;
-    }
-  }
-
-  return 0;
-}
 
 static int transmit(void *_data, void *buf, size_t len)
 {
@@ -273,7 +221,7 @@ int rtl8139_init(void *_data, device_t *dev)
 {
   data_t *data = _data;
 
-  data->iobase = iobase(dev);
+  data->iobase = rtl_find_iobase(dev);
   data->irq = dev->irq;
   data->rx = data->rxbuf;
   sem_init(&data->tx_index_mutex, 1);
