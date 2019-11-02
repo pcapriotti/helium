@@ -3,6 +3,8 @@
 
 #include "list.h"
 
+#include <stdint.h>
+
 enum {
   PCI_CLS_UNCLASSIF = 0,
   PCI_CLS_STORAGE,

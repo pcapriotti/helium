@@ -12,8 +12,14 @@ if [[ -n "$AHCI" ]]; then
     opt_bus=",bus=ahci.0"
 fi
 
+if [[ -n "$NET_TAP" ]]; then
+    opt_net=" -netdev tap,ifname=tap0,script=no,downscript=no,id=n1"
+    opt_net="$opt_net -device rtl8139,netdev=n1,id=nic1"
+fi
+
 $QEMU -serial $SERIAL \
       -m $MEM \
       -drive id=disk,file=build/disk.img,if=none \
       $opt_ahci \
-      -device "ide-drive,drive=disk$opt_bus"
+      -device "ide-drive,drive=disk$opt_bus" \
+      $opt_net

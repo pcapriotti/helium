@@ -6,7 +6,7 @@
 #include "memory.h"
 #include "paging/paging.h"
 
-#define GRAPHICS_DEBUG 1
+#define GRAPHICS_DEBUG 0
 
 typedef struct {
   uint32_t signature;

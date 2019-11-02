@@ -1,7 +1,7 @@
 #include "atomic.h"
 #include "core/debug.h"
 #include "drivers/drivers.h"
-#include "drivers/rtl8139/driver.h"
+#include "drivers/realtek/rtl8139.h"
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/io.h"
@@ -12,7 +12,7 @@
 #include "scheduler.h"
 #include "semaphore.h"
 
-#define DEBUG_LOCAL 0
+#define DEBUG_LOCAL 1
 
 #define RXBUF_SIZE 8192
 #define NUM_TX_SLOTS 4

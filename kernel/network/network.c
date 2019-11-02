@@ -1,6 +1,6 @@
 #include "arp.h"
 #include "arpa/inet.h"
-#include "drivers/rtl8139/driver.h"
+#include "drivers/realtek/rtl8139.h"
 #include "core/debug.h"
 #include "ipv4.h"
 #include "heap.h"
