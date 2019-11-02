@@ -69,6 +69,17 @@ enum {
   SERIAL_MODEM_LOOPBACK = 1 << 4,
 };
 
+enum {
+  SERIAL_STATUS_DATA_READY = 1 << 0,
+  SERIAL_STATUS_OVERRUN_ERROR = 1 << 1,
+  SERIAL_STATUS_PARITY_ERROR = 1 << 2,
+  SERIAL_STATUS_FRAMING_ERROR = 1 << 3,
+  SERIAL_STATUS_BREAK = 1 << 4,
+  SERIAL_STATUS_TX_HOLDING_EMPTY = 1 << 5,
+  SERIAL_STATUS_TX_EMPTY = 1 << 6,
+  SERIAL_STATUS_ERROR = 1 << 7,
+};
+
 void serial_putchar(char c);
 void serial_init(void);
 void serial_newline(void);

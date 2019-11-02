@@ -62,11 +62,14 @@ static void event_init(kb_event_t *event, char c)
 static void serial_receive(void)
 {
   while (1) {
-    char c = inb(COM1_PORT + SERIAL_RECEIVE_REGISTER);
-    serial_printf("[serial input] %02x\n", c);
+    while ((inb(COM1_PORT + SERIAL_LINE_STATUS) &
+            SERIAL_STATUS_DATA_READY) != 0) {
+      char c = inb(COM1_PORT + SERIAL_RECEIVE_REGISTER);
+      serial_printf("[serial input] %02x\n", c);
 
-    event_init(&event, c);
-    kb_emit(&event);
+      event_init(&event, c);
+      kb_emit(&event);
+    }
 
     sched_disable_preemption();
     sched_current->state = TASK_WAITING;

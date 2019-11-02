@@ -21,7 +21,8 @@ void serial_init(void) {
 
 void _serial_putchar(char c)
 {
-  while ((inb(COM1_PORT + 5) & 0x20) == 0);
+  while ((inb(COM1_PORT + SERIAL_LINE_STATUS) &
+          SERIAL_STATUS_TX_EMPTY) == 0);
   outb(COM1_PORT, c);
 }
 
