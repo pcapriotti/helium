@@ -250,3 +250,9 @@ void device_command_set_mask(device_t *dev, uint16_t mask)
   uint32_t sc = pci_read(dev->bus, dev->device, dev->func, PCI_STATUS_COMMAND);
   pci_write(dev->bus, dev->device, dev->func, PCI_STATUS_COMMAND, sc | mask);
 }
+
+void device_set_irq(device_t *dev, uint8_t irq)
+{
+  pci_write(dev->bus, dev->device, dev->func, PCI_H0_IRQ, irq);
+  dev->irq = pci_read(dev->bus, dev->device, dev->func, PCI_H0_IRQ);
+}

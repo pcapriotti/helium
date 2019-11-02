@@ -75,6 +75,7 @@ typedef struct device {
 } device_t;
 
 void device_command_set_mask(device_t *dev, uint16_t mask);
+void device_set_irq(device_t *dev, uint8_t irq);
 
 #define DEV_LIST_ENTRY(x) LIST_ENTRY(x, device_t, head)
 #define PCI_NUM_BARS 6
