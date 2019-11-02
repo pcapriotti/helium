@@ -9,14 +9,25 @@ enum {
   REG_MAC = 0x00,
   REG_TSD = 0x10,
   REG_TSAD = 0x20,
+  REG_TX_DESC_LO = 0x20,
+  REG_TX_DESC_HI = 0x24,
+  REG_TX_PRIO_DESC_LO = 0x28,
+  REG_TX_PRIO_DESC_HI = 0x2c,
   REG_RBSTART = 0x30,
   REG_CMD = 0x37,
   REG_CAPR = 0x38,
   REG_CBR = 0x3a,
   REG_INT_MASK = 0x3c,
   REG_INT_STATUS = 0x3e,
+  REG_TX_CONF = 0x40,
   REG_RX_CONF = 0x44,
+  REG_LOCK = 0x50,
   REG_CONFIG_1 = 0x52,
+  REG_RMS = 0xda,
+  REG_CMD_PLUS = 0xe0,
+  REG_RX_DESC_LO = 0xe4,
+  REG_RX_DESC_HI = 0xe8,
+  REG_TX_THRESHOLD = 0xec,
 };
 
 enum {
@@ -45,6 +56,13 @@ enum {
   RX_CONF_AM = 1 << 2, /* multicast */
   RX_CONF_AB = 1 << 3, /* broadcast */
   RX_CONF_WRAP = 1 << 7,
+  RX_CONF_DMA_UNLIM = 7 << 8,
+  RX_CONF_FIFO_UNLIM = 7 << 13,
+};
+
+enum {
+  TX_CONF_IFG_NORMAL = 3 << 24,
+  TX_CONF_DMA_UNLIM = 7 << 8,
 };
 
 uint16_t rtl_find_iobase(struct device *dev);
