@@ -11,6 +11,7 @@
 #include "network/network.h"
 #include "pci.h"
 #include "scheduler.h"
+#include "semaphore.h"
 
 #include <stdint.h>
 #include <string.h>
@@ -59,6 +60,11 @@ typedef struct rtl8169 {
   /* receive callback */
   nic_on_packet_t on_packet;
   void *on_packet_data;
+
+  /* transmit synchronisation */
+  semaphore_t tx_sem;
+  int tx_index;
+  semaphore_t tx_index_mutex;
 } rtl8169_t;
 
 rtl8169_t rtl8169_instance;
@@ -138,14 +144,13 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
   for (int i = 0; i < rtl->tx_num_desc; i++) {
-    descriptor_t *desc = &rtl->tx_desc[0];
-    desc->flags = DESC_OWN;
+    descriptor_t *desc = &rtl->tx_desc[i];
+    desc->flags = 0;
     desc->vlan_tag = 0;
-
-    void *buf = falloc(TX_BUFSIZE);
-    assert(((size_t) buf & 0x7) == 0);
-    desc->buffer = (size_t) buf;
+    desc->buffer = 0;
   }
+  if (rtl->tx_num_desc > 0)
+    rtl->tx_desc[rtl->tx_num_desc - 1].flags |= DESC_EOR;
 
   /* set IFG and DMA burst size */
   outl(rtl->iobase + REG_TX_CONF,
@@ -182,7 +187,8 @@ static void rtl8169_setup_rx(rtl8169_t *rtl)
     assert(((size_t) buf & 0x7) == 0);
     desc->buffer = (size_t) buf;
   }
-  rtl->rx_desc[rtl->rx_num_desc - 1].flags |= DESC_EOR;
+  if (rtl->rx_num_desc > 0)
+    rtl->rx_desc[rtl->rx_num_desc - 1].flags |= DESC_EOR;
 
   /* promiscuous mode */
   uint32_t rxconf =
@@ -224,6 +230,10 @@ int rtl8169_init(void *data, device_t *dev)
   rtl->on_packet = 0;
   rtl->on_packet_data = 0;
 
+  rtl->tx_index = 0;
+  sem_init(&rtl->tx_sem, rtl->tx_num_desc);
+  sem_init(&rtl->tx_index_mutex, 1);
+
 #if DEBUG_LOCAL
   serial_printf("[rtl8169] irq number: %#2x\n", rtl->irq);
 #endif
@@ -264,24 +274,21 @@ int rtl8169_init(void *data, device_t *dev)
   rtl8169_setup_rx(rtl);
   rtl8169_setup_tx(rtl);
 
-  /* enable rx and tx */
-  outb(rtl->iobase + REG_CMD, CMD_TE | CMD_RE);
-
   /* mask interrupts and ack */
   outw(rtl->iobase + REG_INT_MASK, 0);
   outw(rtl->iobase + REG_INT_STATUS, 0xffff);
-#if DEBUG_LOCAL
   {
     uint8_t cmd = inb(rtl->iobase + REG_CMD);
+#if DEBUG_LOCAL
     serial_printf("[rtl8169] cmd: %#02x\n", cmd);
-  }
-#else
-  inb(rtl->iobase + REG_CMD);
 #endif
+  }
+
+  /* enable rx and tx */
+  outb(rtl->iobase + REG_CMD, CMD_TE | CMD_RE);
 
   /* set bus master bit in PCI configuration */
   device_command_set_mask(dev, PCI_CMD_BUS_MASTER);
-
 
   /* store mac address */
   for (int i = 0; i < 6; i++) {
@@ -327,25 +334,51 @@ static int rtl8169_grab(void *data,
   return 0;
 }
 
+/* get index of a fresh descriptor, update tx_index */
+static int rtl8169_get_tx_desc(rtl8169_t *rtl)
+{
+  sem_wait(&rtl->tx_index_mutex);
+  for (int i = 0; i < rtl->tx_num_desc; i++) {
+    int index = (rtl->tx_index + i) % rtl->tx_num_desc;
+    if (!(rtl->tx_desc[i].flags & DESC_OWN)) {
+      rtl->tx_desc[i].flags |= DESC_OWN;
+      rtl->tx_index = (rtl->tx_index + i + 1) % rtl->tx_num_desc;
+      sem_signal(&rtl->tx_index_mutex);
+      return i;
+    }
+  }
+  sem_signal(&rtl->tx_index_mutex);
+  int col = serial_set_colour(SERIAL_COLOUR_ERR);
+  serial_printf("[rtl8169] no available tx descriptor\n");
+  serial_set_colour(col);
+  return -1;
+}
+
 static int rtl8169_transmit(void *data, void *buf, size_t len)
 {
+  rtl8169_t *rtl = data;
+
+  /* limit number of tasks that can access transmit ring */
+  sem_wait(&rtl->tx_sem);
+
+  /* find available descriptor */
+  int index = rtl8169_get_tx_desc(rtl);
 #if DEBUG_LOCAL
-  serial_printf("[rtl8169] tx:\n");
-  {
-    int col = serial_set_colour(0);
-    uint8_t *payload = buf;
-    for (size_t i = 0; i < len; i++) {
-      serial_printf("%02x ", payload[i]);
-    }
-    serial_printf("\n");
-    serial_set_colour(col);
-  }
+  serial_printf("[rtl8169] tx desc: %d\n", index);
 #endif
-  {
-    int col = serial_set_colour(SERIAL_COLOUR_ERR);
-    serial_printf("[rtl8169] transmit not implemented\n");
-    serial_set_colour(col);
-  }
+  if (index == -1) return -1;
+  descriptor_t *desc = &rtl->tx_desc[index];
+
+  /* set buffer and pass ownership to NIC */
+  desc->buffer = (size_t) buf;
+  desc->flags = (desc->flags & 0xffff0000) | (len & 0xffff);
+  desc->flags |= DESC_OWN | DESC_FS | DESC_LS;
+
+  /* notify NIC */
+  outb(rtl->iobase + REG_TPPOLL, TX_POLL_NPQ);
+
+  sem_signal(&rtl->tx_sem);
+
   return 0;
 }
 

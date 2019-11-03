@@ -16,6 +16,7 @@ enum {
   REG_RBSTART = 0x30,
   REG_CMD = 0x37,
   REG_CAPR = 0x38,
+  REG_TPPOLL = 0x38,
   REG_CBR = 0x3a,
   REG_INT_MASK = 0x3c,
   REG_INT_STATUS = 0x3e,
@@ -67,6 +68,12 @@ enum {
 enum {
   TX_CONF_IFG_NORMAL = 3 << 24,
   TX_CONF_DMA_UNLIM = 7 << 8,
+};
+
+enum {
+  TX_POLL_HPQ = 1 << 7,
+  TX_POLL_NPQ = 1 << 6,
+  TX_POLL_FSW_INT = 1 << 0,
 };
 
 uint16_t rtl_find_iobase(struct device *dev);
