@@ -34,7 +34,16 @@ void shell_process_command(shell_t *shell)
 
   if (!cmd || strlen(cmd) == 0) return;
 
-  if (!strcmp("reboot", cmd)) {
+  if (!strcmp("help", cmd)) {
+    kprintf("Available commands:\n"
+            "  reboot       reboot machine\n"
+            "  poweroff     poweroff via BIOS call\n"
+            "  ticks        number of milliseconds since boot\n"
+            "  drives       list detected drives\n"
+            "  memory       memory information (kernel, dma, user)\n"
+            "  cpuid        CPU information\n");
+  }
+  else if (!strcmp("reboot", cmd)) {
     kb_reset_system();
   }
   else if (!strcmp("poweroff", cmd)) {
@@ -131,7 +140,7 @@ void shell_init(shell_t *shell)
 
   kb_grab(on_kb_event, shell);
   console_set_fg(OK_COLOUR);
-  kprintf("Helium debug shell\n");
+  kprintf("Helium debug shell (type `help' for a list of commands)\n");
   console_reset_fg();
   shell_draw_prompt(shell);
 }
