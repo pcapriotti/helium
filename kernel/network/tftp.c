@@ -5,6 +5,8 @@
 #include "network/types.h"
 #include "network/udp.h"
 
+#include <string.h>
+
 #define DEBUG_LOCAL 1
 
 typedef struct tftp_header {
@@ -31,6 +33,11 @@ enum {
 };
 
 static uint16_t tftp_port = 0;
+static enum {
+  STATE_UNINITIALISED,
+  STATE_IDLE,
+  STATE_RECEIVING,
+} tftp_state = STATE_UNINITIALISED;
 
 static int tftp_parse_req(tftp_req_t *req, uint8_t *payload, size_t length)
 {
@@ -103,6 +110,13 @@ static void tftp_receive_packet(void *data, nic_t *nic,
   case OPCODE_RRQ:
   case OPCODE_WRQ:
     {
+      if (tftp_state != STATE_IDLE) {
+#ifdef DEBUG_LOCAL
+        serial_printf("[tftp] ignoring request\n");
+#endif
+        return;
+      }
+
       tftp_req_t req;
       int ret = tftp_parse_req(&req, payload, size);
       if (ret != -1) {
@@ -110,16 +124,27 @@ static void tftp_receive_packet(void *data, nic_t *nic,
         serial_printf("[tftp] filename: %s, mode: %s\n",
                       req.filename, req.mode);
 #endif
+
+        if (strcmp(req.mode, "octet")) {
+#ifdef DEBUG_LOCAL
+          serial_printf("[tftp] only octet mode is supported\n");
+#endif
+        }
+
         /* send ack */
         tftp_ack(nic, src, src_port, 0);
       }
     }
     break;
+  case OPCODE_DATA:
+    {
+    }
   }
 }
 
 void tftp_start_server(uint16_t port)
 {
   tftp_port = port;
+  tftp_state = STATE_IDLE;
   udp_grab_port(port, tftp_receive_packet, 0);
 }
