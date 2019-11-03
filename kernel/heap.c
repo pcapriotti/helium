@@ -12,7 +12,7 @@
 
 #ifndef _HELIUM
 # include <stdio.h>
-# define kprintf printf
+# define serial_printf printf
 #endif
 
 /* simplistic allocator design, with just one list of free blocks */
@@ -74,7 +74,7 @@ heap_t *heap_new_with_growth(frames_t *frames, int page_growth)
 void *heap_malloc(heap_t *heap, size_t bytes)
 {
 #if KMALLOC_DEBUG
-  kprintf("kmalloc(%u)\n", bytes);
+  serial_printf("heap_malloc(%lu) heap: %p\n", bytes, heap);
 #endif
 
   /* only allocate multiples of KMALLOC_UNIT bytes */
@@ -86,7 +86,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
   while (b) {
     if (b->size >= bytes + sizeof(block_t) + MIN_ALLOC_SIZE) {
 #if KMALLOC_DEBUG
-      kprintf("  splitting block of size %u\n", b->size);
+      serial_printf("  splitting block of size %u\n", b->size);
 #endif
       /* split */
       void *mem = b->memory;
@@ -106,7 +106,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       return mem;
     } else if (b->size >= bytes) {
 #if KMALLOC_DEBUG
-      kprintf("  taking whole block of size %u\n", b->size);
+      serial_printf("  taking whole block of size %u\n", b->size);
 #endif
       /* just take the whole block */
       block_t *prev = b->prev;
@@ -122,7 +122,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
     }
     if (!b->next) {
 #if KMALLOC_DEBUG
-      kprintf("  no more blocks, requesting a new one\n");
+      serial_printf("  no more blocks, requesting a new one\n");
 #endif
       /* request more memory */
       int num_pages = ROUND(bytes, PAGE_BITS) + 1;
@@ -139,7 +139,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
         block->prev = b;
         block->next = 0;
 #if KMALLOC_DEBUG
-        kprintf("  got block of size %u\n", block->size);
+        serial_printf("  got block of size %u\n", block->size);
 #endif
       }
       b = block;
@@ -152,6 +152,10 @@ void *heap_malloc(heap_t *heap, size_t bytes)
 
 void heap_free(heap_t *heap, void *address)
 {
+#if KMALLOC_DEBUG
+  serial_printf("heap_free(%p) heap: %p\n", address, heap);
+#endif
+
   /* freeing a null pointer does nothing */
   if (!address) return;
 
@@ -193,7 +197,7 @@ void heap_print_diagnostics(heap_t *heap)
 {
   block_t *b = heap->free_blocks;
   while (b) {
-    kprintf("block size: %d at %p\n", b->size, b);
+    serial_printf("block size: %d at %p\n", b->size, b);
     b = b->next;
   }
 }
