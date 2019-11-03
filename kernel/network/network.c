@@ -1,6 +1,7 @@
 #include "arp.h"
 #include "arpa/inet.h"
 #include "drivers/realtek/rtl8139.h"
+#include "drivers/realtek/rtl8169.h"
 #include "core/debug.h"
 #include "ipv4.h"
 #include "heap.h"
@@ -10,7 +11,7 @@
 
 #include <string.h>
 
-#define DEBUG_LOCAL 0
+#define DEBUG_LOCAL 1
 
 #define CRC_OK 0xdebb20e3
 
@@ -125,7 +126,7 @@ void network_init(void)
 {
   /* just use rtl8139 for now */
   /* TODO: use a device manager */
-  start_network(&rtl8139_nic);
+  start_network(&rtl8169_nic);
 }
 
 void debug_mac(mac_t mac)

@@ -1,6 +1,7 @@
 #include "core/gdt.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "core/serial.h"
 #include "drivers/drivers.h"
 #include "drivers/realtek/common.h"
 #include "drivers/realtek/rtl8169.h"
@@ -12,6 +13,7 @@
 #include "scheduler.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #define DEBUG_LOCAL 1
 
@@ -26,9 +28,21 @@ typedef struct descriptor {
   uint64_t buffer;
 } __attribute__((packed)) descriptor_t;
 
+void *descriptor_buffer(descriptor_t *desc)
+{
+  return (void *)(size_t) desc->buffer;
+}
+
+uint16_t descriptor_length(descriptor_t *desc)
+{
+  return desc->flags & 0x3fff;
+}
+
 enum {
   DESC_OWN = 1 << 31,
   DESC_EOR = 1 << 30,
+  DESC_FS = 1 << 29,
+  DESC_LS = 1 << 28,
 };
 
 typedef struct rtl8169 {
@@ -38,7 +52,13 @@ typedef struct rtl8169 {
 
   /* must be 256 byte aligned */
   descriptor_t *rx_desc;
+  int rx_num_desc;
   descriptor_t *tx_desc;
+  int tx_num_desc;
+
+  /* receive callback */
+  nic_on_packet_t on_packet;
+  void *on_packet_data;
 } rtl8169_t;
 
 rtl8169_t rtl8169_instance;
@@ -61,6 +81,39 @@ int rtl8169_matches(void *data, device_t *dev)
 
 static void rtl8169_receive(void)
 {
+  rtl8169_t *rtl = &rtl8169_instance;
+
+  while (1) {
+    for (int i = 0; i < rtl->rx_num_desc; i++) {
+      descriptor_t *desc = &rtl->rx_desc[i];
+      if (!(desc->flags & DESC_OWN)) {
+        if (!(desc->flags & DESC_LS) ||
+            !(desc->flags & DESC_LS)) {
+#if DEBUG_LOCAL
+          int col = serial_set_colour(SERIAL_COLOUR_WARN);
+          serial_printf("[rtl8169] ignoring partial packet\n");
+          serial_set_colour(col);
+#endif
+          continue;
+        }
+        if (rtl->on_packet) {
+          uint8_t *buf = descriptor_buffer(desc);
+          rtl->on_packet(rtl->on_packet_data,
+                         &rtl8169_nic,
+                         buf,
+                         descriptor_length(desc));
+        }
+
+        desc->flags |= DESC_OWN;
+      }
+    }
+
+    sched_disable_preemption();
+    sched_current->state = TASK_WAITING;
+    tasklet_running = 0;
+    pic_unmask(rtl->irq);
+    sched_yield();
+  }
 }
 
 void rtl8169_irq(isr_stack_t *stack)
@@ -69,6 +122,14 @@ void rtl8169_irq(isr_stack_t *stack)
   uint16_t status = inw(rtl->iobase + REG_INT_STATUS);
   serial_printf("[rtl8169] irq fired status: %#02x\n", status);
   outw(rtl->iobase + REG_INT_STATUS, status); /* ack */
+
+  if (!tasklet_running) {
+    tasklet.state = TASK_RUNNING;
+    list_add(&sched_runqueue, &tasklet.head);
+    tasklet_running = 1;
+  }
+
+  pic_mask(rtl->irq);
   pic_eoi(rtl->irq);
 }
 HANDLER_STATIC(rtl8169_irq_handler, rtl8169_irq);
@@ -76,11 +137,11 @@ HANDLER_STATIC(rtl8169_irq_handler, rtl8169_irq);
 static void rtl8169_setup_tx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
-  static const int num_desc = 1;
   void *buf = falloc(TX_BUFSIZE);
   descriptor_t *desc = &rtl->tx_desc[0];
   desc->flags = DESC_OWN;
   desc->vlan_tag = 0;
+  assert(((size_t) buf & 0x7) == 0);
   desc->buffer = (size_t) buf;
 
   /* set IFG and DMA burst size */
@@ -109,16 +170,16 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
 static void rtl8169_setup_rx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
-  static const int num_desc = 256;
   void *buf = falloc(RX_BUFSIZE);
 
-  for (int i = 0; i < num_desc; i++) {
+  for (int i = 0; i < rtl->rx_num_desc; i++) {
     descriptor_t *desc = &rtl->rx_desc[i];
-    desc->flags = DESC_OWN | (RX_BUFSIZE & 0x2fff);
+    desc->flags = DESC_OWN | (RX_BUFSIZE & 0x3fff);
     desc->vlan_tag = 0;
+    assert(((size_t) buf & 0x7) == 0);
     desc->buffer = (size_t) buf;
   }
-  rtl->rx_desc[num_desc - 1].flags |= DESC_EOR;
+  rtl->rx_desc[rtl->rx_num_desc - 1].flags |= DESC_EOR;
 
   /* promiscuous mode */
   uint32_t rxconf =
@@ -154,7 +215,11 @@ int rtl8169_init(void *data, device_t *dev)
   rtl->iobase = rtl_find_iobase(dev);
   rtl->irq = dev->irq & 0xff;
   rtl->rx_desc = falloc(MAX_RX_DESC * sizeof(descriptor_t));
+  rtl->rx_num_desc = 256;
   rtl->tx_desc = falloc(MAX_TX_DESC * sizeof(descriptor_t));
+  rtl->tx_num_desc = 1;
+  rtl->on_packet = 0;
+  rtl->on_packet_data = 0;
 
 #if DEBUG_LOCAL
   serial_printf("[rtl8169] irq number: %#2x\n", rtl->irq);
@@ -241,8 +306,53 @@ int rtl8169_init(void *data, device_t *dev)
   return 0;
 }
 
+static int rtl8169_grab(void *data,
+                        nic_on_packet_t on_packet,
+                        void *on_packet_data)
+{
+  rtl8169_t *rtl = data;
+  if (rtl->on_packet) {
+#if DEBUG_LOCAL
+    int col = serial_set_colour(SERIAL_COLOUR_WARN);
+    serial_printf("[rtl8169] device already grabbed\n");
+    serial_set_colour(col);
+#endif
+    return -1;
+  }
+  rtl->on_packet = on_packet;
+  rtl->on_packet_data = on_packet_data;
+  return 0;
+}
+
+static int rtl8169_transmit(void *data, void *buf, size_t len)
+{
+  int col = serial_set_colour(SERIAL_COLOUR_ERR);
+  serial_printf("[rtl8169] transmit not implemented\n");
+  serial_set_colour(col);
+  return -1;
+}
+
+mac_t rtl8169_get_mac(void *data)
+{
+  rtl8169_t *rtl = data;
+  return rtl->mac;
+}
+
 driver_t rtl8169_driver = {
   .matches = rtl8169_matches,
   .init = rtl8169_init,
   .data = &rtl8169_instance,
+};
+
+nic_ops_t rtl8169_ops = {
+  .grab = rtl8169_grab,
+  .transmit = rtl8169_transmit,
+  .mac = rtl8169_get_mac,
+};
+
+nic_t rtl8169_nic = {
+  .name = "eth0",
+  .ops = &rtl8169_ops,
+  .ops_data = &rtl8169_instance,
+  .ip = 0x0205a8c0,
 };
