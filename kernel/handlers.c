@@ -17,8 +17,8 @@ int irq_grab(int irq, handler_t *handler)
   list_t **hs = &irq_handlers[irq];
 
 #if DEBUG_LOCAL
-  if (*hs == 0) {
-    serial_printf("sharing irq %#x\n", irq);
+  if (*hs) {
+    serial_printf("[handlers] sharing irq %#x\n", irq);
   }
 #endif
 
