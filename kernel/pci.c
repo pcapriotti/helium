@@ -1,5 +1,6 @@
 #include "core/debug.h"
 #include "core/io.h"
+#include "core/serial.h"
 #include "drivers/drivers.h"
 #include "drivers/ata/ata.h"
 #include "kmalloc.h"
@@ -8,7 +9,7 @@
 #define PCI_CONF_ADDR 0xcf8
 #define PCI_CONF_DATA 0xcfc
 
-#define PCI_DEBUG 0
+#define PCI_DEBUG 1
 
 const char *pci_storage_names[] = {
   "SCSI",
@@ -126,6 +127,7 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
 #if PCI_DEBUG
       serial_printf("found device: bus %u no %u id %#x cl %#x\n",
               bus, device, id, cl);
+      int old_colour = serial_set_colour(0);
       if (class < sizeof(pci_class_names) / sizeof(char *)) {
         serial_printf("  class: %s\n", pci_class_names[class]);
       }
@@ -160,6 +162,7 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
           }
         }
       }
+      serial_set_colour(old_colour);
 #endif
       dev->head.next = &dev->head;
       dev->head.prev = &dev->head;

@@ -80,8 +80,15 @@ enum {
   SERIAL_STATUS_ERROR = 1 << 7,
 };
 
+enum {
+  SERIAL_COLOUR_MSG = 0x36,
+  SERIAL_COLOUR_WARN = 0x33,
+  SERIAL_COLOUR_ERR = 0x31,
+};
+
 void serial_putchar(char c);
 void serial_init(void);
 void serial_newline(void);
+int serial_set_colour(int col);
 
 #endif /* SERIAL_H */

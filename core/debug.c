@@ -3,7 +3,6 @@
 #include "core/serial.h"
 #include "core/x86.h"
 
-#include <stdarg.h>
 #include <math.h>
 
 #define SERIAL_DEBUG 1
@@ -77,8 +76,6 @@ void noop(void) {}
 
 void (*print_char_function)(char c) = debug_print_char;
 void (*redraw_screen_function)(void) = noop;
-
-typedef void (*print_char_t)(char);
 
 int isdigit(char c)
 {
@@ -311,18 +308,6 @@ int kprintf(const char *fmt, ...)
   va_start(list, fmt);
 
   int ret = kvprintf(print_char_function, fmt, list);
-
-  va_end(list);
-
-  return ret;
-}
-
-int serial_printf(const char *fmt, ...)
-{
-  va_list list;
-  va_start(list, fmt);
-
-  int ret = kvprintf(serial_print_char, fmt, list);
 
   va_end(list);
 
