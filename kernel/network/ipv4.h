@@ -1,6 +1,8 @@
 #ifndef IPV4_H
 #define IPV4_H
 
+#include "network/types.h"
+
 #include <stddef.h>
 
 struct nic;

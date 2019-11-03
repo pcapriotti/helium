@@ -3,6 +3,7 @@
 
 #include "hashtable.h"
 #include "heap.h"
+#include "network/ipv4.h"
 #include "network/udp.h"
 #include "network/network.h"
 #include "network/types.h"
@@ -71,6 +72,26 @@ int udp_grab_port(uint16_t port,
   return 0;
 }
 
+void *udp_packet_new(int flags, nic_t *nic,
+                     uint16_t src_port,
+                     ipv4_t dst,
+                     uint16_t dst_port,
+                     size_t payload_size,
+                     int *error)
+{
+  udp_header_t *header = ipv4_packet_new(flags, nic, IP_PROTO_UDP,
+                                         sizeof(udp_header_t) + payload_size,
+                                         dst,
+                                         error);
+  header->src_port = htons(src_port);
+  header->dst_port = htons(dst_port);
+  header->length = htons(payload_size + sizeof(udp_header_t));
+  header->checksum = 0;
+
+  if (!header) return 0;
+  return header + 1;
+}
+
 int udp_receive_packet(nic_t *nic, ipv4_t source,
                        void *packet, size_t size)
 {
@@ -108,4 +129,10 @@ int udp_receive_packet(nic_t *nic, ipv4_t source,
                   size - sizeof(udp_header_t));
 
   return 0;
+}
+
+int udp_transmit(nic_t *nic, void *payload, size_t size)
+{
+  udp_header_t *header = payload - sizeof(udp_header_t);
+  return ipv4_transmit(nic, header, size + sizeof(udp_header_t));
 }

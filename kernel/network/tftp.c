@@ -1,5 +1,6 @@
 #include "core/debug.h"
 #include "core/serial.h"
+#include "network/network.h"
 #include "network/tftp.h"
 #include "network/types.h"
 #include "network/udp.h"
@@ -16,6 +17,11 @@ typedef struct tftp_req {
   const char *mode;
 } tftp_req_t;
 
+typedef struct tftp_ack_packet {
+  tftp_header_t header;
+  uint16_t block;
+} __attribute__((packed)) tftp_ack_packet_t;
+
 enum {
   OPCODE_RRQ = 1,
   OPCODE_WRQ,
@@ -23,6 +29,8 @@ enum {
   OPCODE_ACK,
   OPCODE_ERR,
 };
+
+static uint16_t tftp_port = 0;
 
 static int tftp_parse_req(tftp_req_t *req, uint8_t *payload, size_t length)
 {
@@ -48,12 +56,30 @@ static int tftp_parse_req(tftp_req_t *req, uint8_t *payload, size_t length)
   return -1;
 }
 
-static void tftp_receive_packet(void *data,
-                                struct nic *nic,
-                                ipv4_t src,
-                                uint16_t src_port,
-                                void *payload,
-                                size_t size)
+static void tftp_ack(nic_t *nic,
+                     ipv4_t ip, uint16_t port,
+                     uint16_t block)
+{
+  int error = 0;
+  tftp_ack_packet_t *ack = udp_packet_new
+    (ETH_FRAME_STATIC, nic, tftp_port, ip, port,
+     sizeof(tftp_ack_packet_t), &error);
+  if (!ack) {
+#if DEBUG_LOCAL
+    int col = serial_set_colour(SERIAL_COLOUR_ERR);
+    serial_printf("[tftp] could not allocate packet, error = %d\n", error);
+    serial_set_colour(col);
+#endif
+    return;
+  }
+  ack->header.opcode = OPCODE_ACK;
+  ack->block = block;
+  udp_transmit(nic, ack, sizeof(tftp_ack_packet_t));
+}
+
+static void tftp_receive_packet(void *data, nic_t *nic,
+                                ipv4_t src, uint16_t src_port,
+                                void *payload, size_t size)
 {
   if (size < sizeof(tftp_header_t)) {
 #if DEBUG_LOCAL
@@ -84,6 +110,8 @@ static void tftp_receive_packet(void *data,
         serial_printf("[tftp] filename: %s, mode: %s\n",
                       req.filename, req.mode);
 #endif
+        /* send ack */
+        tftp_ack(nic, src, src_port, 0);
       }
     }
     break;
@@ -92,5 +120,6 @@ static void tftp_receive_packet(void *data,
 
 void tftp_start_server(uint16_t port)
 {
+  tftp_port = port;
   udp_grab_port(port, tftp_receive_packet, 0);
 }
