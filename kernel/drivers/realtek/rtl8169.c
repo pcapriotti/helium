@@ -19,8 +19,8 @@
 
 #define MAX_RX_DESC 1024
 #define MAX_TX_DESC 1024
-#define RX_BUFSIZE 4096
-#define TX_BUFSIZE 4096
+#define RX_BUFSIZE ETH_MTU
+#define TX_BUFSIZE ETH_MTU
 
 typedef struct descriptor {
   uint32_t flags;
@@ -137,12 +137,15 @@ HANDLER_STATIC(rtl8169_irq_handler, rtl8169_irq);
 static void rtl8169_setup_tx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
-  void *buf = falloc(TX_BUFSIZE);
-  descriptor_t *desc = &rtl->tx_desc[0];
-  desc->flags = DESC_OWN;
-  desc->vlan_tag = 0;
-  assert(((size_t) buf & 0x7) == 0);
-  desc->buffer = (size_t) buf;
+  for (int i = 0; i < rtl->tx_num_desc; i++) {
+    descriptor_t *desc = &rtl->tx_desc[0];
+    desc->flags = DESC_OWN;
+    desc->vlan_tag = 0;
+
+    void *buf = falloc(TX_BUFSIZE);
+    assert(((size_t) buf & 0x7) == 0);
+    desc->buffer = (size_t) buf;
+  }
 
   /* set IFG and DMA burst size */
   outl(rtl->iobase + REG_TX_CONF,
@@ -161,7 +164,7 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
 
   /* set descriptor */
   uint64_t descp = (size_t) rtl->tx_desc;
-  assert((descp & 0xf) == 0);
+  assert((descp & 0xff) == 0);
 
   outl(rtl->iobase + REG_TX_DESC_HI, descp >> 32);
   outl(rtl->iobase + REG_TX_DESC_LO, descp);
@@ -170,12 +173,12 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
 static void rtl8169_setup_rx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
-  void *buf = falloc(RX_BUFSIZE);
-
   for (int i = 0; i < rtl->rx_num_desc; i++) {
     descriptor_t *desc = &rtl->rx_desc[i];
     desc->flags = DESC_OWN | (RX_BUFSIZE & 0x3fff);
     desc->vlan_tag = 0;
+
+    void *buf = falloc(RX_BUFSIZE);
     assert(((size_t) buf & 0x7) == 0);
     desc->buffer = (size_t) buf;
   }
@@ -203,7 +206,7 @@ static void rtl8169_setup_rx(rtl8169_t *rtl)
 
   /* set descriptor */
   uint64_t descp = (size_t) rtl->rx_desc;
-  assert((descp & 0xf) == 0);
+  assert((descp & 0xff) == 0);
   outl(rtl->iobase + REG_RX_DESC_HI, descp >> 32);
   outl(rtl->iobase + REG_RX_DESC_LO, descp);
 }
@@ -217,7 +220,7 @@ int rtl8169_init(void *data, device_t *dev)
   rtl->rx_desc = falloc(MAX_RX_DESC * sizeof(descriptor_t));
   rtl->rx_num_desc = 256;
   rtl->tx_desc = falloc(MAX_TX_DESC * sizeof(descriptor_t));
-  rtl->tx_num_desc = 1;
+  rtl->tx_num_desc = 256;
   rtl->on_packet = 0;
   rtl->on_packet_data = 0;
 
