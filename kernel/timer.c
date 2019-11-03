@@ -76,12 +76,13 @@ void timer_irq(isr_stack_t *stack)
   /* run scheduler */
   sched_schedule(stack);
 }
+HANDLER_STATIC(timer_irq_handler, timer_irq);
 
 int timer_init(void)
 {
   timer_set_divider(PIT_FREQ / 1000);
   timer.quantum = 25;
-  irq_grab(IRQ_TIMER, timer_irq);
+  irq_grab(IRQ_TIMER, &timer_irq_handler);
   return 0;
 }
 

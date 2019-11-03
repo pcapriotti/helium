@@ -38,6 +38,7 @@ static void serial_irq(struct isr_stack *stack)
   pic_mask(SERIAL_IRQ);
   pic_eoi(SERIAL_IRQ);
 }
+HANDLER_STATIC(serial_irq_handler, serial_irq);
 
 static void event_init(kb_event_t *event, char c)
 {
@@ -82,7 +83,7 @@ static void serial_receive(void)
 void serial_input_init(void)
 {
   outb(COM1_PORT + SERIAL_INTERRUPT_ENABLE, 1);
-  irq_grab(SERIAL_IRQ, serial_irq);
+  irq_grab(SERIAL_IRQ, &serial_irq_handler);
 
   /* init tasklet */
   isr_stack_t *stack = (void *)tasklet_stack +

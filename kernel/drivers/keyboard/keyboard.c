@@ -221,6 +221,7 @@ void kb_irq(struct isr_stack *stack)
 
   pic_eoi(IRQ_KEYBOARD);
 }
+HANDLER_STATIC(kb_irq_handler, kb_irq);
 
 int kb_init(void)
 {
@@ -236,7 +237,7 @@ int kb_init(void)
   kb_tasklet.state = TASK_WAITING;
 
   /* register irq handler */
-  irq_grab(IRQ_KEYBOARD, kb_irq);
+  irq_grab(IRQ_KEYBOARD, &kb_irq_handler);
 
   return 0;
 }

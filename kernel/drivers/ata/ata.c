@@ -249,6 +249,7 @@ void ata_irq(struct isr_stack *stack)
   serial_printf("  sending EOI\n");
   pic_eoi(ata_irq_number);
 }
+HANDLER_STATIC(ata_irq_handler, ata_irq);
 
 int ata_init(void *data, device_t *ide)
 {
@@ -267,8 +268,7 @@ int ata_init(void *data, device_t *ide)
   ata_irq_number = ide->irq & 0xff;
   serial_printf("ata_irq_number = %u\n", ata_irq_number);
   if (ata_irq_number) {
-    irq_grab(ata_irq_number, ata_irq);
-    pic_mask(ata_irq_number); /* for now */
+    irq_grab(ata_irq_number, &ata_irq_handler);
   }
 
   /* initialise drives */

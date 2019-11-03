@@ -216,6 +216,7 @@ void rtl8139_irq(isr_stack_t *stack)
   pic_mask(data->irq);
   pic_eoi(data->irq);
 }
+HANDLER_STATIC(rtl8139_irq_handler, rtl8139_irq);
 
 int rtl8139_init(void *_data, device_t *dev)
 {
@@ -283,7 +284,7 @@ int rtl8139_init(void *_data, device_t *dev)
 #endif
 
   /* register irq */
-  int ret = irq_grab(data->irq, rtl8139_irq);
+  int ret = irq_grab(data->irq, &rtl8139_irq_handler);
   if (ret == -1) {
 #if DEBUG_LOCAL
     serial_printf("[rtl8139] could not register irq handler\n");

@@ -71,6 +71,7 @@ void rtl8169_irq(isr_stack_t *stack)
   outw(rtl->iobase + REG_INT_STATUS, status); /* ack */
   pic_eoi(rtl->irq);
 }
+HANDLER_STATIC(rtl8169_irq_handler, rtl8169_irq);
 
 static void rtl8169_setup_tx(rtl8169_t *rtl)
 {
@@ -160,7 +161,7 @@ int rtl8169_init(void *data, device_t *dev)
 #endif
 
   /* register irq */
-  int ret = irq_grab(rtl->irq, rtl8169_irq);
+  int ret = irq_grab(rtl->irq, &rtl8169_irq_handler);
   if (ret == -1) {
 #if DEBUG_LOCAL
     serial_printf("[rtl8169] could not register irq handler\n");

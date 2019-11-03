@@ -9,19 +9,21 @@
 
 #define DEBUG_LOCAL 1
 
-static handler_t irq_handlers[NUM_IRQ] = {0};
+static list_t *irq_handlers[NUM_IRQ] = {0};
 
-int irq_grab(int irq, handler_t handler)
+int irq_grab(int irq, handler_t *handler)
 {
   if (irq < 0 || irq >= NUM_IRQ) return -1;
-  if (irq_handlers[irq] != 0) {
-#if DEBUG_LOCAL
-    serial_printf("irq %#x is already grabbed\n", irq);
-#endif
-    return -1;
-  }
+  list_t **hs = &irq_handlers[irq];
 
-  irq_handlers[irq] = handler;
+#if DEBUG_LOCAL
+  if (*hs == 0) {
+    serial_printf("sharing irq %#x\n", irq);
+  }
+#endif
+
+  list_add(hs, &handler->head);
+
   return 0;
 }
 
@@ -38,8 +40,8 @@ int handle_irq(isr_stack_t *stack)
   int irq = stack->int_num - IDT_IRQ;
   if (irq >= NUM_IRQ) return 0;
 
-  handler_t h = irq_handlers[irq];
-  if (!h) {
+  list_t *hs = irq_handlers[irq];
+  if (!hs) {
 #if DEBUG_LOCAL
     outb(PIC_MASTER_CMD, 0x0b);
     outb(PIC_SLAVE_CMD, 0x0b);
@@ -53,7 +55,14 @@ int handle_irq(isr_stack_t *stack)
     return 1;
   }
 
-  h(stack);
+  /* call all handlers */
+  list_t *item = hs;
+  do {
+    handler_t *handler = LIST_ENTRY(item, handler_t, head);
+    handler->handle(stack);
+    item = item->next;
+  } while (item != hs);
+
   return 1;
 }
 
