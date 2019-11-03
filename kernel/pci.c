@@ -113,12 +113,14 @@ list_t *pci_check_function(uint8_t bus, uint8_t device, uint8_t func)
     {
       uint32_t id = pci_read(bus, device, func, PCI_VENDOR_DEVICE);
       uint32_t irq = pci_read(bus, device, func, PCI_H0_IRQ);
+      uint8_t prog_if = (cl >> 8) & 0xff;
       device_t *dev = kmalloc(sizeof(device_t));
       dev->bus = bus;
       dev->device = device;
       dev->func = func;
       dev->class = class;
       dev->subclass = subclass;
+      dev->prog_if = prog_if;
       dev->id = id;
       dev->irq = irq & 0xff;
 #if PCI_DEBUG

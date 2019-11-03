@@ -26,12 +26,6 @@ enum {
   ATA_REG_DRIVE_ADDR,
 };
 
-/* offsets from control IO port */
-enum {
-  ATA_STATUS_ALT = 0,
-  ATA_ADDRESS
-};
-
 /* error bits */
 enum {
   /* Address mark not found */
@@ -77,6 +71,12 @@ enum {
   ATA_CMD_READ_PIO = 0x20,
   ATA_CMD_WRITE_PIO = 0x30,
   ATA_CMD_IDENTIFY = 0xec
+};
+
+/* ATA control register */
+enum {
+  ATA_CTRL_NIEN = 1 << 1,
+  ATA_CTRL_SRST = 1 << 2,
 };
 
 typedef struct {

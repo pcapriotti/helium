@@ -6,8 +6,15 @@
 #include "pci.h"
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
+#define MAX_BUSY_ATTEMPTS 50000
 
 #define ATA_DEBUG 0
+
+enum {
+  IDE_PROGIF_PCI = 0x05,
+  IDE_PROGIF_SWITCHABLE = 0x0a,
+  IDE_PROGIF_BM = 0x80,
+};
 
 struct channel_struct {
   /* base IO port */
@@ -23,6 +30,9 @@ drive_t drives[4] = {0};
 static int ata_initialised = 0;
 static uint8_t ata_irq_number = 0;
 
+/* bus master */
+static uint16_t ata_bmi;
+
 static inline uint16_t reg_port(uint8_t channel, uint8_t reg)
 {
   if (reg < ATA_REG_CTRL)
@@ -33,7 +43,8 @@ static inline uint16_t reg_port(uint8_t channel, uint8_t reg)
 
 uint8_t ata_read(uint8_t channel, uint8_t reg)
 {
-  return inb(reg_port(channel, reg));
+  uint16_t port = reg_port(channel, reg);
+  return inb(port);
 }
 
 uint16_t ata_readw(uint8_t channel, uint8_t reg)
@@ -43,15 +54,23 @@ uint16_t ata_readw(uint8_t channel, uint8_t reg)
 
 void ata_write(uint8_t channel, uint8_t reg, uint8_t value)
 {
-  outb(reg_port(channel, reg), value);
+  uint16_t port = reg_port(channel, reg);
+  outb(port, value);
 }
 
 void ata_reset(uint8_t channel)
 {
-  ata_write(channel, ATA_REG_CTRL, 4);
+  ata_write(channel, ATA_REG_CTRL, ATA_CTRL_SRST);
   io_wait();
-  ata_write(channel, ATA_REG_CTRL, 0);
+  ata_write(channel, ATA_REG_CTRL, ATA_CTRL_NIEN);
   io_wait();
+
+#if ATA_DEBUG
+  {
+    serial_printf("[ata] reset, ctrl: %#02x\n",
+                  ata_read(channel, ATA_REG_CTRL));
+  }
+#endif
 }
 
 void ata_wait(uint8_t channel)
@@ -68,12 +87,17 @@ uint8_t ata_poll_ready(uint8_t channel)
   return status;
 }
 
-uint8_t ata_poll_busy(uint8_t channel)
+uint8_t ata_poll_busy(uint8_t channel, unsigned max)
 {
   uint8_t status = ATA_ST_BSY;
-  while (status & ATA_ST_BSY) {
+  unsigned num = 0;
+  while ((status & ATA_ST_BSY) && num < max) {
     status = ata_read(channel, ATA_REG_STATUS);
+    num++;
   }
+#if ATA_DEBUG
+  serial_printf("[ata] num busy poll attempts: %u\n", num);
+#endif
   return status;
 }
 
@@ -106,7 +130,7 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
 
   for (unsigned int i = 0; i < count; i++) {
     uint8_t status = ATA_ST_BSY;
-    status = ata_poll_busy(drive->channel);
+    status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
     status = ata_poll_ready(drive->channel);
 
     if (status & ATA_ST_ERR) {
@@ -139,6 +163,19 @@ void *ata_read_lba(drive_t *drive, uint32_t lba, uint8_t count, void *buf)
   return ata_read_bytes(drive, offset, bytes, buf);
 }
 
+void ata_controller_type(device_t *ide,
+                         int (*print)(const char *, ...))
+{
+  int pci = ide->prog_if & IDE_PROGIF_PCI;
+  int dual = ide->prog_if & IDE_PROGIF_SWITCHABLE;
+  int bm = ide->prog_if & IDE_PROGIF_BM;
+
+  print("%s%s%s",
+        pci ? "PCI mode" : "ISA mode",
+        dual ? ", switchable" : "",
+        bm ? ", bus mastering" : "");
+}
+
 int ata_identify_drive(drive_t *drive)
 {
   uint8_t status;
@@ -147,11 +184,12 @@ int ata_identify_drive(drive_t *drive)
   /* select drive */
   ata_write(drive->channel, ATA_REG_DRIVE_HEAD, 0xe0 | (drive->index << 4));
   ata_wait(drive->channel);
-  status = ata_read(drive->channel, ATA_REG_STATUS);
-  if (status == 0 || status & ATA_ST_BSY) {
 
+  status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
+  if (status & ATA_ST_BSY) {
     return 0;
   }
+
   ata_channels[drive->channel].last_drive = drive->index;
 
   /* identify */
@@ -161,27 +199,32 @@ int ata_identify_drive(drive_t *drive)
   ata_write(drive->channel, ATA_REG_LBA3, 0);
   ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_IDENTIFY);
 
-  /* ata_wait(drive->channel); */
   status = ata_read(drive->channel, ATA_REG_STATUS);
 #if ATA_DEBUG
   serial_printf("[ata] identify: status %#x\n", status);
 #endif
-  if (!status || (status & ATA_ST_ERR)) return 0;
+  if (!status || (status & ATA_ST_ERR)) {
+    return 0;
+  }
 
-  status = ata_poll_busy(drive->channel);
+  status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
 #if ATA_DEBUG
   serial_printf("[ata] non-busy status: %#x\n", status);
 #endif
 
   /* check if ATAPI */
   if (ata_read(drive->channel, ATA_REG_LBA2) ||
-      ata_read(drive->channel, ATA_REG_LBA3)) return 0;
+      ata_read(drive->channel, ATA_REG_LBA3)) {
+    return 0;
+  }
 
   status = ata_poll_ready(drive->channel);
 #if ATA_DEBUG
   serial_printf("[ata] ready status: %#x\n", status);
 #endif
-  if (status & ATA_ST_ERR) return 0;
+  if (status & ATA_ST_ERR) {
+    return 0;
+  }
 
   /* read identify structure */
   union {
@@ -200,6 +243,7 @@ int ata_identify_drive(drive_t *drive)
   drive->model[40] = '\0';
   drive->present = 1;
   drive->lba_sectors = id.fields.lba_sectors;
+
   return 1;
 }
 
@@ -241,12 +285,14 @@ void ata_list_drives(void)
 void ata_irq(struct isr_stack *stack)
 {
   serial_printf("[ata] interrupt\n");
-  for (int i = 0; i < 4; i++) {
-    if (!drives[i].present) return;
-    uint8_t status = ata_read(drives[i].channel, ATA_REG_STATUS);
-    serial_printf("  drive %d status %02#x\n", i, status);
+  for (int channel = 0; channel < 2; channel++) {
+    uint8_t status = ata_read(channel, ATA_REG_STATUS);
+    serial_printf("  channel %d status %#02x\n", channel, status);
+    if (status & ATA_ST_ERR) {
+      serial_printf("  error: %#02x\n",
+                    ata_read(channel, ATA_REG_ERROR));
+    }
   }
-  serial_printf("  sending EOI\n");
   pic_eoi(ata_irq_number);
 }
 HANDLER_STATIC(ata_irq_handler, ata_irq);
@@ -257,16 +303,29 @@ int ata_init(void *data, device_t *ide)
   if (ata_initialised) return 0;
 
 #if ATA_DEBUG
-  serial_printf("[ata] initialising\n");
+  {
+    serial_printf("[ata] initialising: ");
+    ata_controller_type(ide, serial_printf);
+    serial_printf("\n");
+  }
 #endif
 
-  ata_channels[0].base = ide->bars[0] ? (ide->bars[0] & ~3) : ATA_PRIMARY_BASE;
-  ata_channels[0].ctrl = ide->bars[1] ? (ide->bars[1] & ~3) : ATA_PRIMARY_CTRL;
-  ata_channels[1].base = ide->bars[2] ? (ide->bars[2] & ~3) : ATA_SECONDARY_BASE;
-  ata_channels[1].ctrl = ide->bars[3] ? (ide->bars[3] & ~3) : ATA_SECONDARY_CTRL;
+  ata_channels[0].base = (ide->bars[0] && (ide->prog_if & IDE_PROGIF_PCI)) ?
+    (ide->bars[0] & ~3) : ATA_PRIMARY_BASE;
+  ata_channels[0].ctrl = (ide->bars[1] && (ide->prog_if & IDE_PROGIF_PCI)) ?
+    (ide->bars[1] & ~3) : ATA_PRIMARY_CTRL;
+  ata_channels[1].base = (ide->bars[2] && (ide->prog_if & IDE_PROGIF_PCI)) ?
+    (ide->bars[2] & ~3) : ATA_SECONDARY_BASE;
+  ata_channels[1].ctrl = (ide->bars[3] && (ide->prog_if & IDE_PROGIF_PCI)) ?
+    (ide->bars[3] & ~3) : ATA_SECONDARY_CTRL;
+  ata_bmi = ide->bars[4];
 
   ata_irq_number = ide->irq & 0xff;
-  serial_printf("ata_irq_number = %u\n", ata_irq_number);
+  if (!ata_irq_number) ata_irq_number = ATA_SECONDARY_IRQ;
+
+#if ATA_DEBUG
+  serial_printf("[ata] irq number = %u\n", ata_irq_number);
+#endif
   if (ata_irq_number) {
     irq_grab(ata_irq_number, &ata_irq_handler);
   }

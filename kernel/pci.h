@@ -70,6 +70,7 @@ typedef struct device {
   uint8_t func;
   uint8_t class;
   uint8_t subclass;
+  uint8_t prog_if;
   uint32_t id;
   uint8_t irq;
 } device_t;
