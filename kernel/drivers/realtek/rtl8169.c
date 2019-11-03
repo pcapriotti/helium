@@ -326,10 +326,24 @@ static int rtl8169_grab(void *data,
 
 static int rtl8169_transmit(void *data, void *buf, size_t len)
 {
-  int col = serial_set_colour(SERIAL_COLOUR_ERR);
-  serial_printf("[rtl8169] transmit not implemented\n");
-  serial_set_colour(col);
-  return -1;
+#if DEBUG_LOCAL
+  serial_printf("[rtl8169] tx:\n");
+  {
+    int col = serial_set_colour(0);
+    uint8_t *payload = buf;
+    for (size_t i = 0; i < len; i++) {
+      serial_printf("%02x ", payload[i]);
+    }
+    serial_printf("\n");
+    serial_set_colour(col);
+  }
+#endif
+  {
+    int col = serial_set_colour(SERIAL_COLOUR_ERR);
+    serial_printf("[rtl8169] transmit not implemented\n");
+    serial_set_colour(col);
+  }
+  return 0;
 }
 
 mac_t rtl8169_get_mac(void *data)

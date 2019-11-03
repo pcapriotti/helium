@@ -92,7 +92,11 @@ void eth_receive_packet(void *data, nic_t *nic, uint8_t *payload, size_t size)
   uint32_t crc = crc32(payload, size);
   if (crc != CRC_OK) {
 #if DEBUG_LOCAL
-    serial_printf("[network] WARN: invalid CRC\n");
+    {
+      int col = serial_set_colour(SERIAL_COLOUR_WARN);
+      serial_printf("[network] invalid CRC\n");
+      serial_set_colour(col);
+    }
 #endif
     return;
   }
@@ -204,5 +208,6 @@ heap_t *network_get_heap(void)
     sched_enable_preemption();
   }
 
+  assert(heap);
   return heap;
 }

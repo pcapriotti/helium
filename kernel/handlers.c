@@ -91,9 +91,11 @@ int __attribute__((noinline)) handle_page_fault(isr_stack_t *stack)
 {
   if (stack->int_num != IDT_PF) return 0;
 
-  serial_printf("Unhandled page fault (code: %#x)\n", stack->error);
+  int col = serial_set_colour(SERIAL_COLOUR_ERR);
+  serial_printf("unhandled page fault (code: %#x)\n", stack->error);
   serial_printf("  eip: %#x flags: %#x\n", stack->eip, stack->eflags);
   serial_printf("  cr2: %#x\n", CR_GET(2));
+  serial_set_colour(col);
   panic();
 
   return 1;

@@ -1,7 +1,8 @@
 #include "debug.h"
 #include "io.h"
-#include "core/serial.h"
-#include "core/x86.h"
+#include "serial.h"
+#include "stacktrace.h"
+#include "x86.h"
 
 #include <math.h>
 
@@ -18,10 +19,12 @@ void hang_system(void) {
 
 void _panic(const char *filename, int line)
 {
+  __asm__ volatile("cli");
+  int col = serial_set_colour(SERIAL_COLOUR_ERR);
   serial_printf("kernel panic: %s:%d\n", filename, line);
   serial_printf("  flags: %#x\n", cpu_flags());
-  kprintf("kernel panic %s:%d\n", filename, line);
-  __asm__ volatile("cli");
+  serial_set_colour(col);
+  stacktrace_print_current();
   hang_system();
 }
 

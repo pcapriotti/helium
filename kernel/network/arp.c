@@ -81,7 +81,9 @@ int process_packet(nic_t *nic, arp_packet_t *packet)
     debug_ipv4(packet->sender_ip);
     serial_printf(" (");
     debug_mac(packet->sender_mac);
-    serial_printf("), ip = %#x\n", packet->target_ip);
+    serial_printf("), myip: ");
+    debug_ipv4(nic->ip);
+    serial_printf("\n");
 #endif
 
     if (packet->target_ip == nic->ip) {
