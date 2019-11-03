@@ -2,6 +2,8 @@
 # error "define HT_KEY_TYPE before including hashtable.h"
 #else
 
+#include <stdint.h>
+
 #ifndef HT_NAME
 # define HT_NAME HT_KEY_TYPE
 #endif
