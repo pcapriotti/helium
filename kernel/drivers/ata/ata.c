@@ -58,6 +58,12 @@ void ata_write(uint8_t channel, uint8_t reg, uint8_t value)
   outb(port, value);
 }
 
+void ata_writew(uint8_t channel, uint8_t reg, uint16_t value)
+{
+  uint16_t port = reg_port(channel, reg);
+  outw(port, value);
+}
+
 void ata_reset(uint8_t channel)
 {
   ata_write(channel, ATA_REG_CTRL, ATA_CTRL_SRST);
