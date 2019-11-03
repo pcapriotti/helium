@@ -21,6 +21,7 @@
 #include "memory.h"
 #include "multiboot.h"
 #include "network/network.h"
+#include "network/tftp.h"
 #include "paging/paging.h"
 #include "pci.h"
 #include "scheduler.h"
@@ -81,6 +82,8 @@ void root_task(void)
   sched_spawn_task(network_init);
 
   sched_spawn_task(shell_main);
+
+  tftp_start_server(69);
 }
 
 void kernel_start(void *multiboot, uint32_t magic)

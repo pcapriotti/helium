@@ -24,7 +24,7 @@ void _panic(const char *filename, int line)
   serial_printf("kernel panic: %s:%d\n", filename, line);
   serial_printf("  flags: %#x\n", cpu_flags());
   serial_set_colour(col);
-  stacktrace_print_current();
+  /* stacktrace_print_current(); */
   hang_system();
 }
 

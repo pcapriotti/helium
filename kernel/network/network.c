@@ -6,7 +6,7 @@
 #include "ipv4.h"
 #include "heap.h"
 #include "memory.h"
-#include "network.h"
+#include "network/network.h"
 #include "scheduler.h"
 
 #include <string.h>

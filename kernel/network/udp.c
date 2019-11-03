@@ -33,11 +33,6 @@ uint16_t udp_header_length(udp_header_t *header)
   return ntohs(header->length);
 }
 
-typedef void (*udp_on_packet_t)(ipv4_t src,
-                                uint16_t src_port,
-                                void *payload,
-                                size_t size);
-
 typedef struct udp_handler {
   void *data;
   udp_on_packet_t handle;
@@ -45,10 +40,10 @@ typedef struct udp_handler {
 
 static hashtable_u32_t *udp_handlers = 0;
 
-hashtable_u32_t *udp_get_handlers(void)
+hashtable_u32_t *udp_get_handlers()
 {
   if (!udp_handlers) {
-    udp_handlers = ht_u32_new();
+    udp_handlers = ht_u32_new(network_get_heap());
   }
   return udp_handlers;
 }
@@ -58,7 +53,8 @@ int udp_grab_port(uint16_t port,
                   void *on_packet_data)
 {
   heap_t *heap = network_get_heap();
-  udp_handler_t *handler = ht_u32_get(udp_get_handlers(), port);
+  hashtable_u32_t *handlers = udp_get_handlers();
+  udp_handler_t *handler = ht_u32_get(handlers, port);
   if (handler) {
 #if DEBUG_LOCAL
     int col = serial_set_colour(SERIAL_COLOUR_WARN);
@@ -78,7 +74,16 @@ int udp_grab_port(uint16_t port,
 int udp_receive_packet(nic_t *nic, ipv4_t source,
                        void *packet, size_t size)
 {
+  if (size < sizeof(udp_header_t)) {
+#if DEBUG_LOCAL
+    int col = serial_set_colour(SERIAL_COLOUR_WARN);
+    serial_printf("[udp] packet is too small\n");
+    serial_set_colour(col);
+#endif
+    return -1;
+  }
   udp_header_t *header = packet;
+
 #if DEBUG_LOCAL
   serial_printf("[udp] receving packet, port: %u, size: %u, length: %u\n",
                 udp_header_dst_port(header),
@@ -97,9 +102,10 @@ int udp_receive_packet(nic_t *nic, ipv4_t source,
     return -1;
   }
 
-  handler->handle(source, udp_header_src_port(header),
-                  packet + sizeof(header),
-                  size - sizeof(header));
+  handler->handle(handler->data, nic,
+                  source, udp_header_src_port(header),
+                  packet + sizeof(udp_header_t),
+                  size - sizeof(udp_header_t));
 
   return 0;
 }

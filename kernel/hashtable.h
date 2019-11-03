@@ -19,7 +19,9 @@
 
 typedef struct HT_STRUCT HT_TYPE;
 
-HT_TYPE *P(new)();
+struct heap;
+
+HT_TYPE *P(new)(struct heap *heap);
 void P(insert)(HT_TYPE *ht, HT_KEY_TYPE key, void *value);
 void *P(get)(HT_TYPE *ht, HT_KEY_TYPE key);
 void P(del)(HT_TYPE *ht);
