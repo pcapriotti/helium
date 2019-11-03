@@ -17,6 +17,7 @@ typedef struct stacktrace {
 
 static inline void stacktrace_print(stacktrace_t *st)
 {
+  serial_printf("stacktrace:\n");
   int i = 0;
   while (st->next) {
     serial_printf("%d: %p stack: %p\n", i, st->eip, st);
