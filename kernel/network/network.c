@@ -130,7 +130,7 @@ void network_init(void)
 {
   /* just use rtl8139 for now */
   /* TODO: use a device manager */
-  start_network(&rtl8169_nic);
+  start_network(&rtl8139_nic);
 }
 
 void debug_mac(mac_t mac)

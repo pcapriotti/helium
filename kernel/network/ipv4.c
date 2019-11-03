@@ -2,6 +2,7 @@
 #include "network/arp.h"
 #include "network/icmp.h"
 #include "network/ipv4.h"
+#include "network/udp.h"
 #include "network.h"
 
 #include <arpa/inet.h>
@@ -66,6 +67,10 @@ int ipv4_receive_packet(nic_t *nic, void *packet, size_t size)
   case IP_PROTO_ICMP:
     icmp_receive_packet(nic, header->source_ip,
                         payload, length);
+    break;
+  case IP_PROTO_UDP:
+    udp_receive_packet(nic, header->source_ip,
+                       payload, length);
     break;
   default:
     break;
