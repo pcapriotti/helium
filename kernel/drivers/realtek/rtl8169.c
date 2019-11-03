@@ -19,7 +19,6 @@
 #define MAX_TX_DESC 1024
 #define RX_BUFSIZE 4096
 #define TX_BUFSIZE 4096
-#define MAX_PACKET_SIZE 0x1fff
 
 typedef struct descriptor {
   uint32_t flags;
@@ -64,10 +63,12 @@ static void rtl8169_receive(void)
 {
 }
 
-static void rtl8169_irq(isr_stack_t *stack)
+void rtl8169_irq(isr_stack_t *stack)
 {
   rtl8169_t *rtl = &rtl8169_instance;
-  serial_printf("[rtl8169] irq\n");
+  uint16_t status = inw(rtl->iobase + REG_INT_STATUS);
+  serial_printf("[rtl8169] irq fired status: %#02x\n", status);
+  outw(rtl->iobase + REG_INT_STATUS, status); /* ack */
   pic_eoi(rtl->irq);
 }
 
@@ -81,13 +82,17 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
   desc->vlan_tag = 0;
   desc->buffer = (size_t) buf;
 
-  /* enable tx */
-  outb(rtl->iobase + REG_CMD, CMD_TE);
-
   /* set IFG and DMA burst size */
   outl(rtl->iobase + REG_TX_CONF,
        TX_CONF_IFG_NORMAL |
        TX_CONF_DMA_UNLIM);
+
+#if DEBUG_LOCAL
+  {
+    uint32_t txconf = inl(rtl->iobase + REG_TX_CONF);
+    serial_printf("[rtl8169] txconf: %#08x\n", txconf);
+  }
+#endif
 
   /* set write threshold */
   outb(rtl->iobase + REG_TX_THRESHOLD, 0x3b);
@@ -103,23 +108,36 @@ static void rtl8169_setup_tx(rtl8169_t *rtl)
 static void rtl8169_setup_rx(rtl8169_t *rtl)
 {
   /* prepare descriptors */
-  static const int num_desc = 1;
+  static const int num_desc = 256;
   void *buf = falloc(RX_BUFSIZE);
-  descriptor_t *desc = &rtl->rx_desc[0];
-  desc->flags = DESC_OWN | DESC_EOR |
-    (RX_BUFSIZE & 0x1fff);
-  desc->vlan_tag = 0;
-  desc->buffer = (size_t) buf;
+
+  for (int i = 0; i < num_desc; i++) {
+    descriptor_t *desc = &rtl->rx_desc[i];
+    desc->flags = DESC_OWN | (RX_BUFSIZE & 0x2fff);
+    desc->vlan_tag = 0;
+    desc->buffer = (size_t) buf;
+  }
+  rtl->rx_desc[num_desc - 1].flags |= DESC_EOR;
 
   /* promiscuous mode */
-  outl(rtl->iobase + REG_RX_CONF,
-       RX_CONF_AAP | RX_CONF_APM |
-       RX_CONF_AM | RX_CONF_AB |
-       RX_CONF_DMA_UNLIM |
-       RX_CONF_FIFO_UNLIM);
+  uint32_t rxconf =
+    RX_CONF_AAP | RX_CONF_APM |
+    RX_CONF_AM | RX_CONF_AB |
+    RX_CONF_DMA_UNLIM |
+    RX_CONF_FIFO_UNLIM;
+  outl(rtl->iobase + REG_RX_CONF, rxconf);
 
   /* set max packet size */
-  outw(rtl->iobase + REG_RMS, MAX_PACKET_SIZE);
+  outw(rtl->iobase + REG_RMS, ETH_MTU);
+
+#if DEBUG_LOCAL
+  {
+    rxconf = inl(rtl->iobase + REG_RX_CONF);
+    serial_printf("[rtl8169] read rxconf: %#08x\n", rxconf);
+    uint16_t psize = inl(rtl->iobase + REG_RMS);
+    serial_printf("[rtl8169] packet size: %#04x\n", psize);
+  }
+#endif
 
   /* set descriptor */
   uint64_t descp = (size_t) rtl->rx_desc;
@@ -131,14 +149,15 @@ static void rtl8169_setup_rx(rtl8169_t *rtl)
 int rtl8169_init(void *data, device_t *dev)
 {
   rtl8169_t *rtl = data;
-#if DEBUG_LOCAL
-  serial_printf("[rtl8169] init\n");
-#endif
 
   rtl->iobase = rtl_find_iobase(dev);
   rtl->irq = dev->irq & 0xff;
   rtl->rx_desc = falloc(MAX_RX_DESC * sizeof(descriptor_t));
   rtl->tx_desc = falloc(MAX_TX_DESC * sizeof(descriptor_t));
+
+#if DEBUG_LOCAL
+  serial_printf("[rtl8169] irq number: %#2x\n", rtl->irq);
+#endif
 
   /* register irq */
   int ret = irq_grab(rtl->irq, rtl8169_irq);
@@ -155,6 +174,7 @@ int rtl8169_init(void *data, device_t *dev)
 #endif
   }
 
+  /* prepare tasklet */
   isr_stack_t *stack = (void *)tasklet_stack +
     sizeof(tasklet_stack) - sizeof(isr_stack_t);
   stack->eip = (uint32_t) rtl8169_receive;
@@ -167,28 +187,24 @@ int rtl8169_init(void *data, device_t *dev)
   outb(rtl->iobase + REG_CMD, CMD_RST);
   while (inb(rtl->iobase + REG_CMD) & CMD_RST);
 
-  uint32_t txconf = inl(rtl->iobase + REG_TX_CONF);
-#if DEBUG_LOCAL
-  serial_printf("[rtl8169] txconf = %#08x\n", txconf);
-#else
-  (void) txconf;
-#endif
-
   /* unlock config registers */
   outb(rtl->iobase + REG_LOCK, LOCK_CONFIG_WRITE);
-  outw(rtl->iobase + REG_CMD_PLUS, 0);
+  outw(rtl->iobase + REG_CMD_PLUS,
+       inw(rtl->iobase + REG_CMD_PLUS));
 
   rtl8169_setup_rx(rtl);
   rtl8169_setup_tx(rtl);
 
+  /* enable rx and tx */
+  outb(rtl->iobase + REG_CMD, CMD_TE | CMD_RE);
+
   /* mask interrupts and ack */
   outw(rtl->iobase + REG_INT_MASK, 0);
-  outw(rtl->iobase + REG_INT_STATUS,
-       inw(rtl->iobase + REG_INT_STATUS));
+  outw(rtl->iobase + REG_INT_STATUS, 0xffff);
 #if DEBUG_LOCAL
   {
     uint8_t cmd = inb(rtl->iobase + REG_CMD);
-    serial_printf("[rtl8169] cmd = %#02x\n", cmd);
+    serial_printf("[rtl8169] cmd: %#02x\n", cmd);
   }
 #else
   inb(rtl->iobase + REG_CMD);
@@ -197,8 +213,6 @@ int rtl8169_init(void *data, device_t *dev)
   /* set bus master bit in PCI configuration */
   device_command_set_mask(dev, PCI_CMD_BUS_MASTER);
 
-  /* enable rx and tx */
-  outb(rtl->iobase + REG_CMD, CMD_TE | CMD_RE);
 
   /* store mac address */
   for (int i = 0; i < 6; i++) {
@@ -209,6 +223,10 @@ int rtl8169_init(void *data, device_t *dev)
   outw(rtl->iobase + REG_INT_MASK, 0xff);
        /* INT_MASK_ROK | INT_MASK_TOK | */
        /* INT_MASK_RER | INT_MASK_TER); */
+  {
+    uint16_t status = inw(rtl->iobase + REG_INT_STATUS);
+    serial_printf("[rtl8169] int status: %#04x\n", status);
+  }
 
   /* lock config registers */
   outb(rtl->iobase + REG_LOCK, LOCK_NORMAL);
