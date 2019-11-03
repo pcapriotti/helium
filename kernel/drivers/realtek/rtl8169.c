@@ -368,5 +368,5 @@ nic_t rtl8169_nic = {
   .name = "eth0",
   .ops = &rtl8169_ops,
   .ops_data = &rtl8169_instance,
-  .ip = 0x0205a8c0,
+  .ip = 0x9900a8c0,
 };
