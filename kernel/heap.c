@@ -152,6 +152,9 @@ void *heap_malloc(heap_t *heap, size_t bytes)
 
 void heap_free(heap_t *heap, void *address)
 {
+  /* freeing a null pointer does nothing */
+  if (!address) return;
+
   block_t *block = address - sizeof(uint32_t);
   if (block < heap->free_blocks) {
     block->next = heap->free_blocks;
