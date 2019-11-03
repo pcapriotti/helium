@@ -4,7 +4,7 @@
 
 #include <stdarg.h>
 
-#define SERIAL_COLOURS 0
+#define SERIAL_COLOURS 1
 
 #ifdef SERIAL_COLOURS
 static int serial_colour = SERIAL_COLOUR_MSG;

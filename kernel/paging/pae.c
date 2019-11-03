@@ -1,4 +1,5 @@
 #include "core/debug.h"
+#include "core/serial.h"
 #include "core/x86.h"
 #include "paging/paging.h"
 #include "paging/pae.h"
@@ -60,7 +61,8 @@ int paging_pae_init(paging_pae_t *pg)
 
   /* enable large pages */
   if (!cpuid_check_features(CPUID_FEAT_PSE)) {
-    kprintf("ERROR: large pages not supported\n");
+    serial_set_colour(SERIAL_COLOUR_ERR);
+    serial_printf("ERROR: large pages not supported\n");
     return -1;
   }
   CR_SET(4, CR_GET(4) | CR4_PSE);

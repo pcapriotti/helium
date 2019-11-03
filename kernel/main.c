@@ -67,24 +67,18 @@ static console_backend_t *console_backend_get(void)
 
 void root_task(void)
 {
-  console_set_fg(0x005799d0);
-  kprintf("mode %#x: %ux%u %u bits\n",
-          (uint32_t) graphics_mode.number,
-          (uint32_t) graphics_mode.width,
-          (uint32_t) graphics_mode.height,
-          (uint32_t) graphics_mode.bpp);
-  kprintf("console %dx%d\n",
-          console.width, console.height);
-  console_reset_fg();
+  serial_printf("mode %#x: %ux%u %u bits\n",
+                (uint32_t) graphics_mode.number,
+                (uint32_t) graphics_mode.width,
+                (uint32_t) graphics_mode.height,
+                (uint32_t) graphics_mode.bpp);
+  serial_printf("console %dx%d\n",
+                console.width, console.height);
 
   drivers_init();
   list_t *devices = pci_scan();
 
   sched_spawn_task(network_init);
-
-  console_set_fg(0x007c9a59);
-  kprintf("Ok.\n");
-  console_reset_fg();
 
   sched_spawn_task(shell_main);
 }
@@ -111,7 +105,11 @@ void kernel_start(void *multiboot, uint32_t magic)
   regs.ecx = 0x2000;
   bios_int(0x10, &regs);
 
-  kprintf("Helium starting (magic = %#x)\n", magic);
+  {
+    int col = serial_set_colour(SERIAL_COLOUR_SUCCESS);
+    serial_printf("Helium starting (magic = %#x)\n", magic);
+    serial_set_colour(col);
+  }
 
   sti();
   if (timer_init() == -1) panic();
@@ -119,7 +117,7 @@ void kernel_start(void *multiboot, uint32_t magic)
 
   if (memory_init(multiboot) == -1) panic();
 
-  kprintf("entering graphic mode\n");
+  serial_printf("entering graphic mode\n");
 
   uint16_t *debug_buf = falloc(80 * 25 * sizeof(uint16_t));
 
@@ -130,7 +128,9 @@ void kernel_start(void *multiboot, uint32_t magic)
     mode.bpp = 32;
     mode.number = 0;
     if (graphics_init(&mode, debug_buf) == -1) {
+      int col = serial_set_colour(SERIAL_COLOUR_ERR);
       serial_printf("ERROR: could not enter graphic mode\n");
+      serial_set_colour(col);
     }
     (void) mode;
   }

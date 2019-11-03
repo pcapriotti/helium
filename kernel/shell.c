@@ -16,6 +16,7 @@
 
 #define INPUT_BUF_SIZE 1024
 #define ERROR_COLOUR 0x0090232a
+#define OK_COLOUR 0x007c9a59
 
 typedef struct shell {
   semaphore_t lock;
@@ -129,6 +130,9 @@ void shell_init(shell_t *shell)
   sem_init(&shell->lock, 1);
 
   kb_grab(on_kb_event, shell);
+  console_set_fg(OK_COLOUR);
+  kprintf("Helium debug shell\n");
+  console_reset_fg();
   shell_draw_prompt(shell);
 }
 

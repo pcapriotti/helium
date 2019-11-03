@@ -1,5 +1,6 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
+#include "core/serial.h"
 #include "frames.h"
 #include "paging/paging.h"
 #include "paging/legacy.h"
@@ -94,7 +95,8 @@ static void *paging_legacy_map_temp(void *data, uint64_t p)
   } while (tmp != pg->temp);
 
   if (*entry & PT_ENTRY_PRESENT) {
-    kprintf("ERROR: Out of temporary mappings\n");
+    serial_set_colour(SERIAL_COLOUR_ERR);
+    serial_printf("ERROR: Out of temporary mappings\n");
     panic();
     return 0;
   }

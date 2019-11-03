@@ -1,6 +1,7 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
 #include "core/io.h"
+#include "core/serial.h"
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "handlers.h"
@@ -49,7 +50,12 @@ int handle_irq(isr_stack_t *stack)
     outb(PIC_MASTER_CMD, 0x0a);
     outb(PIC_SLAVE_CMD, 0x0a);
     uint16_t irr = (inb(PIC_MASTER_CMD) << 8) | inb(PIC_SLAVE_CMD);
-    serial_printf("unhandled irq: %u isr: %#04x irr: %#04x\n", irq, isr, irr);
+    {
+      int col = serial_set_colour(SERIAL_COLOUR_WARN);
+      serial_printf("[handlers] unhandled irq: %u isr: %#04x irr: %#04x\n",
+                    irq, isr, irr);
+      serial_set_colour(col);
+    }
 #endif
     pic_eoi(irq);
     return 1;
