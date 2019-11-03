@@ -284,16 +284,18 @@ void ata_list_drives(void)
 
 void ata_irq(struct isr_stack *stack)
 {
-  serial_printf("[ata] interrupt\n");
+  int serviced = 0;
   for (int channel = 0; channel < 2; channel++) {
     uint8_t status = ata_read(channel, ATA_REG_STATUS);
-    serial_printf("  channel %d status %#02x\n", channel, status);
+    serviced = serviced || (status != 0);
     if (status & ATA_ST_ERR) {
-      serial_printf("  error: %#02x\n",
+      int col = serial_set_colour(SERIAL_COLOUR_ERR);
+      serial_printf("[ata] error: %#02x\n",
                     ata_read(channel, ATA_REG_ERROR));
+      serial_set_colour(col);
     }
   }
-  pic_eoi(ata_irq_number);
+  if (serviced) pic_eoi(ata_irq_number);
 }
 HANDLER_STATIC(ata_irq_handler, ata_irq);
 
