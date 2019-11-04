@@ -1,5 +1,6 @@
 #include "atomic.h"
 #include "core/debug.h"
+#include "core/util.h"
 #include "drivers/drivers.h"
 #include "drivers/realtek/common.h"
 #include "drivers/realtek/rtl8139.h"

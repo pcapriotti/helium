@@ -2,13 +2,13 @@
 #include "console/console.h"
 #include "console/point.h"
 #include "core/debug.h"
+#include "core/util.h"
 #include "fbcon.h"
 #include "font.h"
 #include "frames.h"
 #include "graphics.h"
 #include "kmalloc.h"
 #include "memory.h"
-#include "util.h"
 
 #include <assert.h>
 #include <string.h>

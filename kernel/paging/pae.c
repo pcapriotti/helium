@@ -1,6 +1,7 @@
 #include "core/debug.h"
 #include "core/serial.h"
 #include "core/x86.h"
+#include "core/util.h"
 #include "paging/paging.h"
 #include "paging/pae.h"
 

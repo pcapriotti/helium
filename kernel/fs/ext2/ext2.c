@@ -1,10 +1,11 @@
 #include "ext2.h"
+#include "core/storage.h"
 
 #include <stddef.h>
 
 #if _HELIUM
 # include "core/debug.h"
-# define TRACE kprintf
+# define TRACE serial_printf
 #else
 # include <stdio.h>
 # include <stdlib.h>
@@ -21,8 +22,8 @@
 #define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
 
 struct fs_struct {
-  ext2_disk_read_t *read;
-  void *read_data;
+  storage_t *storage;
+  void *scratch; /* scratch sector buffer */
   unsigned char *buf; /* must be at least as big as the block size */
   size_t block_size;
   size_t inode_size;
@@ -32,9 +33,10 @@ struct fs_struct {
 
 void ext2_read_block_into(fs_t *fs, unsigned int offset, void *buffer)
 {
-  fs->read(fs->read_data, buffer,
-           fs->block_size * offset,
-           fs->block_size);
+  storage_read(fs->storage,
+               buffer,
+               fs->block_size * offset,
+               fs->block_size);
 }
 
 void* ext2_read_block(fs_t *fs, unsigned int offset)
@@ -48,29 +50,32 @@ size_t ext2_fs_block_size(fs_t *fs)
   return fs->block_size;
 }
 
-int ext2_locate_superblock(ext2_disk_read_t *read, void *read_data, superblock_t *sb)
+int ext2_locate_superblock(storage_t *storage, void *scratch, superblock_t *sb)
 {
-  read(read_data, sb, 1024, sizeof(superblock_t));
+  storage_read_unaligned(storage, sb, scratch, 1024, sizeof(superblock_t));
   return (sb->signature == 0xef53);
 }
 
-fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data)
+fs_t *ext2_new_fs(storage_t *storage)
 {
   superblock_t sb;
 #if EXT2_DEBUG
   TRACE("Locating superblock\n");
 #endif
 
-  if (!ext2_locate_superblock(read, read_data, &sb)) {
+  void *scratch = MALLOC(1 << storage->alignment);
+
+  if (!ext2_locate_superblock(storage, scratch, &sb)) {
 #if EXT2_DEBUG
     TRACE("Could not find superblock\n");
 #endif
+    FREE(scratch);
     return 0;
   }
 
   fs_t *fs = MALLOC(sizeof(fs_t));
-  fs->read = read;
-  fs->read_data = read_data;
+  fs->storage = storage;
+  fs->scratch = scratch;
   fs->block_size = ext2_block_size(&sb);
   fs->inode_size = ext2_inode_size(&sb);
   fs->inodes_per_group = sb.inodes_per_group;

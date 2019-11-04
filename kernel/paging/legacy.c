@@ -1,6 +1,7 @@
 #include "core/debug.h"
 #include "core/interrupts.h"
 #include "core/serial.h"
+#include "core/util.h"
 #include "frames.h"
 #include "paging/paging.h"
 #include "paging/legacy.h"

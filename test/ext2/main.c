@@ -5,15 +5,35 @@
 #include <unistd.h>
 
 #include "kernel/fs/ext2/ext2.h"
+#include "core/storage.h"
 
-void *test_read(void *data, void *buf,
-                uint32_t offset, uint32_t bytes)
+int test_read(void *data, void *buf,
+              uint64_t offset, uint32_t bytes)
 {
   FILE *image = (FILE*)data;
   fseek(image, offset, SEEK_SET);
   fread(buf, bytes, 1, image);
-  return buf;
+  return 0;
 }
+
+int test_read_unaligned(void *data, void *buf, void *scratch,
+                        uint64_t offset, uint32_t bytes)
+{
+  return test_read(data, buf, offset, bytes);
+}
+
+storage_ops_t test_storage_ops = {
+  .read_unaligned = test_read_unaligned,
+  .read = test_read,
+  .write_unaligned = 0,
+  .write = 0,
+};
+
+storage_t test_storage = {
+  .ops = &test_storage_ops,
+  .ops_data = 0,
+  .alignment = 0,
+};
 
 int main(int argc, char **argv)
 {
@@ -26,7 +46,8 @@ int main(int argc, char **argv)
     error(1, errno, "Could not open %s", argv[1]);
   }
 
-  fs_t *fs = ext2_new_fs(test_read, image);
+  test_storage.ops_data = image;
+  fs_t *fs = ext2_new_fs(&test_storage);
   if (!fs) {
     error(1, 0, "Invalid superblock");
   }

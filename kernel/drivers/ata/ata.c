@@ -1,12 +1,12 @@
 #include "ata.h"
 #include "core/debug.h"
 #include "core/io.h"
+#include "core/storage.h"
+#include "core/util.h"
 #include "drivers/drivers.h"
 #include "handlers.h"
 #include "pci.h"
-#include "storage/storage.h"
 
-#define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
 #define MAX_BUSY_ATTEMPTS 50000
 
 #define ATA_DEBUG 1
@@ -192,6 +192,11 @@ int ata_write_lba(drive_t *drive, uint64_t lba, void *buf, uint32_t count)
   ata_wait(drive->channel);
 
   return 0;
+}
+
+int ata_write_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
+{
+  return -1;
 }
 
 void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
@@ -492,15 +497,23 @@ typedef struct {
   uint32_t part_offset;
 } ata_ops_data_t;
 
+static int ata_ops_write_unaligned(void *_data, void *buf, void *scratch,
+                                   uint64_t offset,
+                                   uint32_t bytes)
+{
+  return -1;
+}
+
+
 static int ata_ops_write(void *_data, void *buf,
-                         uint32_t offset,
+                         uint64_t offset,
                          uint32_t bytes)
 {
   return -1;
 }
 
-static void *ata_ops_read(void *_data, void *buf,
-                          uint32_t offset,
+static int ata_ops_read(void *_data, void *buf,
+                          uint64_t offset,
                           uint32_t bytes)
 {
   ata_ops_data_t *data = _data;
@@ -510,9 +523,16 @@ static void *ata_ops_read(void *_data, void *buf,
                 data->drive->index,
                 data->part_offset);
 #endif
-  return ata_read_bytes(data->drive,
-                        offset + ((uint64_t) data->part_offset << 9),
-                        bytes, buf);
+  void *ret = ata_read_bytes(data->drive,
+                             offset + ((uint64_t) data->part_offset << 9),
+                             bytes, buf);
+  return ret ? 0 : -1;
+}
+
+static int ata_ops_read_unaligned(void *data, void *buf, void *scratch,
+                                    uint64_t offset, uint32_t bytes)
+{
+  return ata_ops_read(data, buf, offset, bytes);
 }
 
 driver_t ata_driver = {
@@ -523,5 +543,7 @@ driver_t ata_driver = {
 
 storage_ops_t ata_storage_ops = {
   .read = ata_ops_read,
+  .read_unaligned = ata_ops_read_unaligned,
   .write = ata_ops_write,
+  .write_unaligned = ata_ops_write_unaligned,
 };

@@ -72,11 +72,6 @@ typedef struct {
   char name[];
 } __attribute__((packed)) dir_entry_t;
 
-/* interface for reading from a disk */
-typedef void *ext2_disk_read_t(void *data, void *buf,
-                               uint32_t offset,
-                               uint32_t bytes);
-
 typedef struct fs_struct fs_t;
 
 enum
@@ -96,7 +91,8 @@ uint16_t ext2_inode_size(superblock_t *sb);
 
 /* fs_t structure */
 
-fs_t *ext2_new_fs(ext2_disk_read_t *read, void *read_data);
+struct storage;
+fs_t *ext2_new_fs(struct storage *storage);
 void ext2_free_fs(fs_t *fs);
 size_t ext2_fs_block_size(fs_t *fs);
 
