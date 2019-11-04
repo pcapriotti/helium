@@ -8,12 +8,26 @@
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
 #define MAX_BUSY_ATTEMPTS 50000
 
-#define ATA_DEBUG 0
+#define ATA_DEBUG 1
 
 enum {
   IDE_PROGIF_PCI = 0x05,
   IDE_PROGIF_SWITCHABLE = 0x0a,
   IDE_PROGIF_BM = 0x80,
+};
+
+/* offsets into identify structure */
+enum {
+  IDENTIFY_MODEL_NUMBER = 27,
+  IDENTIFY_LBA28_SECTORS = 60,
+  IDENTIFY_VERSION_MAJOR = 80,
+  IDENTIFY_SUPPORTED_COMMANDS = 82,
+  IDENTIFY_LBA48_SECTORS = 100,
+};
+
+/* bits of IDENTIFY_SUPPORTED_COMMANDS */
+enum {
+  SUPPORTED_LBA48 = 1 << 26,
 };
 
 struct channel_struct {
@@ -73,8 +87,10 @@ void ata_reset(uint8_t channel)
 
 #if ATA_DEBUG
   {
+    int col = serial_set_colour(0);
     serial_printf("[ata] reset, ctrl: %#02x\n",
                   ata_read(channel, ATA_REG_CTRL));
+    serial_set_colour(col);
   }
 #endif
 }
@@ -102,7 +118,9 @@ uint8_t ata_poll_busy(uint8_t channel, unsigned max)
     num++;
   }
 #if ATA_DEBUG
+  int col = serial_set_colour(0);
   serial_printf("[ata] num busy poll attempts: %u\n", num);
+  serial_set_colour(col);
 #endif
   return status;
 }
@@ -182,6 +200,19 @@ void ata_controller_type(device_t *ide,
         bm ? ", bus mastering" : "");
 }
 
+static inline uint32_t identify_readl(uint16_t *id, int offset)
+{
+  return id[offset] | (id[offset + 1] << 16);
+}
+
+static inline uint64_t identify_readll(uint16_t *id, int offset)
+{
+  return (uint64_t) id[offset] |
+    ((uint64_t) id[offset + 1] << 16) |
+    ((uint64_t) id[offset + 2] << 32) |
+    ((uint64_t) id[offset + 3] << 48);
+}
+
 int ata_identify_drive(drive_t *drive)
 {
   uint8_t status;
@@ -206,17 +237,11 @@ int ata_identify_drive(drive_t *drive)
   ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_IDENTIFY);
 
   status = ata_read(drive->channel, ATA_REG_STATUS);
-#if ATA_DEBUG
-  serial_printf("[ata] identify: status %#x\n", status);
-#endif
   if (!status || (status & ATA_ST_ERR)) {
     return 0;
   }
 
   status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
-#if ATA_DEBUG
-  serial_printf("[ata] non-busy status: %#x\n", status);
-#endif
 
   /* check if ATAPI */
   if (ata_read(drive->channel, ATA_REG_LBA2) ||
@@ -225,30 +250,37 @@ int ata_identify_drive(drive_t *drive)
   }
 
   status = ata_poll_ready(drive->channel);
-#if ATA_DEBUG
-  serial_printf("[ata] ready status: %#x\n", status);
-#endif
   if (status & ATA_ST_ERR) {
     return 0;
   }
 
   /* read identify structure */
-  union {
-    uint16_t buf[256];
-    ata_identify_t fields;
-  } id;
-
+  uint16_t id[256];
   for (int i = 0; i < 256; i++) {
-    id.buf[i] = ata_readw(drive->channel, ATA_REG_DATA);
+    id[i] = ata_readw(drive->channel, ATA_REG_DATA);
   }
 
   for (int i = 0; i < 20; i++) {
-    drive->model[2 * i] = id.fields.model_number[2 * i + 1];
-    drive->model[2 * i + 1] = id.fields.model_number[2 * i];
+    uint16_t x = id[IDENTIFY_MODEL_NUMBER + i];
+    drive->model[2 * i] = (x >> 8) & 0xff;
+    drive->model[2 * i + 1] = x & 0xff;
   }
   drive->model[40] = '\0';
   drive->present = 1;
-  drive->lba_sectors = id.fields.lba_sectors;
+
+  uint32_t supported_commands =
+    identify_readl(id, IDENTIFY_SUPPORTED_COMMANDS);
+
+  drive->lba_sectors = (supported_commands & SUPPORTED_LBA48)
+    ? identify_readll(id, IDENTIFY_LBA48_SECTORS)
+    : identify_readl(id, IDENTIFY_LBA28_SECTORS);
+
+#if ATA_DEBUG
+  serial_printf("[ata] major version: %#04x\n",
+                id[IDENTIFY_VERSION_MAJOR]);
+  serial_printf("[ata] supported commands: %#08x\n",
+                identify_readl(id, IDENTIFY_SUPPORTED_COMMANDS));
+#endif
 
   return 1;
 }
@@ -271,16 +303,20 @@ void ata_list_drives(void)
     if (drive->present) {
       kprintf("drive %d: %s ", i, drive->model);
 
-      uint32_t kb = drives[i].lba_sectors >> 1;
-      uint32_t mb = kb >> 10;
-      uint32_t gb = mb >> 10;
-      if (gb) {
-        kprintf("%u GB", gb);
+      uint64_t kb = drives[i].lba_sectors >> 1;
+      uint64_t mb = kb >> 10;
+      uint64_t gb = mb >> 10;
+      uint64_t tb = gb >> 10;
+      if (tb) {
+        kprintf("%llu TB", tb);
+      }
+      else if (gb) {
+        kprintf("%llu GB", gb);
       }
       else if (mb) {
-        kprintf("%u MB", mb);
+        kprintf("%llu MB", mb);
       } else {
-        kprintf("%u kB", kb);
+        kprintf("%llu kB", kb);
       }
 
       kprintf("\n");
@@ -345,7 +381,11 @@ int ata_init(void *data, device_t *ide)
 
     for (uint8_t drive = 0; drive < 2; drive++) {
 #if ATA_DEBUG
-      serial_printf("[ata] identify drive %u channel %u\n", drive, channel);
+      {
+        int col = serial_set_colour(0);
+        serial_printf("[ata] identify drive %u channel %u\n", drive, channel);
+        serial_set_colour(col);
+      }
 #endif
       drives[i].channel = channel;
       drives[i].index = drive;
@@ -354,16 +394,21 @@ int ata_init(void *data, device_t *ide)
 #if ATA_DEBUG
         serial_printf("[ata] drive %u channel %u: ", i);
         {
-          uint32_t kb = drives[i].lba_sectors >> 1;
-          uint32_t mb = kb >> 10;
-          uint32_t gb = mb >> 10;
-          if (gb) {
-            serial_printf("%u GB", gb);
+          uint64_t kb = drives[i].lba_sectors >> 1;
+          uint64_t mb = kb >> 10;
+          uint64_t gb = mb >> 10;
+          uint64_t tb = gb >> 10;
+          if (tb) {
+            serial_printf("%llu TB", tb);
+          }
+          else if (gb) {
+            serial_printf("%llu GB", gb);
           }
           else if (mb) {
-            serial_printf("%u MB", mb);
-          } else {
-            serial_printf("%u kB", kb);
+            serial_printf("%llu MB", mb);
+          }
+          else {
+            serial_printf("%llu kB", kb);
           }
         }
         serial_printf("\n");

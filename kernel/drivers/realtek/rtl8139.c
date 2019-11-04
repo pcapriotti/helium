@@ -13,7 +13,7 @@
 #include "scheduler.h"
 #include "semaphore.h"
 
-#define DEBUG_LOCAL 1
+#define DEBUG_LOCAL 0
 
 #define RXBUF_SIZE 8192
 #define NUM_TX_SLOTS 4
