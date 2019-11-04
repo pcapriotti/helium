@@ -11,6 +11,10 @@
 
 #define ATA_DEBUG 1
 
+typedef struct ata_sector {
+  uint16_t data[256];
+} __attribute__((packed)) ata_sector_t;
+
 enum {
   IDE_PROGIF_PCI = 0x05,
   IDE_PROGIF_SWITCHABLE = 0x0a,
@@ -126,15 +130,8 @@ uint8_t ata_poll_busy(uint8_t channel, unsigned max)
   return status;
 }
 
-void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
+static int ata_prepare_read_write(drive_t *drive, uint64_t lba, uint32_t count)
 {
-  uint64_t lba = offset >> 9;
-  uint64_t lba_end = ROUND64(offset + bytes, 9);
-  uint32_t count = lba_end - lba;
-
-  if (count > 0xffff) count = 0xffff;
-
-  /* send read command */
   ata_write(drive->channel, ATA_REG_DRIVE_HEAD,
             0xe0 | (drive->index << 4) |
             (drive->lba48 ? 0 : ((lba >> 0x18) & 0x0f)));
@@ -154,20 +151,78 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
   if (ata_channels[drive->channel].last_drive != drive->index)
     ata_wait(drive->channel);
   if (ata_read(drive->channel, ATA_REG_STATUS) & ATA_ST_BSY)
+    return -1;
+
+  return 0;
+}
+
+int ata_write_lba(drive_t *drive, uint64_t lba, void *buf, uint32_t count)
+{
+  if (count > 0xffff) count = 0xffff;
+
+  /* send lba and count */
+  if (ata_prepare_read_write(drive, lba, count) == -1)
+    return -1;
+
+  /* send write command */
+  ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_WRITE_PIO);
+
+  ata_sector_t *sector = buf;
+  for (unsigned i = 0; i < count; i++) {
+    uint8_t status = ATA_ST_BSY;
+    status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
+    status = ata_poll_ready(drive->channel);
+
+    if (status & ATA_ST_ERR) {
+      int col = serial_set_colour(SERIAL_COLOUR_ERR);
+      serial_printf("[ata] error while writing\n");
+      serial_set_colour(col);
+      return -1;
+    }
+
+    for (unsigned k = 0; k < 256; k++) {
+      ata_writew(drive->channel, ATA_REG_DATA, sector->data[k]);
+    }
+
+    sector++;
+  }
+
+  /* flush cache */
+  ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_FLUSH_CACHE);
+  ata_wait(drive->channel);
+
+  return 0;
+}
+
+void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
+{
+  uint64_t lba = offset >> 9;
+  uint64_t lba_end = ROUND64(offset + bytes, 9);
+  uint32_t count = lba_end - lba;
+
+  if (count > 0xffff) count = 0xffff;
+
+  /* send lba and count */
+  if (ata_prepare_read_write(drive, lba, count) == -1)
     return 0;
+
+  /* send read command */
   ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_READ_PIO);
 
   unsigned int j = 0;
   uint32_t buf_offset = offset - ((uint64_t)lba << 9);
   uint8_t *result = (uint8_t*)buf;
 
+  /* read data */
   for (unsigned int i = 0; i < count; i++) {
     uint8_t status = ATA_ST_BSY;
     status = ata_poll_busy(drive->channel, MAX_BUSY_ATTEMPTS);
     status = ata_poll_ready(drive->channel);
 
     if (status & ATA_ST_ERR) {
-      serial_printf("[ata] error while reading\n");
+      int col = serial_set_colour(SERIAL_COLOUR_ERR);
+      serial_printf("[ata] error while writing\n");
+      serial_set_colour(col);
       return 0;
     }
 

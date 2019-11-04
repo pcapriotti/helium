@@ -70,7 +70,8 @@ enum {
 enum {
   ATA_CMD_READ_PIO = 0x20,
   ATA_CMD_WRITE_PIO = 0x30,
-  ATA_CMD_IDENTIFY = 0xec
+  ATA_CMD_FLUSH_CACHE = 0xe7,
+  ATA_CMD_IDENTIFY = 0xec,
 };
 
 /* ATA control register */
