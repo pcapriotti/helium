@@ -34,28 +34,6 @@
 
 void hang_system(void);
 
-typedef struct {
-  drive_t *drive;
-  uint32_t part_offset;
-} ata_closure_data_t;
-
-void ata_read_closure(void *data, void *buf,
-                      unsigned int offset,
-                      unsigned int bytes)
-{
-  ata_closure_data_t *clo_data = data;
-#if ATA_CLOSURE_DEBUG
-  kprintf("reading at %#x from drive %u:%u with part offset %#x\n",
-          offset, clo_data->drive->channel,
-          clo_data->drive->index,
-          clo_data->part_offset);
-#endif
-  ata_read_bytes(clo_data->drive,
-                 offset + (clo_data->part_offset << 9),
-                 bytes,
-                 buf);
-}
-
 static console_backend_t *console_backend_get(void)
 {
   if (graphics_mode.number) {

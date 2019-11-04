@@ -83,6 +83,7 @@ typedef struct drive {
   uint8_t present;
   uint8_t channel;
   uint8_t index;
+  uint8_t lba48;
   uint64_t lba_sectors;
   char model[41];
 } drive_t;

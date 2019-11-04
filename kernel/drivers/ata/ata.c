@@ -4,6 +4,7 @@
 #include "drivers/drivers.h"
 #include "handlers.h"
 #include "pci.h"
+#include "storage/storage.h"
 
 #define ROUND64(a, i) (((uint64_t)a + (1 << (i)) - 1) >> i)
 #define MAX_BUSY_ATTEMPTS 50000
@@ -127,20 +128,28 @@ uint8_t ata_poll_busy(uint8_t channel, unsigned max)
 
 void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
 {
-  /* maximum offset: 2 TB
-     maximum number of bytes: 128 kB */
-  uint32_t lba = offset >> 9;
-  uint32_t lba_end = ROUND64(offset + bytes, 9);
+  uint64_t lba = offset >> 9;
+  uint64_t lba_end = ROUND64(offset + bytes, 9);
   uint32_t count = lba_end - lba;
-  if (count > 0xff) return 0;
+
+  if (count > 0xffff) count = 0xffff;
 
   /* send read command */
   ata_write(drive->channel, ATA_REG_DRIVE_HEAD,
-            0xe0 | (drive->index << 4) | ((lba >> 0x18) & 0x0f));
+            0xe0 | (drive->index << 4) |
+            (drive->lba48 ? 0 : ((lba >> 0x18) & 0x0f)));
+  if (drive->lba48) {
+    /* send high bytes */
+    ata_write(drive->channel, ATA_REG_SECTOR_COUNT, count >> 8);
+    ata_write(drive->channel, ATA_REG_LBA1, (lba >> 0x18) & 0xff);
+    ata_write(drive->channel, ATA_REG_LBA2, (lba >> 0x20) & 0xff);
+    ata_write(drive->channel, ATA_REG_LBA3, (lba >> 0x28) & 0xff);
+  }
   ata_write(drive->channel, ATA_REG_SECTOR_COUNT, count);
   ata_write(drive->channel, ATA_REG_LBA1, lba & 0xff);
   ata_write(drive->channel, ATA_REG_LBA2, (lba >> 0x8) & 0xff);
   ata_write(drive->channel, ATA_REG_LBA3, (lba >> 0x10) & 0xff);
+
   /* if reading from a new drive, wait */
   if (ata_channels[drive->channel].last_drive != drive->index)
     ata_wait(drive->channel);
@@ -266,12 +275,12 @@ int ata_identify_drive(drive_t *drive)
     drive->model[2 * i + 1] = x & 0xff;
   }
   drive->model[40] = '\0';
-  drive->present = 1;
 
   uint32_t supported_commands =
     identify_readl(id, IDENTIFY_SUPPORTED_COMMANDS);
 
-  drive->lba_sectors = (supported_commands & SUPPORTED_LBA48)
+  drive->lba48 = supported_commands & SUPPORTED_LBA48;
+  drive->lba_sectors = drive->lba48
     ? identify_readll(id, IDENTIFY_LBA48_SECTORS)
     : identify_readl(id, IDENTIFY_LBA28_SECTORS);
 
@@ -282,6 +291,7 @@ int ata_identify_drive(drive_t *drive)
                 identify_readl(id, IDENTIFY_SUPPORTED_COMMANDS));
 #endif
 
+  drive->present = 1;
   return 1;
 }
 
@@ -422,8 +432,41 @@ int ata_init(void *data, device_t *ide)
   return 0;
 }
 
+typedef struct {
+  drive_t *drive;
+  uint32_t part_offset;
+} ata_ops_data_t;
+
+static int ata_ops_write(void *_data, void *buf,
+                         uint32_t offset,
+                         uint32_t bytes)
+{
+  return -1;
+}
+
+static void *ata_ops_read(void *_data, void *buf,
+                          uint32_t offset,
+                          uint32_t bytes)
+{
+  ata_ops_data_t *data = _data;
+#if ATA_CLOSURE_DEBUG
+  serial_printf("reading at %#x from drive %u:%u with part offset %#x\n",
+                offset, data->drive->channel,
+                data->drive->index,
+                data->part_offset);
+#endif
+  return ata_read_bytes(data->drive,
+                        offset + ((uint64_t) data->part_offset << 9),
+                        bytes, buf);
+}
+
 driver_t ata_driver = {
   .data = 0,
   .matches = ata_is_ide_controller,
   .init = ata_init,
+};
+
+storage_ops_t ata_storage_ops = {
+  .read = ata_ops_read,
+  .write = ata_ops_write,
 };

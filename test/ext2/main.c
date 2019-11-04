@@ -6,12 +6,13 @@
 
 #include "kernel/fs/ext2/ext2.h"
 
-void test_read(void *data, void *buf,
-               unsigned int offset, unsigned int bytes)
+void *test_read(void *data, void *buf,
+                uint32_t offset, uint32_t bytes)
 {
   FILE *image = (FILE*)data;
   fseek(image, offset, SEEK_SET);
   fread(buf, bytes, 1, image);
+  return buf;
 }
 
 int main(int argc, char **argv)
@@ -31,7 +32,7 @@ int main(int argc, char **argv)
   }
 
   /* read example file */
-  inode_t *inode = ext2_get_path_inode(fs, "kernel/drivers/keyboard.c");
+  inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
   if (inode) {
     inode_t tmp = *inode;
     inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);

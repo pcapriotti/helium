@@ -83,9 +83,8 @@ sector_t bios_read_buffer;
 
 extern int read_debug;
 
-void bios_read_closure(void *data, void *buf,
-                       unsigned int offset,
-                       unsigned int bytes)
+void *bios_read_closure(void *data, void *buf,
+                        uint32_t offset, uint32_t bytes)
 {
   /* kprintf("offset = %#x, bytes = %#x\n", offset, bytes); */
   bios_read_info_t *info = data;
@@ -138,6 +137,8 @@ void bios_read_closure(void *data, void *buf,
 
     sector += count;
   }
+
+  return buf;
 }
 
 void *load_kernel(unsigned int drive, unsigned int part_offset)

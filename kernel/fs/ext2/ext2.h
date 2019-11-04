@@ -73,9 +73,9 @@ typedef struct {
 } __attribute__((packed)) dir_entry_t;
 
 /* interface for reading from a disk */
-typedef void ext2_disk_read_t(void *data, void *buf,
-                              unsigned int offset,
-                              unsigned int bytes);
+typedef void *ext2_disk_read_t(void *data, void *buf,
+                               uint32_t offset,
+                               uint32_t bytes);
 
 typedef struct fs_struct fs_t;
 
