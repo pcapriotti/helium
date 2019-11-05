@@ -7,6 +7,8 @@
 #define SECTOR_ALIGNMENT 9
 #define SECTOR_SIZE (1UL << 9)
 
+extern storage_ops_t bios_storage_ops;
+
 int get_drive_geometry(int drive, drive_geometry_t *geom)
 {
   regs16_t regs;
@@ -44,7 +46,7 @@ static void sector_to_chs(drive_geometry_t *geom,
 int bios_ops_read_unaligned(void *data, void *buf, void *scratch,
                             uint64_t offset, uint32_t bytes)
 {
-  return read_unaligned_helper(&bios_storage, data, buf, scratch,
+  return read_unaligned_helper(&bios_storage_ops, data, buf, scratch,
                                offset, bytes);
 }
 
@@ -98,10 +100,10 @@ storage_ops_t bios_storage_ops = {
   /* write not supported */
   .write_unaligned = 0,
   .write = 0,
+  .alignment = SECTOR_ALIGNMENT,
 };
 
 storage_t bios_storage = {
   .ops = &bios_storage_ops,
   .ops_data = 0,
-  .alignment = SECTOR_ALIGNMENT,
 };

@@ -31,11 +31,11 @@ int storage_write_unaligned(storage_t *storage, void *buf, void *scratch,
 }
 
 /* generic implementation of unaligned read on top of aligned read */
-int read_unaligned_helper(storage_t *storage, void *data,
+int read_unaligned_helper(storage_ops_t *ops, void *data,
                           void *buf, void *scratch,
                           uint64_t offset, uint32_t bytes)
 {
-  const int sector_size = 1 << storage->alignment;
+  const int sector_size = 1 << ops->alignment;
 
   unsigned unaligned0 = offset % sector_size;
   uint32_t size0 = sector_size - unaligned0;
@@ -43,7 +43,7 @@ int read_unaligned_helper(storage_t *storage, void *data,
   /* read unaligned beginning */
   if (unaligned0) {
     if (size0 > bytes) size0 = bytes;
-    if (storage_read(storage, scratch, offset, sector_size) == 1)
+    if (ops->read(data, scratch, offset, sector_size) == 1)
       return -1;
     memcpy(buf, scratch + unaligned0, size0);
 
@@ -53,10 +53,10 @@ int read_unaligned_helper(storage_t *storage, void *data,
   }
 
   /* read middle */
-  assert(IS_ALIGNED(offset, storage->alignment));
-  uint32_t size1 = ALIGNED(bytes, storage->alignment);
+  assert(IS_ALIGNED(offset, ops->alignment));
+  uint32_t size1 = ALIGNED(bytes, ops->alignment);
   if (size1) {
-    if (storage_read(storage, buf, offset, size1) == -1)
+    if (ops->read(data, buf, offset, size1) == -1)
       return -1;
 
     buf += size1;
@@ -67,7 +67,7 @@ int read_unaligned_helper(storage_t *storage, void *data,
   /* read unaligned end */
   if (bytes) {
     assert(bytes < (unsigned) sector_size);
-    if (storage_read(storage, scratch, offset, sector_size) == -1)
+    if (ops->read(data, scratch, offset, sector_size) == -1)
       return -1;
     memcpy(buf, scratch, bytes);
   }
@@ -78,11 +78,11 @@ int read_unaligned_helper(storage_t *storage, void *data,
 /* generic implementation of unaligned write on top of aligned read
    and write
 */
-int write_unaligned_helper(storage_t *storage, void *data,
+int write_unaligned_helper(storage_ops_t *ops, void *data,
                            void *buf, void *scratch,
                            uint64_t offset, uint32_t bytes)
 {
-  const int sector_size = 1 << storage->alignment;
+  const int sector_size = 1 << ops->alignment;
 
   unsigned unaligned0 = offset % sector_size;
   uint32_t size0 = sector_size - unaligned0;
@@ -90,10 +90,10 @@ int write_unaligned_helper(storage_t *storage, void *data,
   /* write unaligned beginning */
   if (unaligned0) {
     if (size0 > bytes) size0 = bytes;
-    if (storage_read(storage, scratch, offset, sector_size) == -1)
+    if (ops->read(data, scratch, offset, sector_size) == -1)
       return -1;
     memcpy(scratch + unaligned0, buf, size0);
-    if (storage_write(storage, scratch, offset, sector_size) == -1)
+    if (ops->write(data, scratch, offset, sector_size) == -1)
       return -1;
 
     buf += size0;
@@ -102,10 +102,10 @@ int write_unaligned_helper(storage_t *storage, void *data,
   }
 
   /* write middle */
-  assert(IS_ALIGNED(offset, storage->alignment));
-  uint32_t size1 = ALIGNED(bytes, storage->alignment);
+  assert(IS_ALIGNED(offset, ops->alignment));
+  uint32_t size1 = ALIGNED(bytes, ops->alignment);
   if (size1) {
-    if (storage_write(storage, buf, offset, size1) == -1)
+    if (ops->write(data, buf, offset, size1) == -1)
       return -1;
 
     buf += size1;
@@ -116,10 +116,10 @@ int write_unaligned_helper(storage_t *storage, void *data,
   /* write unaligned end */
   if (bytes) {
     assert(bytes < (unsigned) sector_size);
-    if (storage_read(storage, scratch, offset, sector_size) == -1)
+    if (ops->read(data, scratch, offset, sector_size) == -1)
       return -1;
     memcpy(scratch, buf, bytes);
-    if (storage_write(storage, scratch, offset, sector_size) == -1)
+    if (ops->write(data, scratch, offset, sector_size) == -1)
       return -1;
   }
 

@@ -63,7 +63,7 @@ fs_t *ext2_new_fs(storage_t *storage)
   TRACE("Locating superblock\n");
 #endif
 
-  void *scratch = MALLOC(1 << storage->alignment);
+  void *scratch = MALLOC(1 << storage->ops->alignment);
 
   if (!ext2_locate_superblock(storage, scratch, &sb)) {
 #if EXT2_DEBUG

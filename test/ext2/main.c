@@ -27,12 +27,12 @@ storage_ops_t test_storage_ops = {
   .read = test_read,
   .write_unaligned = 0,
   .write = 0,
+  .alignment = 0,
 };
 
 storage_t test_storage = {
   .ops = &test_storage_ops,
   .ops_data = 0,
-  .alignment = 0,
 };
 
 int main(int argc, char **argv)

@@ -30,6 +30,9 @@ typedef struct storage_ops {
                          void *scratch,
                          uint64_t offset,
                          uint32_t bytes);
+
+  /* alignment for all storage operations */
+  int alignment;
 } storage_ops_t;
 
 /* storage abstraction */
@@ -37,9 +40,6 @@ typedef struct storage {
   /* operations */
   storage_ops_t *ops;
   void *ops_data;
-
-  /* alignment for all storage operations */
-  int alignment;
 } storage_t;
 
 int storage_read(storage_t *storage, void *buf,
@@ -54,7 +54,7 @@ int storage_write(storage_t *storage, void *buf,
 int storage_write_unaligned(storage_t *storage, void *buf, void *scratch,
                             uint64_t offset, uint32_t bytes);
 
-int read_unaligned_helper(storage_t *storage, void *data,
+int read_unaligned_helper(storage_ops_t *ops, void *data,
                           void *buf, void *scratch,
                           uint64_t offset, uint32_t bytes);
 
