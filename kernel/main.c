@@ -7,6 +7,7 @@
 #include "core/debug.h"
 #include "core/io.h"
 #include "core/serial.h"
+#include "core/storage.h"
 #include "core/v8086.h"
 #include "core/x86.h"
 #include "drivers/ata/ata.h"

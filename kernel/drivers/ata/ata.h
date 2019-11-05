@@ -96,8 +96,9 @@ void *ata_read_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 void ata_list_drives(void);
 
 struct storage;
+void ata_storage_init(struct storage *storage, drive_t *drive, unsigned part_offset);
+void ata_storage_cleanup(struct storage *storage);
 
 extern struct driver ata_driver;
-extern struct storage ata_storage;
 
 #endif /* ATA_H */

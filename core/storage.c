@@ -43,7 +43,7 @@ int storage_read_unaligned_helper(storage_ops_t *ops, void *data,
   /* read unaligned beginning */
   if (unaligned0) {
     if (size0 > bytes) size0 = bytes;
-    if (ops->read(data, scratch, offset, sector_size) == 1)
+    if (ops->read(data, scratch, ALIGNED64(offset, ops->alignment), sector_size) == 1)
       return -1;
     memcpy(buf, scratch + unaligned0, size0);
 
@@ -90,14 +90,15 @@ int storage_write_unaligned_helper(storage_ops_t *ops, void *data,
   /* write unaligned beginning */
   if (unaligned0) {
     if (size0 > bytes) size0 = bytes;
-    if (ops->read(data, scratch, offset, sector_size) == -1)
+    if (ops->read(data, scratch, ALIGNED64(offset, ops->alignment), sector_size) == -1)
       return -1;
     memcpy(scratch + unaligned0, buf, size0);
-    if (ops->write(data, scratch, offset, sector_size) == -1)
+    if (ops->write(data, scratch, ALIGNED64(offset, ops->alignment), sector_size) == -1)
       return -1;
 
     buf += size0;
     offset += size0;
+    offset = ALIGNED64(offset, ops->alignment);
     bytes -= size0;
   }
 
@@ -115,6 +116,7 @@ int storage_write_unaligned_helper(storage_ops_t *ops, void *data,
 
   /* write unaligned end */
   if (bytes) {
+    assert(IS_ALIGNED(offset, ops->alignment));
     assert(bytes < (unsigned) sector_size);
     if (ops->read(data, scratch, offset, sector_size) == -1)
       return -1;

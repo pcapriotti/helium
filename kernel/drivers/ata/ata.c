@@ -5,6 +5,7 @@
 #include "core/util.h"
 #include "drivers/drivers.h"
 #include "handlers.h"
+#include "kmalloc.h"
 #include "pci.h"
 
 #define MAX_BUSY_ATTEMPTS 50000
@@ -542,3 +543,18 @@ storage_ops_t ata_ops = {
   .write_unaligned = ata_ops_write_unaligned,
   .alignment = SECTOR_ALIGNMENT,
 };
+
+void ata_storage_init(storage_t *storage, drive_t *drive, unsigned part_offset)
+{
+  ata_ops_data_t *data = kmalloc(sizeof(ata_ops_data_t));
+  data->drive = drive;
+  data->part_offset = part_offset;
+
+  storage->ops = &ata_ops;
+  storage->ops_data = data;
+}
+
+void ata_storage_cleanup(storage_t *storage)
+{
+  kfree(storage->ops_data);
+}
