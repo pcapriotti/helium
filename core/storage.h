@@ -54,4 +54,8 @@ int storage_write(storage_t *storage, void *buf,
 int storage_write_unaligned(storage_t *storage, void *buf, void *scratch,
                             uint64_t offset, uint32_t bytes);
 
+int read_unaligned_helper(storage_t *storage, void *data,
+                          void *buf, void *scratch,
+                          uint64_t offset, uint32_t bytes);
+
 #endif /* STORAGE_STORAGE_H */
