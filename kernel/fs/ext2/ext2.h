@@ -70,7 +70,7 @@ typedef struct {
   uint8_t name_length_lo;
   uint8_t type;
   char name[];
-} __attribute__((packed)) dir_entry_t;
+} __attribute__((packed)) ext2_dir_entry_t;
 
 typedef struct fs_struct fs_t;
 
