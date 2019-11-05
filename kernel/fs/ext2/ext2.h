@@ -110,6 +110,7 @@ typedef struct {
   uint32_t index;
 } inode_iterator_t;
 
+void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, inode_t *inode);
 inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode);
 void ext2_inode_iterator_del(inode_iterator_t *it);
 uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it);

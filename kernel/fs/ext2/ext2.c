@@ -133,7 +133,6 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
 
 inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 {
-
   /* get root first */
   inode_t *inode = ext2_get_inode(fs, 2);
 
@@ -176,10 +175,13 @@ inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name)
   uint16_t name_length = strlen(name);
   uint16_t num_entries = inode->num_hard_links;
   uint16_t i = 0;
-  uint16_t block = 0;
+
+  inode_iterator_t it;
+  ext2_inode_iterator_init(&it, fs, inode);
 
   while (i < num_entries) {
-    void *dirdata = ext2_read_block(fs, inode->pointer0[block]);
+    uint32_t block = ext2_inode_iterator_datablock(&it);
+    void *dirdata = ext2_read_block(fs, block);
     size_t offset = 0;
     while (offset < fs->block_size) {
       dir_entry_t *entry = dirdata + offset;
@@ -196,7 +198,7 @@ inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name)
       offset += entry->size;
       i++;
     }
-    block++;
+    ext2_inode_iterator_next(&it);
   }
 
   return 0;
@@ -216,12 +218,17 @@ uint16_t ext2_inode_size(superblock_t *sb)
   }
 }
 
-inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode)
+void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, inode_t *inode)
 {
-  inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
+}
+
+inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode)
+{
+  inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
+  ext2_inode_iterator_init(it, fs, inode);
   return it;
 }
 
