@@ -50,15 +50,15 @@ size_t ext2_fs_block_size(fs_t *fs)
   return fs->block_size;
 }
 
-int ext2_locate_superblock(storage_t *storage, void *scratch, superblock_t *sb)
+int ext2_locate_superblock(storage_t *storage, void *scratch, ext2_superblock_t *sb)
 {
-  storage_read_unaligned(storage, sb, scratch, 1024, sizeof(superblock_t));
+  storage_read_unaligned(storage, sb, scratch, 1024, sizeof(ext2_superblock_t));
   return (sb->signature == 0xef53);
 }
 
 fs_t *ext2_new_fs(storage_t *storage)
 {
-  superblock_t sb;
+  ext2_superblock_t sb;
 #if EXT2_DEBUG
   TRACE("Locating superblock\n");
 #endif
@@ -95,7 +95,7 @@ void ext2_free_fs(fs_t *fs) {
   FREE(fs);
 }
 
-int ext2_num_bgroups(superblock_t *sb) {
+int ext2_num_bgroups(ext2_superblock_t *sb) {
   if (sb->blocks_per_group == 0) {
     return -1;
   }
@@ -231,12 +231,12 @@ inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name)
   return 0;
 }
 
-uint32_t ext2_block_size(superblock_t *sb)
+uint32_t ext2_block_size(ext2_superblock_t *sb)
 {
   return 1024 << sb->log_block_size;
 }
 
-uint16_t ext2_inode_size(superblock_t *sb)
+uint16_t ext2_inode_size(ext2_superblock_t *sb)
 {
   if (sb->version_major >= 1) {
     return sb->inode_size;

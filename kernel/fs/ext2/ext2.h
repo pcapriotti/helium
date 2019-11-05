@@ -32,7 +32,7 @@ typedef struct {
   uint16_t supergroup_id;
   uint32_t first_nonreserved_inode;
   uint16_t inode_size;
-} __attribute__((packed)) superblock_t;
+} __attribute__((packed)) ext2_superblock_t;
 
 typedef struct {
   uint32_t block_bitmap_offset;
@@ -86,8 +86,8 @@ enum
 
 
 void* ext2_read_block(fs_t *fs, unsigned int offset);
-uint32_t ext2_block_size(superblock_t *sb);
-uint16_t ext2_inode_size(superblock_t *sb);
+uint32_t ext2_block_size(ext2_superblock_t *sb);
+uint16_t ext2_inode_size(ext2_superblock_t *sb);
 
 /* fs_t structure */
 
