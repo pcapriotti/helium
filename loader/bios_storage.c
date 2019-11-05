@@ -46,7 +46,7 @@ static void sector_to_chs(drive_geometry_t *geom,
 int bios_ops_read_unaligned(void *data, void *buf, void *scratch,
                             uint64_t offset, uint32_t bytes)
 {
-  return read_unaligned_helper(&bios_storage_ops, data, buf, scratch,
+  return storage_read_unaligned_helper(&bios_storage_ops, data, buf, scratch,
                                offset, bytes);
 }
 

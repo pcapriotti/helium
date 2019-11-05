@@ -7,6 +7,6 @@
 
 int read_partition_table(drive_t *drive, partition_table_t table)
 {
-  return ata_read_bytes(drive, MBR_PART_TABLE,
-                        sizeof(partition_table_t), table) != 0;
+  return ata_read_bytes(drive, table, MBR_PART_TABLE,
+                        sizeof(partition_table_t)) != 0;
 }

@@ -91,13 +91,13 @@ typedef struct drive {
 
 typedef struct channel_struct channel_t;
 
-struct device;
-
 drive_t *ata_get_drive(uint8_t drive);
-void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf);
-void *ata_read_lba(drive_t *drive, uint32_t lba, uint8_t count, void *buf);
+void *ata_read_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes);
 void ata_list_drives(void);
 
+struct storage;
+
 extern struct driver ata_driver;
+extern struct storage ata_storage;
 
 #endif /* ATA_H */

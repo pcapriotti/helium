@@ -10,6 +10,9 @@
 #define MAX_BUSY_ATTEMPTS 50000
 
 #define ATA_DEBUG 1
+#define SECTOR_ALIGNMENT 9
+
+extern storage_ops_t ata_ops;
 
 typedef struct ata_sector {
   uint16_t data[256];
@@ -156,8 +159,13 @@ static int ata_prepare_read_write(drive_t *drive, uint64_t lba, uint32_t count)
   return 0;
 }
 
-int ata_write_lba(drive_t *drive, uint64_t lba, void *buf, uint32_t count)
+int ata_write_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 {
+  assert(IS_ALIGNED(offset, SECTOR_ALIGNMENT));
+  assert(IS_ALIGNED(bytes, SECTOR_ALIGNMENT));
+  uint64_t lba = offset >> SECTOR_ALIGNMENT;
+  uint32_t count = bytes >> SECTOR_ALIGNMENT;
+
   if (count > 0xffff) count = 0xffff;
 
   /* send lba and count */
@@ -194,15 +202,10 @@ int ata_write_lba(drive_t *drive, uint64_t lba, void *buf, uint32_t count)
   return 0;
 }
 
-int ata_write_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
+void *ata_read_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 {
-  return -1;
-}
-
-void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
-{
-  uint64_t lba = offset >> 9;
-  uint64_t lba_end = ROUND64(offset + bytes, 9);
+  uint64_t lba = offset >> SECTOR_ALIGNMENT;
+  uint64_t lba_end = ROUND64(offset + bytes, SECTOR_ALIGNMENT);
   uint32_t count = lba_end - lba;
 
   if (count > 0xffff) count = 0xffff;
@@ -215,7 +218,7 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
   ata_write(drive->channel, ATA_REG_STATUS, ATA_CMD_READ_PIO);
 
   unsigned int j = 0;
-  uint32_t buf_offset = offset - ((uint64_t)lba << 9);
+  uint32_t buf_offset = offset - ((uint64_t)lba << SECTOR_ALIGNMENT);
   uint8_t *result = (uint8_t*)buf;
 
   /* read data */
@@ -247,13 +250,6 @@ void *ata_read_bytes(drive_t *drive, uint64_t offset, uint32_t bytes, void *buf)
   }
 
   return result;
-}
-
-void *ata_read_lba(drive_t *drive, uint32_t lba, uint8_t count, void *buf)
-{
-  uint64_t offset = (uint64_t)lba << 9;
-  uint32_t bytes = (uint32_t)count << 9;
-  return ata_read_bytes(drive, offset, bytes, buf);
 }
 
 void ata_controller_type(device_t *ide,
@@ -497,11 +493,12 @@ typedef struct {
   uint32_t part_offset;
 } ata_ops_data_t;
 
-static int ata_ops_write_unaligned(void *_data, void *buf, void *scratch,
+static int ata_ops_write_unaligned(void *data, void *buf, void *scratch,
                                    uint64_t offset,
                                    uint32_t bytes)
 {
-  return -1;
+  return storage_write_unaligned_helper(&ata_ops, data, buf,
+                                        scratch, offset, bytes);
 }
 
 
@@ -509,7 +506,10 @@ static int ata_ops_write(void *_data, void *buf,
                          uint64_t offset,
                          uint32_t bytes)
 {
-  return -1;
+  ata_ops_data_t *data = _data;
+  return ata_write_bytes(data->drive, buf,
+                         offset + ((uint64_t) data->part_offset << SECTOR_ALIGNMENT),
+                         bytes);
 }
 
 static int ata_ops_read(void *_data, void *buf,
@@ -517,15 +517,9 @@ static int ata_ops_read(void *_data, void *buf,
                           uint32_t bytes)
 {
   ata_ops_data_t *data = _data;
-#if ATA_CLOSURE_DEBUG
-  serial_printf("reading at %#x from drive %u:%u with part offset %#x\n",
-                offset, data->drive->channel,
-                data->drive->index,
-                data->part_offset);
-#endif
-  void *ret = ata_read_bytes(data->drive,
-                             offset + ((uint64_t) data->part_offset << 9),
-                             bytes, buf);
+  void *ret = ata_read_bytes(data->drive, buf,
+                             offset + ((uint64_t) data->part_offset << SECTOR_ALIGNMENT),
+                             bytes);
   return ret ? 0 : -1;
 }
 
@@ -541,9 +535,10 @@ driver_t ata_driver = {
   .init = ata_init,
 };
 
-storage_ops_t ata_storage_ops = {
+storage_ops_t ata_ops = {
   .read = ata_ops_read,
   .read_unaligned = ata_ops_read_unaligned,
   .write = ata_ops_write,
   .write_unaligned = ata_ops_write_unaligned,
+  .alignment = SECTOR_ALIGNMENT,
 };

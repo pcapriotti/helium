@@ -31,9 +31,9 @@ int storage_write_unaligned(storage_t *storage, void *buf, void *scratch,
 }
 
 /* generic implementation of unaligned read on top of aligned read */
-int read_unaligned_helper(storage_ops_t *ops, void *data,
-                          void *buf, void *scratch,
-                          uint64_t offset, uint32_t bytes)
+int storage_read_unaligned_helper(storage_ops_t *ops, void *data,
+                                  void *buf, void *scratch,
+                                  uint64_t offset, uint32_t bytes)
 {
   const int sector_size = 1 << ops->alignment;
 
@@ -78,9 +78,9 @@ int read_unaligned_helper(storage_ops_t *ops, void *data,
 /* generic implementation of unaligned write on top of aligned read
    and write
 */
-int write_unaligned_helper(storage_ops_t *ops, void *data,
-                           void *buf, void *scratch,
-                           uint64_t offset, uint32_t bytes)
+int storage_write_unaligned_helper(storage_ops_t *ops, void *data,
+                                   void *buf, void *scratch,
+                                   uint64_t offset, uint32_t bytes)
 {
   const int sector_size = 1 << ops->alignment;
 
