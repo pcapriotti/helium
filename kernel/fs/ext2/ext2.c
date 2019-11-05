@@ -167,68 +167,24 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
 
 ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name)
 {
-  if ((inode->type & 0xf000) != INODE_TYPE_DIRECTORY) {
-    return 0;
-  }
-
-  /* traverse directory entries */
   uint16_t name_length = strlen(name);
-  uint16_t num_entries = inode->num_hard_links;
-  uint16_t i = 0;
 
-  ext2_inode_iterator_t it;
-  ext2_inode_iterator_init(&it, fs, inode);
+  ext2_dir_iterator_t it;
+  if (ext2_dir_iterator_init(&it, fs, inode) == -1)
+    return 0;
 
-  while (i < num_entries) {
-    uint32_t block = ext2_inode_iterator_datablock(&it);
-    void *dirdata = ext2_read_block(fs, block);
-    size_t offset = 0;
-    while (offset < fs->block_size) {
-      if (offset + sizeof(ext2_dir_entry_t) >= fs->block_size) {
-        /* directory entries cannot span multiple blocks */
-        offset = fs->block_size;
-        continue;
-      }
-      ext2_dir_entry_t *entry = dirdata + offset;
-      if (entry->size < sizeof(ext2_dir_entry_t)) {
-        /* entry is too small */
-        offset += sizeof(ext2_dir_entry_t);
-        continue;
-      }
+  ext2_inode_t *ret = 0;
+  ext2_dir_entry_t *entry = 0;
 
-      if (offset + entry->size > fs->block_size) {
-        /* directory entries cannot span multiple blocks */
-        offset = fs->block_size;
-        continue;
-      }
-
-      if (entry->name_length_lo + sizeof(ext2_dir_entry_t) > entry->size) {
-        /* entry name is too long */
-        offset += entry->size;
-        i++;
-        continue;
-      }
-
-      if (!entry->inode) {
-        /* blank entry */
-        offset += entry->size;
-        continue;
-      }
-
-      int eq = (entry->name_length_lo == name_length) &&
-               !memcmp(entry->name, name, entry->name_length_lo);
-
-      if (eq) {
-        return ext2_get_inode(fs, entry->inode);
-      }
-
-      offset += entry->size;
-      i++;
+  while ((entry = ext2_dir_iterator_next(&it))) {
+    if (entry->name_length_lo == name_length &&
+        !memcmp(entry->name, name, entry->name_length_lo)) {
+      ret = ext2_get_inode(fs, entry->inode);
     }
-    ext2_inode_iterator_next(&it);
   }
+  ext2_dir_iterator_cleanup(&it);
 
-  return 0;
+  return ret;
 }
 
 uint32_t ext2_block_size(ext2_superblock_t *sb)
