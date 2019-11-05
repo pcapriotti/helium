@@ -116,11 +116,11 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
   unsigned int group = index / fs->inodes_per_group;
 
   /* retrieve bgroup descriptor */
-  unsigned int descriptors_per_block = fs->block_size / sizeof(group_descriptor_t);
+  unsigned int descriptors_per_block = fs->block_size / sizeof(ext2_group_descriptor_t);
   unsigned int descriptor_block = group / descriptors_per_block;
-  group_descriptor_t *gdesc_table
+  ext2_group_descriptor_t *gdesc_table
     = ext2_read_block(fs, fs->superblock_offset + 1 + descriptor_block);
-  group_descriptor_t *gdesc = &gdesc_table[group % descriptors_per_block];
+  ext2_group_descriptor_t *gdesc = &gdesc_table[group % descriptors_per_block];
 
   unsigned int index_in_group = index % fs->inodes_per_group;
   unsigned int inodes_per_block = fs->block_size / fs->inode_size;
