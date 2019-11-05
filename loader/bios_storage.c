@@ -42,12 +42,11 @@ static void sector_to_chs(drive_geometry_t *geom,
 }
 
 int bios_ops_read_unaligned(void *data, void *buf, void *scratch,
-                              uint64_t offset, uint32_t bytes)
+                            uint64_t offset, uint32_t bytes)
 {
-
   bios_storage_info_t *info = data;
   uint32_t sector0 = info->part_offset + (offset >> SECTOR_ALIGNMENT);
-  uint32_t sector1 = ROUND(offset + bytes, SECTOR_ALIGNMENT);
+  uint32_t sector1 = info->part_offset + ROUND(offset + bytes, SECTOR_ALIGNMENT);
 
   uint8_t *p = buf;
   regs16_t regs;
