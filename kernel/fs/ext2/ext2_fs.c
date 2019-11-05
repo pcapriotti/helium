@@ -8,7 +8,7 @@
 #include <string.h>
 
 typedef struct {
-  inode_iterator_t *it;
+  ext2_inode_iterator_t *it;
   size_t offset;
   uint8_t *buffer;
   int dirty; /* whether the buffer needs to be read */

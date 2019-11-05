@@ -176,7 +176,7 @@ ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name)
   uint16_t num_entries = inode->num_hard_links;
   uint16_t i = 0;
 
-  inode_iterator_t it;
+  ext2_inode_iterator_t it;
   ext2_inode_iterator_init(&it, fs, inode);
 
   while (i < num_entries) {
@@ -245,26 +245,26 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb)
   }
 }
 
-void ext2_inode_iterator_init(inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
+void ext2_inode_iterator_init(ext2_inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
 {
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
 }
 
-inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode)
+ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode)
 {
-  inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
+  ext2_inode_iterator_t *it = MALLOC(sizeof(ext2_inode_iterator_t));
   ext2_inode_iterator_init(it, fs, inode);
   return it;
 }
 
-void ext2_inode_iterator_del(inode_iterator_t *it)
+void ext2_inode_iterator_del(ext2_inode_iterator_t *it)
 {
   FREE(it);
 }
 
-uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it) {
+uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it) {
   uint32_t index, index1, index2, index3;
 
   /* level 0 */
@@ -306,7 +306,7 @@ uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it) {
   return 0;
 }
 
-void *ext2_inode_iterator_read(inode_iterator_t *it)
+void *ext2_inode_iterator_read(ext2_inode_iterator_t *it)
 {
   uint32_t block = ext2_inode_iterator_datablock(it);
   return ext2_read_block(it->fs, block);
@@ -314,28 +314,28 @@ void *ext2_inode_iterator_read(inode_iterator_t *it)
 
 /* read into a preallocated buffer, which must be at least as big as
 the block size */
-void ext2_inode_iterator_read_into(inode_iterator_t *it, void *buffer)
+void ext2_inode_iterator_read_into(ext2_inode_iterator_t *it, void *buffer)
 {
   uint32_t block = ext2_inode_iterator_datablock(it);
   return ext2_read_block_into(it->fs, block, buffer);
 }
 
-int ext2_inode_iterator_index(inode_iterator_t *it)
+int ext2_inode_iterator_index(ext2_inode_iterator_t *it)
 {
   return it->index;
 }
 
-void ext2_inode_iterator_set_index(inode_iterator_t *it, int index)
+void ext2_inode_iterator_set_index(ext2_inode_iterator_t *it, int index)
 {
   it->index = index;
 }
 
-void ext2_inode_iterator_next(inode_iterator_t *it)
+void ext2_inode_iterator_next(ext2_inode_iterator_t *it)
 {
   it->index++;
 }
 
-uint32_t ext2_inode_iterator_block_size(inode_iterator_t *it) {
+uint32_t ext2_inode_iterator_block_size(ext2_inode_iterator_t *it) {
   uint32_t offset = it->index * it->fs->block_size;
   uint32_t ret = it->inode->size_lo - offset;
   if (ret > it->fs->block_size) {
@@ -345,6 +345,6 @@ uint32_t ext2_inode_iterator_block_size(inode_iterator_t *it) {
   }
 }
 
-int ext2_inode_iterator_end(inode_iterator_t *it) {
+int ext2_inode_iterator_end(ext2_inode_iterator_t *it) {
   return it->index * it->fs->block_size >= it->inode->size_lo;
 }
