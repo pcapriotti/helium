@@ -110,7 +110,7 @@ int ext2_num_bgroups(ext2_superblock_t *sb) {
   return n1;
 }
 
-inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
+ext2_inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
 {
   index--;
   unsigned int group = index / fs->inodes_per_group;
@@ -131,10 +131,10 @@ inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
   return table + fs->inode_size * index_in_block;
 }
 
-inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
+ext2_inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
 {
   /* get root first */
-  inode_t *inode = ext2_get_inode(fs, 2);
+  ext2_inode_t *inode = ext2_get_inode(fs, 2);
 
   if (!inode) {
     return 0;
@@ -151,7 +151,7 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
     return inode;
   }
   while (token != 0) {
-    inode_t parent = *inode;
+    ext2_inode_t parent = *inode;
     inode = ext2_find_entry(fs, &parent, token);
 
     if (inode == 0) {
@@ -165,7 +165,7 @@ inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
   return inode;
 }
 
-inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name)
+ext2_inode_t *ext2_find_entry(fs_t *fs, ext2_inode_t *inode, const char *name)
 {
   if ((inode->type & 0xf000) != INODE_TYPE_DIRECTORY) {
     return 0;
@@ -245,14 +245,14 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb)
   }
 }
 
-void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, inode_t *inode)
+void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, ext2_inode_t *inode)
 {
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
 }
 
-inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode)
+inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, ext2_inode_t *inode)
 {
   inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
   ext2_inode_iterator_init(it, fs, inode);

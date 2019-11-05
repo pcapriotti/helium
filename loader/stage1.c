@@ -47,13 +47,13 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   bios_storage.ops_data = &info;
   fs_t *fs = ext2_new_fs(&bios_storage);
   if (!fs) panic();
-  inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
+  ext2_inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
   if (!inode) {
     ext2_free_fs(fs);
     panic();
   }
 
-  inode_t tmp = *inode;
+  ext2_inode_t tmp = *inode;
   vfs_file_t *file = ext2_vfs_file_new(fs, &tmp);
   void *entry = elf_load_exe(file);
 

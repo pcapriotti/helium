@@ -61,7 +61,7 @@ static size_t position(void *data)
   return edata->offset;
 }
 
-vfs_file_t *ext2_vfs_file_new(fs_t *fs, inode_t *inode)
+vfs_file_t *ext2_vfs_file_new(fs_t *fs, ext2_inode_t *inode)
 {
   ext2_vfs_data_t *data = MALLOC(sizeof(ext2_vfs_data_t));
   data->it = ext2_inode_iterator_new(fs, inode);

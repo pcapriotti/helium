@@ -53,9 +53,9 @@ int main(int argc, char **argv)
   }
 
   /* read example file */
-  inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
+  ext2_inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
   if (inode) {
-    inode_t tmp = *inode;
+    ext2_inode_t tmp = *inode;
     inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
     while (!ext2_inode_iterator_end(it)) {
       char *buf = ext2_inode_iterator_read(it);

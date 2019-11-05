@@ -44,7 +44,7 @@ typedef struct {
   uint8_t unused[14];
 } __attribute__((packed)) ext2_group_descriptor_t;
 
-typedef struct inode {
+typedef struct ext2_inode {
   uint16_t type;
   uint16_t user_id;
   uint32_t size_lo;
@@ -62,7 +62,7 @@ typedef struct inode {
   uint32_t pointer2;
   uint32_t pointer3;
   uint32_t generation;
-} __attribute__((packed)) inode_t;
+} __attribute__((packed)) ext2_inode_t;
 
 typedef struct {
   uint32_t inode;
@@ -99,19 +99,19 @@ size_t ext2_fs_block_size(fs_t *fs);
 /* inode API */
 /* note that the returned pointers are invalidated by further API calls */
 
-inode_t *ext2_get_inode(fs_t* fs, unsigned int i);
-inode_t *ext2_get_path_inode(fs_t *fs, const char *path);
-inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name);
+ext2_inode_t *ext2_get_inode(fs_t* fs, unsigned int i);
+ext2_inode_t *ext2_get_path_inode(fs_t *fs, const char *path);
+ext2_inode_t *ext2_find_entry(fs_t *fs, ext2_inode_t *inode, const char *name);
 
 /* iterator API */
 typedef struct {
   fs_t *fs;
-  inode_t *inode;
+  ext2_inode_t *inode;
   uint32_t index;
 } inode_iterator_t;
 
-void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, inode_t *inode);
-inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, inode_t *inode);
+void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, ext2_inode_t *inode);
+inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, ext2_inode_t *inode);
 void ext2_inode_iterator_del(inode_iterator_t *it);
 uint32_t ext2_inode_iterator_datablock(inode_iterator_t *it);
 void *ext2_inode_iterator_read(inode_iterator_t *it);
