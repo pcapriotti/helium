@@ -348,3 +348,70 @@ uint32_t ext2_inode_iterator_block_size(ext2_inode_iterator_t *it) {
 int ext2_inode_iterator_end(ext2_inode_iterator_t *it) {
   return it->index * it->fs->block_size >= it->inode->size_lo;
 }
+
+int ext2_dir_iterator_init(ext2_dir_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
+{
+  if ((inode->type & 0xf000) != INODE_TYPE_DIRECTORY) {
+    return -1;
+  }
+
+  it->fs = fs;
+  it->inode = inode;
+  it->index = 0;
+  it->block = 0;
+  it->block_offset = 0;
+  ext2_inode_iterator_init(&it->inode_it, fs, inode);
+
+  return 0;
+}
+
+void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
+{
+  FREE(it->block);
+}
+
+ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
+{
+  while (it->index >= it->inode->num_hard_links) {
+    if (!it->block || it->block_offset >= it->fs->block_size) {
+      FREE(it->block);
+      if (ext2_inode_iterator_end(&it->inode_it)) return 0;
+      uint32_t block_num = ext2_inode_iterator_datablock(&it->inode_it);
+      it->block = MALLOC(it->fs->block_size);
+      ext2_read_block_into(it->fs, block_num, it->block);
+    }
+
+    if (it->block_offset + sizeof(ext2_dir_entry_t) >= it->fs->block_size) {
+      /* directory entries cannot span multiple blocks */
+      return 0;
+    }
+
+    ext2_dir_entry_t *entry = it->block + it->block_offset;
+    if (entry->size < sizeof(ext2_dir_entry_t)) {
+      /* entry is too small */
+      return 0;
+    }
+
+    if (it->block_offset + entry->size > it->fs->block_size) {
+      /* directory entries cannot span multiple blocks */
+      return 0;
+    }
+
+    if (entry->name_length_lo + sizeof(ext2_dir_entry_t) > entry->size) {
+      /* entry name is too long */
+      return 0;
+    }
+
+    if (!entry->inode) {
+      /* blank entry */
+      continue;
+    }
+
+    it->block_offset += entry->size;
+    it->index++;
+
+    return entry;
+  }
+
+  return 0;
+}

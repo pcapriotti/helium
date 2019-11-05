@@ -103,7 +103,7 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int i);
 ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path);
 ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name);
 
-/* iterator API */
+/* inode block iterator API */
 typedef struct {
   ext2_t *fs;
   ext2_inode_t *inode;
@@ -121,6 +121,20 @@ void ext2_inode_iterator_set_index(ext2_inode_iterator_t *it, int index);
 int ext2_inode_iterator_index(ext2_inode_iterator_t *it);
 uint32_t ext2_inode_iterator_block_size(ext2_inode_iterator_t *it);
 int ext2_inode_iterator_end(ext2_inode_iterator_t *it);
+
+/* directory entry iterator API */
+typedef struct ext2_dir_iterator_t {
+  ext2_t *fs;
+  ext2_inode_t *inode;
+  uint32_t index;
+  ext2_inode_iterator_t inode_it;
+  void *block;
+  size_t block_offset;
+} ext2_dir_iterator_t;
+
+int ext2_dir_iterator_init(ext2_dir_iterator_t *it, ext2_t *fs, ext2_inode_t *inode);
+void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it);
+ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it);
 
 #if _HELIUM
 # if _HELIUM_LOADER
