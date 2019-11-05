@@ -184,10 +184,37 @@ inode_t *ext2_find_entry(fs_t *fs, inode_t *inode, const char *name)
     void *dirdata = ext2_read_block(fs, block);
     size_t offset = 0;
     while (offset < fs->block_size) {
-      dir_entry_t *entry = dirdata + offset;
-      if (entry->size == 0) {
-        return 0;
+      if (offset + sizeof(dir_entry_t) >= fs->block_size) {
+        /* directory entries cannot span multiple blocks */
+        offset = fs->block_size;
+        continue;
       }
+      dir_entry_t *entry = dirdata + offset;
+      if (entry->size < sizeof(dir_entry_t)) {
+        /* entry is too small */
+        offset += sizeof(dir_entry_t);
+        continue;
+      }
+
+      if (offset + entry->size > fs->block_size) {
+        /* directory entries cannot span multiple blocks */
+        offset = fs->block_size;
+        continue;
+      }
+
+      if (entry->name_length_lo + sizeof(dir_entry_t) > entry->size) {
+        /* entry name is too long */
+        offset += entry->size;
+        i++;
+        continue;
+      }
+
+      if (!entry->inode) {
+        /* blank entry */
+        offset += entry->size;
+        continue;
+      }
+
       int eq = (entry->name_length_lo == name_length) &&
                !memcmp(entry->name, name, entry->name_length_lo);
 
