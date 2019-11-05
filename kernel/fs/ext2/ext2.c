@@ -21,7 +21,7 @@
 
 #define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
 
-struct fs_struct {
+struct ext2 {
   storage_t *storage;
   void *scratch; /* scratch sector buffer */
   unsigned char *buf; /* must be at least as big as the block size */
@@ -31,7 +31,7 @@ struct fs_struct {
   uint32_t superblock_offset;
 };
 
-void ext2_read_block_into(fs_t *fs, unsigned int offset, void *buffer)
+void ext2_read_block_into(ext2_t *fs, unsigned int offset, void *buffer)
 {
   storage_read(fs->storage,
                buffer,
@@ -39,13 +39,13 @@ void ext2_read_block_into(fs_t *fs, unsigned int offset, void *buffer)
                fs->block_size);
 }
 
-void* ext2_read_block(fs_t *fs, unsigned int offset)
+void* ext2_read_block(ext2_t *fs, unsigned int offset)
 {
   ext2_read_block_into(fs, offset, fs->buf);
   return fs->buf;
 }
 
-size_t ext2_fs_block_size(fs_t *fs)
+size_t ext2_fs_block_size(ext2_t *fs)
 {
   return fs->block_size;
 }
@@ -56,7 +56,7 @@ int ext2_locate_superblock(storage_t *storage, void *scratch, ext2_superblock_t 
   return (sb->signature == 0xef53);
 }
 
-fs_t *ext2_new_fs(storage_t *storage)
+ext2_t *ext2_new_fs(storage_t *storage)
 {
   ext2_superblock_t sb;
 #if EXT2_DEBUG
@@ -73,7 +73,7 @@ fs_t *ext2_new_fs(storage_t *storage)
     return 0;
   }
 
-  fs_t *fs = MALLOC(sizeof(fs_t));
+  ext2_t *fs = MALLOC(sizeof(ext2_t));
   fs->storage = storage;
   fs->scratch = scratch;
   fs->block_size = ext2_block_size(&sb);
@@ -90,7 +90,7 @@ fs_t *ext2_new_fs(storage_t *storage)
   return fs;
 }
 
-void ext2_free_fs(fs_t *fs) {
+void ext2_free_fs(ext2_t *fs) {
   FREE(fs->buf);
   FREE(fs);
 }
@@ -110,7 +110,7 @@ int ext2_num_bgroups(ext2_superblock_t *sb) {
   return n1;
 }
 
-ext2_inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
+ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
   unsigned int group = index / fs->inodes_per_group;
@@ -131,7 +131,7 @@ ext2_inode_t *ext2_get_inode(fs_t* fs, unsigned int index)
   return table + fs->inode_size * index_in_block;
 }
 
-ext2_inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
+ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
 {
   /* get root first */
   ext2_inode_t *inode = ext2_get_inode(fs, 2);
@@ -165,7 +165,7 @@ ext2_inode_t *ext2_get_path_inode(fs_t *fs, const char *path)
   return inode;
 }
 
-ext2_inode_t *ext2_find_entry(fs_t *fs, ext2_inode_t *inode, const char *name)
+ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name)
 {
   if ((inode->type & 0xf000) != INODE_TYPE_DIRECTORY) {
     return 0;
@@ -245,14 +245,14 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb)
   }
 }
 
-void ext2_inode_iterator_init(inode_iterator_t *it, fs_t *fs, ext2_inode_t *inode)
+void ext2_inode_iterator_init(inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
 {
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
 }
 
-inode_iterator_t *ext2_inode_iterator_new(fs_t *fs, ext2_inode_t *inode)
+inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode)
 {
   inode_iterator_t *it = MALLOC(sizeof(inode_iterator_t));
   ext2_inode_iterator_init(it, fs, inode);

@@ -45,7 +45,7 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   get_drive_geometry(info.drive, &info.geom);
 
   bios_storage.ops_data = &info;
-  fs_t *fs = ext2_new_fs(&bios_storage);
+  ext2_t *fs = ext2_new_fs(&bios_storage);
   if (!fs) panic();
   ext2_inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
   if (!inode) {

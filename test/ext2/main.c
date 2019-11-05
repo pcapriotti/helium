@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   }
 
   test_storage.ops_data = image;
-  fs_t *fs = ext2_new_fs(&test_storage);
+  ext2_t *fs = ext2_new_fs(&test_storage);
   if (!fs) {
     error(1, 0, "Invalid superblock");
   }
