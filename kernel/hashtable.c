@@ -36,7 +36,7 @@ static inline char *strdup(heap_t *heap, const char *str)
 /* 32 bit integer key */
 #define HT_KEY_TYPE uint32_t
 #define HT_NAME u32
-#define HT_HASH(x) ((x) & 0xff) /* TODO */
+#define HT_HASH(x) ((uint32_t)((x) * 2654435761))
 #define HT_COMPARE(a, b) ((a) == (b))
 #define HT_DUP(h, x) (x)
 #include "hashtable.impl.h"
