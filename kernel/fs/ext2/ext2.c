@@ -372,7 +372,7 @@ void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
 
 ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
 {
-  while (it->index >= it->inode->num_hard_links) {
+  while (1) {
     if (!it->block || it->block_offset >= it->fs->block_size) {
       FREE(it->block);
       if (ext2_inode_iterator_end(&it->inode_it)) return 0;
