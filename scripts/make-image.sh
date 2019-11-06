@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 parse_size() {
     if [[ "$1" == *s ]]
@@ -40,10 +40,15 @@ src=$2
 : ${disk:="disk.img"}
 : ${src:="image"}
 
-dd if=/dev/zero of="$disk" bs=1024 count=$(((size + 1023) / 1024)) >&2
+dd if=/dev/zero of="$disk" bs=1024 count=$size iflag=count_bytes >&2
 parted -m -s "$disk" -- mklabel msdos >&2
 parted -m -s "$disk" -- mkpart primary ext2 "${offset}B" "-1s" >&2
-mke2fs -d "$src" -t ext2 -q -F -F -E offset="$offset",no_copy_xattrs "$disk" "$(((size - offset) / 1024))" >&2
+
+# mke2fs -d "$src" -t ext2 -q -F -F -E offset="$offset",no_copy_xattrs "$disk" "$(((size - offset) / 1024))" >&2
+dd if=/dev/zero of="${disk}.1" bs=1024 count=$((size - offset)) iflag=count_bytes
+mformat -i "${disk}.1"
+mcopy -i "${disk}.1" "$src"/* ::/
+dd if="${disk}.1" of="$disk" seek="$offset" oflag=seek_bytes conv=nocreat
 
 if [[ -n "$loader" ]]; then
     echo "writing mbr"
