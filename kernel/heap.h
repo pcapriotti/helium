@@ -13,4 +13,7 @@ void *heap_malloc(heap_t *heap, size_t bytes);
 void heap_free(heap_t *heap, void *address);
 void heap_print_diagnostics(heap_t *heap);
 
+struct allocator;
+extern struct allocator heap_allocator;
+
 #endif /* HEAP_H */

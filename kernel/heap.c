@@ -1,3 +1,4 @@
+#include "core/allocator.h"
 #include "core/debug.h"
 #include "core/util.h"
 #include "frames.h"
@@ -202,3 +203,20 @@ void heap_print_diagnostics(heap_t *heap)
     b = b->next;
   }
 }
+
+static void *heap_allocator_alloc(void *data, size_t size)
+{
+  heap_t *heap = data;
+  return heap_malloc(heap, size);
+}
+
+static void heap_allocator_free(void *data, void *x)
+{
+  heap_t *heap = data;
+  return heap_free(heap, x);
+}
+
+allocator_t heap_allocator = {
+  .alloc = heap_allocator_alloc,
+  .free = heap_allocator_free,
+};

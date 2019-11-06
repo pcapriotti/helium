@@ -5,7 +5,7 @@
 
 typedef struct allocator {
   void *(*alloc)(void *data, size_t size);
-  void *(*free)(void *data, void *x);
+  void (*free)(void *data, void *x);
   void *data;
 } allocator_t;
 
