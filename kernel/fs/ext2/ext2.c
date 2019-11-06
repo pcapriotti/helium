@@ -330,10 +330,9 @@ ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
 {
   while (1) {
     if (!it->block || it->block_offset >= it->fs->block_size) {
-      FREE(it->block);
+      if (!it->block) it->block = MALLOC(it->fs->block_size);
       if (ext2_inode_iterator_end(&it->inode_it)) return 0;
       uint32_t block_num = ext2_inode_iterator_datablock(&it->inode_it);
-      it->block = MALLOC(it->fs->block_size);
       ext2_read_block_into(it->fs, block_num, it->block);
     }
 
