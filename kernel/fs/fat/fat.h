@@ -2,12 +2,16 @@
 #define FS_FAT_FAT_H
 
 #include <stdint.h>
+#include <stddef.h>
+
+struct storage;
 
 enum {
+  FAT_VERSION_INVALID,
   FAT_VERSION_FAT12,
   FAT_VERSION_FAT16,
   FAT_VERSION_FAT32,
-  FAT_VERSION_EXFAT,
+  FAT_VERSION_UNKNOWN,
 };
 
 typedef struct fat_bpb_v4 {
@@ -48,7 +52,7 @@ typedef struct fat_superblock {
   union {
     fat_bpb_v4_t v4;
     fat_bpb_v7_t v7;
-  };
+  } __attribute__((packed));
 } __attribute__((packed)) fat_superblock_t;
 
 typedef struct fat_dir_entry {
@@ -65,8 +69,31 @@ typedef struct fat_dir_entry {
   uint32_t size;
 } __attribute__((packed)) fat_dir_entry_t;
 
+enum {
+  FAT_ENTRY_RO = 1 << 0,
+  FAT_ENTRY_HIDDEN = 1 << 1,
+  FAT_ENTRY_SYS = 1 << 2,
+  FAT_ENTRY_VLABEL = 1 << 3,
+  FAT_ENTRY_DIR = 1 << 4,
+  FAT_ENTRY_ARCHIVE = 1 << 5,
+};
+
 typedef struct fat {
   void *buffer;
+  unsigned cluster_size;
+  size_t map_offset;
+  size_t map_size;
+  size_t data_offset;
+  unsigned num_clusters;
+  struct storage *storage;
+  int version;
 } fat_t;
+
+typedef struct fat_dir_iterator {
+  fat_t *fs;
+  unsigned cluster;
+  size_t cluster_offset;
+  int index;
+} fat_dir_iterator_t;
 
 #endif /* FS_FAT_FAT_H */
