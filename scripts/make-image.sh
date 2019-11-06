@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 parse_size() {
     if [[ "$1" == *s ]]
@@ -48,7 +48,7 @@ parted -m -s "$disk" -- mkpart primary ext2 "${offset}B" "-1s" >&2
 dd if=/dev/zero of="${disk}.1" bs=1024 count=$((size - offset)) iflag=count_bytes
 mformat -i "${disk}.1"
 mcopy -i "${disk}.1" "$src"/* ::/
-dd if="${disk}.1" of="$disk" seek="$offset" oflag=seek_bytes conv=nocreat
+dd if="${disk}.1" of="$disk" seek="$offset" oflag=seek_bytes conv=nocreat >&2
 
 if [[ -n "$loader" ]]; then
     echo "writing mbr"
