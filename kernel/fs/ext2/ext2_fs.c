@@ -1,6 +1,7 @@
 #include "ext2_fs.h"
 #include "ext2.h"
 
+#include "core/allocator.h"
 #include "core/debug.h"
 #include "core/vfs.h"
 
@@ -63,13 +64,13 @@ static size_t position(void *data)
 
 vfs_file_t *ext2_vfs_file_new(ext2_t *fs, ext2_inode_t *inode)
 {
-  ext2_vfs_data_t *data = MALLOC(sizeof(ext2_vfs_data_t));
+  ext2_vfs_data_t *data = allocator_alloc(fs->allocator, sizeof(ext2_vfs_data_t));
   data->it = ext2_inode_iterator_new(fs, inode);
   data->offset = 0;
-  data->buffer = MALLOC(ext2_fs_block_size(fs));
+  data->buffer = allocator_alloc(fs->allocator, ext2_fs_block_size(fs));
   data->dirty = 1;
 
-  vfs_file_t *file = MALLOC(sizeof(vfs_file_t));
+  vfs_file_t *file = allocator_alloc(fs->allocator, sizeof(vfs_file_t));
   file->data = data;
   file->read = read;
   file->move = move;
@@ -81,8 +82,9 @@ vfs_file_t *ext2_vfs_file_new(ext2_t *fs, ext2_inode_t *inode)
 void ext2_vfs_file_del(vfs_file_t *file)
 {
   ext2_vfs_data_t *data = file->data;
-  FREE(data->buffer);
+  allocator_t *allocator = data->it->fs->allocator;
+  allocator_free(allocator, data->buffer);
   ext2_inode_iterator_del(data->it);
-  FREE(data);
-  FREE(file);
+  allocator_free(allocator, data);
+  allocator_free(allocator, file);
 }

@@ -1,4 +1,5 @@
 #include "bios_storage.h"
+#include "core/allocator.h"
 #include "core/debug.h"
 #include "core/gdt.h"
 #include "core/elf.h"
@@ -21,13 +22,18 @@ static int vgax = 0, vgay = 0;
 static uint8_t heap[LOADER_HEAP_SIZE];
 static uint8_t *heapp = heap;
 
-void *loader_kmalloc(size_t sz) {
+void *loader_kmalloc(void *data, size_t sz) {
   void *ret = heapp;
   heapp += sz;
   if (heapp > heap + LOADER_HEAP_SIZE) panic();
   return ret;
 }
-void loader_kfree(void *p) { }
+void loader_kfree(void *data, void *p) { }
+
+allocator_t loader_allocator = {
+  .alloc = loader_kmalloc,
+  .free = loader_kfree,
+};
 
 /* GDT */
 
@@ -45,7 +51,7 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   get_drive_geometry(info.drive, &info.geom);
 
   bios_storage.ops_data = &info;
-  ext2_t *fs = ext2_new_fs(&bios_storage);
+  ext2_t *fs = ext2_new_fs(&bios_storage, &loader_allocator);
   if (!fs) panic();
   ext2_inode_t *inode = ext2_get_path_inode(fs, "boot/kernel");
   if (!inode) {

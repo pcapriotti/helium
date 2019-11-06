@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "kernel/fs/ext2/ext2.h"
+#include "core/allocator.h"
 #include "core/storage.h"
+#include "kernel/fs/ext2/ext2.h"
 
 int test_read(void *data, void *buf,
               uint64_t offset, uint32_t bytes)
@@ -35,6 +36,21 @@ storage_t test_storage = {
   .ops_data = 0,
 };
 
+void *stdlib_allocator_alloc(void *data, size_t size)
+{
+  return malloc(size);
+}
+
+void stdlib_allocator_free(void *data, void *x)
+{
+  free(x);
+}
+
+allocator_t stdlib_allocator = {
+  .alloc = stdlib_allocator_alloc,
+  .free = stdlib_allocator_free,
+};
+
 int main(int argc, char **argv)
 {
   if (argc < 2) {
@@ -47,7 +63,7 @@ int main(int argc, char **argv)
   }
 
   test_storage.ops_data = image;
-  ext2_t *fs = ext2_new_fs(&test_storage);
+  ext2_t *fs = ext2_new_fs(&test_storage, &stdlib_allocator);
   if (!fs) {
     error(1, 0, "Invalid superblock");
   }

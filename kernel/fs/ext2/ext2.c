@@ -1,16 +1,17 @@
 #include "fs/ext2/ext2.h"
+#include "core/allocator.h"
 #include "core/storage.h"
 
 #include <stddef.h>
+
+#define allocator_alloc allocator_alloc
+#define FREE allocator_free
 
 #if _HELIUM
 # include "core/debug.h"
 # define TRACE serial_printf
 #else
 # include <stdio.h>
-# include <stdlib.h>
-# define MALLOC malloc
-# define FREE free
 # define TRACE printf
 #endif /* _HELIUM */
 
@@ -20,16 +21,6 @@
 #define EXT2_DEBUG 1
 
 #define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
-
-struct ext2 {
-  storage_t *storage;
-  void *scratch; /* scratch sector buffer */
-  unsigned char *buf; /* must be at least as big as the block size */
-  size_t block_size;
-  size_t inode_size;
-  uint32_t inodes_per_group;
-  uint32_t superblock_offset;
-};
 
 void ext2_read_block_into(ext2_t *fs, unsigned int offset, void *buffer)
 {
@@ -56,31 +47,32 @@ int ext2_locate_superblock(storage_t *storage, void *scratch, ext2_superblock_t 
   return (sb->signature == 0xef53);
 }
 
-ext2_t *ext2_new_fs(storage_t *storage)
+ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 {
   ext2_superblock_t sb;
 #if EXT2_DEBUG
   TRACE("Locating superblock\n");
 #endif
 
-  void *scratch = MALLOC(1 << storage->ops->alignment);
+  void *scratch = allocator_alloc(allocator, 1 << storage->ops->alignment);
 
   if (!ext2_locate_superblock(storage, scratch, &sb)) {
 #if EXT2_DEBUG
     TRACE("Could not find superblock\n");
 #endif
-    FREE(scratch);
+    FREE(allocator, scratch);
     return 0;
   }
 
-  ext2_t *fs = MALLOC(sizeof(ext2_t));
+  ext2_t *fs = allocator_alloc(allocator, sizeof(ext2_t));
   fs->storage = storage;
+  fs->allocator = allocator;
   fs->scratch = scratch;
   fs->block_size = ext2_block_size(&sb);
   fs->inode_size = ext2_inode_size(&sb);
   fs->inodes_per_group = sb.inodes_per_group;
   fs->superblock_offset = sb.superblock_offset;
-  fs->buf = MALLOC(fs->block_size);
+  fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
 #if EXT2_DEBUG
   TRACE("block size: %#lx inode size: %#lx superblock offset: %#x\n",
@@ -91,8 +83,8 @@ ext2_t *ext2_new_fs(storage_t *storage)
 }
 
 void ext2_free_fs(ext2_t *fs) {
-  FREE(fs->buf);
-  FREE(fs);
+  FREE(fs->allocator, fs->buf);
+  FREE(fs->allocator, fs);
 }
 
 int ext2_num_bgroups(ext2_superblock_t *sb) {
@@ -116,7 +108,8 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
   unsigned int group = index / fs->inodes_per_group;
 
   /* retrieve bgroup descriptor */
-  unsigned int descriptors_per_block = fs->block_size / sizeof(ext2_group_descriptor_t);
+  unsigned int descriptors_per_block = fs->block_size /
+    sizeof(ext2_group_descriptor_t);
   unsigned int descriptor_block = group / descriptors_per_block;
   ext2_group_descriptor_t *gdesc_table
     = ext2_read_block(fs, fs->superblock_offset + 1 + descriptor_block);
@@ -141,13 +134,13 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
   }
 
   int path_len = strlen(path);
-  char *pbuf = MALLOC(path_len + 1);
+  char *pbuf = allocator_alloc(fs->allocator, path_len + 1);
   strcpy(pbuf, path);
 
   char *saveptr = 0;
   char *token = strtok_r(pbuf, "/", &saveptr);
   if (token == 0) { /* root */
-    FREE(pbuf);
+    FREE(fs->allocator, pbuf);
     return inode;
   }
   while (token != 0) {
@@ -161,11 +154,13 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
     }
   }
 
-  FREE(pbuf);
+  FREE(fs->allocator, pbuf);
   return inode;
 }
 
-ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name)
+ext2_inode_t *ext2_find_entry(ext2_t *fs,
+                              ext2_inode_t *inode,
+                              const char *name)
 {
   uint16_t name_length = strlen(name);
 
@@ -201,23 +196,26 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb)
   }
 }
 
-void ext2_inode_iterator_init(ext2_inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
+void ext2_inode_iterator_init(ext2_inode_iterator_t *it,
+                              ext2_t *fs, ext2_inode_t *inode)
 {
   it->fs = fs;
   it->inode = inode;
   it->index = 0;
 }
 
-ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode)
+ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs,
+                                               ext2_inode_t *inode)
 {
-  ext2_inode_iterator_t *it = MALLOC(sizeof(ext2_inode_iterator_t));
+  ext2_inode_iterator_t *it = allocator_alloc(fs->allocator,
+                                     sizeof(ext2_inode_iterator_t));
   ext2_inode_iterator_init(it, fs, inode);
   return it;
 }
 
 void ext2_inode_iterator_del(ext2_inode_iterator_t *it)
 {
-  FREE(it);
+  FREE(it->fs->allocator, it);
 }
 
 uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it) {
@@ -305,7 +303,8 @@ int ext2_inode_iterator_end(ext2_inode_iterator_t *it) {
   return it->index * it->fs->block_size >= it->inode->size_lo;
 }
 
-int ext2_dir_iterator_init(ext2_dir_iterator_t *it, ext2_t *fs, ext2_inode_t *inode)
+int ext2_dir_iterator_init(ext2_dir_iterator_t *it,
+                           ext2_t *fs, ext2_inode_t *inode)
 {
   if ((inode->type & 0xf000) != INODE_TYPE_DIRECTORY) {
     return -1;
@@ -323,14 +322,15 @@ int ext2_dir_iterator_init(ext2_dir_iterator_t *it, ext2_t *fs, ext2_inode_t *in
 
 void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
 {
-  FREE(it->block);
+  FREE(it->fs->allocator, it->block);
 }
 
 ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
 {
   while (1) {
     if (!it->block || it->block_offset >= it->fs->block_size) {
-      if (!it->block) it->block = MALLOC(it->fs->block_size);
+      if (!it->block) it->block = allocator_alloc
+                        (it->fs->allocator, it->fs->block_size);
       if (ext2_inode_iterator_end(&it->inode_it)) return 0;
       uint32_t block_num = ext2_inode_iterator_datablock(&it->inode_it);
       ext2_read_block_into(it->fs, block_num, it->block);

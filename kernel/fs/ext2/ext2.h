@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct storage;
+struct allocator;
+
 typedef struct {
   uint32_t num_inodes;
   uint32_t num_blocks;
@@ -72,7 +75,16 @@ typedef struct {
   char name[];
 } __attribute__((packed)) ext2_dir_entry_t;
 
-typedef struct ext2 ext2_t;
+typedef struct ext2 {
+  struct storage *storage;
+  struct allocator *allocator;
+  void *scratch; /* scratch sector buffer */
+  unsigned char *buf; /* must be at least as big as the block size */
+  size_t block_size;
+  size_t inode_size;
+  uint32_t inodes_per_group;
+  uint32_t superblock_offset;
+} ext2_t;
 
 enum
 {
@@ -92,7 +104,9 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb);
 /* ext2_t structure */
 
 struct storage;
-ext2_t *ext2_new_fs(struct storage *storage);
+struct allocator;
+
+ext2_t *ext2_new_fs(struct storage *storage, struct allocator *allocator);
 void ext2_free_fs(ext2_t *fs);
 size_t ext2_fs_block_size(ext2_t *fs);
 
@@ -135,22 +149,5 @@ typedef struct ext2_dir_iterator_t {
 int ext2_dir_iterator_init(ext2_dir_iterator_t *it, ext2_t *fs, ext2_inode_t *inode);
 void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it);
 ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it);
-
-#if _HELIUM
-# if _HELIUM_LOADER
-void *loader_kmalloc(size_t sz);
-void loader_kfree(void *p);
-#  define MALLOC loader_kmalloc
-#  define FREE loader_kfree
-# else
-#  include "kernel/kmalloc.h"
-#  define MALLOC kmalloc
-#  define FREE kfree
-# endif /* _HELIUM_LOADER */
-#else
-# include <stdlib.h>
-# define MALLOC malloc
-# define FREE free
-#endif /* _HELIUM */
 
 #endif /* __EXT2_H__ */
