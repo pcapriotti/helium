@@ -11,11 +11,17 @@ typedef struct vfs_file {
   size_t (*position)(void *data);
 } vfs_file_t;
 
-typedef struct vfs {
-  void *data;
+struct vfs;
+
+typedef struct vfs_ops {
   vfs_file_t *(*open)(void *data, const char *path);
   int (*close)(void *data, vfs_file_t *file);
   void (*del)(struct vfs *vfs);
+} vfs_ops_t;
+
+typedef struct vfs {
+  void *data;
+  vfs_ops_t *ops;
 } vfs_t;
 
 vfs_file_t *vfs_open(vfs_t *fs, const char *path);

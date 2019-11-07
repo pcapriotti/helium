@@ -115,11 +115,16 @@ void ext2_vfs_del(vfs_t *vfs)
   allocator_free(allocator, vfs);
 }
 
+vfs_ops_t ext2_vfs_ops = {
+  .open = ext2_vfs_open,
+  .close = ext2_vfs_close,
+  .del = ext2_vfs_del,
+};
+
 vfs_t *ext2_into_vfs(ext2_t *fs)
 {
   vfs_t *vfs = allocator_alloc(fs->allocator, sizeof(vfs_t));
   vfs->data = fs;
-  vfs->open = ext2_vfs_open;
-  vfs->del = ext2_vfs_del;
+  vfs->ops = &ext2_vfs_ops;
   return vfs;
 }
