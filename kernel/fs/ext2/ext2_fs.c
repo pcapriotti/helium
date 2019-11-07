@@ -3,6 +3,7 @@
 
 #include "core/allocator.h"
 #include "core/debug.h"
+#include "core/storage.h"
 #include "core/vfs.h"
 
 #include <stddef.h>
@@ -107,6 +108,21 @@ int ext2_vfs_close(void *data, vfs_file_t *file)
   return 0;
 }
 
+vfs_t *ext2_into_vfs(ext2_t *fs)
+{
+  vfs_t *vfs = allocator_alloc(fs->allocator, sizeof(vfs_t));
+  vfs->data = fs;
+  vfs->ops = &ext2_vfs_ops;
+  return vfs;
+}
+
+vfs_t *ext2_vfs_new(storage_t *storage, allocator_t *allocator)
+{
+  ext2_t *fs = ext2_new_fs(storage, allocator);
+  if (!fs) return 0;
+  return ext2_into_vfs(fs);
+}
+
 void ext2_vfs_del(vfs_t *vfs)
 {
   ext2_t *fs = vfs->data;
@@ -118,13 +134,7 @@ void ext2_vfs_del(vfs_t *vfs)
 vfs_ops_t ext2_vfs_ops = {
   .open = ext2_vfs_open,
   .close = ext2_vfs_close,
+  .new = ext2_vfs_new,
   .del = ext2_vfs_del,
 };
 
-vfs_t *ext2_into_vfs(ext2_t *fs)
-{
-  vfs_t *vfs = allocator_alloc(fs->allocator, sizeof(vfs_t));
-  vfs->data = fs;
-  vfs->ops = &ext2_vfs_ops;
-  return vfs;
-}

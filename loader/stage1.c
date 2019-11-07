@@ -43,6 +43,7 @@ typedef uint8_t sector_t[512];
 #define SECTORS_PER_TRACK 18
 #define TRACKS_PER_CYLINDER 2
 
+
 void *load_kernel(unsigned int drive, unsigned int part_offset)
 {
   bios_storage_info_t info;
@@ -51,9 +52,12 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   get_drive_geometry(info.drive, &info.geom);
 
   bios_storage.ops_data = &info;
-  ext2_t *fs = ext2_new_fs(&bios_storage, &loader_allocator);
-  if (!fs) panic();
-  vfs_t *vfs = ext2_into_vfs(fs);
+
+  /* load from an ext2 filesystem */
+  vfs_ops_t *vfs_ops = &ext2_vfs_ops;
+
+  vfs_t *vfs = vfs_ops->new(&bios_storage, &loader_allocator);
+  if (!vfs) panic();
   vfs_file_t *file = vfs_open(vfs, "boot/kernel");
   if (!file) panic();
   void *entry = elf_load_exe(file);

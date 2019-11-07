@@ -4,6 +4,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct storage;
+struct allocator;
+
 typedef struct vfs_file {
   void *data;
   int (*read)(void *data, void *buf, size_t size);
@@ -16,6 +19,8 @@ struct vfs;
 typedef struct vfs_ops {
   vfs_file_t *(*open)(void *data, const char *path);
   int (*close)(void *data, vfs_file_t *file);
+  struct vfs *(*new)(struct storage *storage,
+                     struct allocator *allocator);
   void (*del)(struct vfs *vfs);
 } vfs_ops_t;
 

@@ -1,3 +1,5 @@
+#include "allocator.h"
+#include "storage.h"
 #include "vfs.h"
 
 int vfs_read(vfs_file_t *file, void *buf, size_t size)
@@ -28,6 +30,11 @@ vfs_file_t *vfs_open(vfs_t *fs, const char *path)
 int vfs_close(vfs_t *fs, vfs_file_t *file)
 {
   return fs->ops->close(fs->data, file);
+}
+
+vfs_t *vfs_new(vfs_ops_t *ops, storage_t *s, allocator_t *a)
+{
+  return ops->new(s, a);
 }
 
 void vfs_del(vfs_t *fs)
