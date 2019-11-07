@@ -4,7 +4,6 @@
 
 #include <stddef.h>
 
-#define allocator_alloc allocator_alloc
 #define FREE allocator_free
 
 #if _HELIUM
@@ -215,6 +214,7 @@ ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs,
 
 void ext2_inode_iterator_del(ext2_inode_iterator_t *it)
 {
+  FREE(it->fs->allocator, it->inode);
   FREE(it->fs->allocator, it);
 }
 

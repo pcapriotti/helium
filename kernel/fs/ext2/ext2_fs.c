@@ -62,6 +62,15 @@ static size_t position(void *data)
   return edata->offset;
 }
 
+static void ext2_vfs_file_del(void *_data)
+{
+  ext2_vfs_data_t *data = _data;
+  allocator_t *allocator = data->it->fs->allocator;
+  allocator_free(allocator, data->buffer);
+  ext2_inode_iterator_del(data->it);
+  allocator_free(allocator, data);
+}
+
 vfs_file_t *ext2_vfs_file_new(ext2_t *fs, ext2_inode_t *inode)
 {
   ext2_vfs_data_t *data = allocator_alloc(fs->allocator, sizeof(ext2_vfs_data_t));
@@ -79,12 +88,38 @@ vfs_file_t *ext2_vfs_file_new(ext2_t *fs, ext2_inode_t *inode)
   return file;
 }
 
-void ext2_vfs_file_del(vfs_file_t *file)
+vfs_file_t *ext2_vfs_open(void *data, const char *path)
 {
-  ext2_vfs_data_t *data = file->data;
-  allocator_t *allocator = data->it->fs->allocator;
-  allocator_free(allocator, data->buffer);
-  ext2_inode_iterator_del(data->it);
-  allocator_free(allocator, data);
-  allocator_free(allocator, file);
+  ext2_t *fs = data;
+  if (!fs) return 0;
+
+  ext2_inode_t *inode = ext2_get_path_inode(fs, path);
+  if (!inode) return 0;
+
+  return ext2_vfs_file_new(fs, inode);
+}
+
+int ext2_vfs_close(void *data, vfs_file_t *file)
+{
+  ext2_t *fs = data;
+  ext2_vfs_file_del(file->data);
+  allocator_free(fs->allocator, file);
+  return 0;
+}
+
+void ext2_vfs_del(vfs_t *vfs)
+{
+  ext2_t *fs = vfs->data;
+  allocator_t *allocator = fs->allocator;
+  ext2_free_fs(fs);
+  allocator_free(allocator, vfs);
+}
+
+vfs_t *ext2_into_vfs(ext2_t *fs)
+{
+  vfs_t *vfs = allocator_alloc(fs->allocator, sizeof(vfs_t));
+  vfs->data = fs;
+  vfs->open = ext2_vfs_open;
+  vfs->del = ext2_vfs_del;
+  return vfs;
 }
