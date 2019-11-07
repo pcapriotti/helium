@@ -11,8 +11,7 @@
 #include "core/v8086.h"
 #include "stage1.h"
 
-#include "kernel/fs/ext2/ext2.h"
-#include "kernel/fs/ext2/ext2_fs.h"
+#include "kernel/fs/fat/fat_vfs.h"
 
 #include <string.h>
 
@@ -54,12 +53,12 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   bios_storage.ops_data = &info;
 
   /* load from an ext2 filesystem */
-  vfs_ops_t *vfs_ops = &ext2_vfs_ops;
+  vfs_ops_t *vfs_ops = &fat_vfs_ops;
 
   vfs_t *vfs = vfs_ops->new(&bios_storage, &loader_allocator);
-  if (!vfs) panic();
+  assert(vfs);
   vfs_file_t *file = vfs_open(vfs, "boot/kernel");
-  if (!file) panic();
+  assert(file);
   void *entry = elf_load_exe(file);
 
   vfs_close(vfs, file);

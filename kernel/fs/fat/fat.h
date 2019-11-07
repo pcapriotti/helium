@@ -98,4 +98,7 @@ typedef struct fat_dir_iterator {
   int index;
 } fat_dir_iterator_t;
 
+void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator);
+void fat_cleanup(fat_t *fat);
+
 #endif /* FS_FAT_FAT_H */
