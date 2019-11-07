@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 struct storage;
+struct allocator;
 
 enum {
   FAT_VERSION_INVALID,
@@ -86,6 +87,7 @@ typedef struct fat {
   size_t data_offset;
   unsigned num_clusters;
   struct storage *storage;
+  struct allocator *allocator;
   int version;
 } fat_t;
 

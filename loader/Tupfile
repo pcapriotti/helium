@@ -13,7 +13,7 @@ LDFLAGS += -T loader.ld
 
 # file system modules
 : foreach ../kernel/fs/ext2/*.c |> !cc -I$(ROOT)/kernel |> | <objs>
-# : foreach ../kernel/fs/fat/*.c |> !cc -I$(ROOT)/kernel |> | <objs>
+: foreach ../kernel/fs/fat/*.c |> !cc -I$(ROOT)/kernel |> | <objs>
 
 : <objs> $(ROOT)/<libs> |> !ld %<objs> %<libs> |> loader.elf
 : loader.elf |> ^ BIN %o^ objcopy -O binary -j .text0 -j .text -j .data %f %o |> %B.bin

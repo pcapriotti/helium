@@ -1,7 +1,7 @@
+#include "core/allocator.h"
 #include "core/debug.h"
 #include "core/storage.h"
 #include "fs/fat/fat.h"
-#include "kmalloc.h"
 #include "memory.h"
 
 #include <assert.h>
@@ -68,10 +68,10 @@ size_t fat_cluster_offset(fat_t *fat, unsigned cluster)
   return fat->data_offset + (cluster - 2) * fat->cluster_size;
 }
 
-void fat_init(fat_t *fat, storage_t *storage)
+void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 {
   /* read superblock */
-  fat->buffer = kmalloc(1 << storage->ops->alignment);
+  fat->buffer = allocator_alloc(allocator, 1 << storage->ops->alignment);
   storage_read(storage, fat->buffer, 0, 1 << storage->ops->alignment);
   fat_superblock_t *sb = fat->buffer;
 
@@ -89,15 +89,16 @@ void fat_init(fat_t *fat, storage_t *storage)
     fat->cluster_size;
   fat->version = fat_version(fat, sb);
 
-  kfree(fat->buffer);
+  allocator_free(allocator, fat->buffer);
 
   /* allocate a cluster-size buffer */
-  fat->buffer = falloc(fat->cluster_size);
+  fat->buffer = allocator_alloc(allocator, fat->cluster_size);
+  fat->allocator = allocator;
 }
 
 void fat_cleanup(fat_t *fat)
 {
-  ffree(fat->buffer);
+  allocator_free(fat->allocator, fat->buffer);
 }
 
 int fat_read_cluster(fat_t *fat, void *buffer, unsigned cluster)
