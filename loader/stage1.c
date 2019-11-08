@@ -60,6 +60,7 @@ void *load_kernel(unsigned int drive, unsigned int part_offset)
   vfs_file_t *file = vfs_open(vfs, "boot/kernel");
   assert(file);
   void *entry = elf_load_exe(file);
+  assert(entry);
 
   vfs_close(vfs, file);
   vfs_del(vfs);

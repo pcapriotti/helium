@@ -14,7 +14,8 @@
 void *elf_load_exe(vfs_file_t *file)
 {
   elf_header_t header;
-  vfs_read(file, &header, sizeof(elf_header_t));
+  if (vfs_read(file, &header, sizeof(elf_header_t)) == -1)
+    return 0;
 
   if (header.magic != ELF_MAGIC) return 0; /* not an ELF file */
   if (header.arch != ELF_ARCH_X86) return 0; /* wrong arch */

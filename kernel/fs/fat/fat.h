@@ -105,5 +105,8 @@ typedef struct fat_dir_iterator {
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator);
 void fat_cleanup(fat_t *fat);
 int fat_path_cluster(fat_t *fs, const char *path, unsigned *result);
+unsigned fat_map_next(fat_t *fat, unsigned cluster);
+int fat_end_of_chain(fat_t *fat, unsigned cluster);
+int fat_read_cluster(fat_t *fat, void *buffer, unsigned cluster);
 
 #endif /* FS_FAT_FAT_H */

@@ -110,8 +110,9 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   fat->storage = storage;
 }
 
-unsigned fat_map(fat_t *fat, unsigned cluster)
+unsigned fat_map_next(fat_t *fat, unsigned cluster)
 {
+  assert("unimplemented");
   return cluster; /* TODO */
 }
 
@@ -199,7 +200,7 @@ fat_dir_entry_t *fat_dir_iterator_next(fat_dir_iterator_t *it)
   if (it->offset >= it->fs->cluster_size) {
     it->offset = 0;
     if (it->cluster >= 2) {
-      it->cluster = fat_map(it->fs, it->cluster);
+      it->cluster = fat_map_next(it->fs, it->cluster);
       if (fat_end_of_chain(it->fs, it->cluster))
         it->eof = 1;
     }
