@@ -17,7 +17,7 @@
 
 static int vgax = 0, vgay = 0;
 
-#define LOADER_HEAP_SIZE 8192
+#define LOADER_HEAP_SIZE (64 * 1024)
 static uint8_t heap[LOADER_HEAP_SIZE];
 static uint8_t *heapp = heap;
 
@@ -100,11 +100,11 @@ void loader_start(uint32_t drive)
   bios_int(0x10, &regs);
 
   main_t entry = load_kernel(0, 72);
-  kprintf("Jumping to kernel entry point at %p\n", entry);
+  serial_printf("Jumping to kernel entry point at %p\n", entry);
   for (int i = 0; i < 10; i++) {
-    kprintf("%02x ", ((uint8_t *)entry)[i]);
+    serial_printf("%02x ", ((uint8_t *)entry)[i]);
   }
-  kprintf("\n");
+  serial_printf("\n");
   __asm__
     ("call *%0"
      : :

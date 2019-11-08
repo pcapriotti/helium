@@ -120,7 +120,7 @@ ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name)
 /* inode block iterator API */
 typedef struct {
   ext2_t *fs;
-  ext2_inode_t *inode;
+  ext2_inode_t inode;
   uint32_t index;
 } ext2_inode_iterator_t;
 

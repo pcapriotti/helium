@@ -81,9 +81,11 @@ enum {
 
 typedef struct fat {
   void *buffer;
+  void *map;
   unsigned cluster_size;
   size_t map_offset;
   size_t map_size;
+  size_t dir_offset;
   size_t data_offset;
   unsigned num_clusters;
   struct storage *storage;
@@ -92,13 +94,16 @@ typedef struct fat {
 } fat_t;
 
 typedef struct fat_dir_iterator {
+  void *buffer;
   fat_t *fs;
   unsigned cluster;
-  size_t cluster_offset;
+  size_t offset;
   int index;
+  int eof;
 } fat_dir_iterator_t;
 
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator);
 void fat_cleanup(fat_t *fat);
+int fat_path_cluster(fat_t *fs, const char *path, unsigned *result);
 
 #endif /* FS_FAT_FAT_H */
