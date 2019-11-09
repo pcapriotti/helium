@@ -140,9 +140,7 @@ vfs_file_t *fat_vfs_open(void *data, const char *path)
 
   fat_vfs_file_t *file = allocator_alloc(fs->allocator, sizeof(fat_vfs_file_t));
   file->vfs_file.data = file;
-  file->vfs_file.read = fat_vfs_read;
-  file->vfs_file.move = fat_vfs_move;
-  file->vfs_file.position = fat_vfs_position;
+  file->vfs_file.ops = &fat_vfs_ops;
   file->fs = fs;
   file->cluster0 = cluster;
   file->cluster = cluster;
@@ -166,4 +164,7 @@ vfs_ops_t fat_vfs_ops = {
   .del = fat_vfs_del,
   .open = fat_vfs_open,
   .close = fat_vfs_close,
+  .read = fat_vfs_read,
+  .move = fat_vfs_move,
+  .position = fat_vfs_position,
 };

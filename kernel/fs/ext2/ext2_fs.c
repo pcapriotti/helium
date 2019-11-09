@@ -81,10 +81,8 @@ vfs_file_t *ext2_vfs_file_new(ext2_t *fs, ext2_inode_t *inode)
   data->dirty = 1;
 
   vfs_file_t *file = allocator_alloc(fs->allocator, sizeof(vfs_file_t));
+  file->ops = &ext2_vfs_ops;
   file->data = data;
-  file->read = read;
-  file->move = move;
-  file->position = position;
 
   return file;
 }
@@ -136,5 +134,8 @@ vfs_ops_t ext2_vfs_ops = {
   .close = ext2_vfs_close,
   .new = ext2_vfs_new,
   .del = ext2_vfs_del,
+  .read = read,
+  .move = move,
+  .position = position,
 };
 

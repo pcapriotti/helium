@@ -7,22 +7,23 @@
 struct storage;
 struct allocator;
 
-typedef struct vfs_file {
-  void *data;
-  int (*read)(void *data, void *buf, size_t size);
-  int (*move)(void *data, size_t offset);
-  size_t (*position)(void *data);
-} vfs_file_t;
-
 struct vfs;
 
 typedef struct vfs_ops {
-  vfs_file_t *(*open)(void *data, const char *path);
-  int (*close)(void *data, vfs_file_t *file);
+  struct vfs_file *(*open)(void *data, const char *path);
+  int (*close)(void *data, struct vfs_file *file);
   struct vfs *(*new)(struct storage *storage,
                      struct allocator *allocator);
   void (*del)(struct vfs *vfs);
+  int (*read)(void *data, void *buf, size_t size);
+  int (*move)(void *data, size_t offset);
+  size_t (*position)(void *data);
 } vfs_ops_t;
+
+typedef struct vfs_file {
+  void *data;
+  vfs_ops_t *ops;
+} vfs_file_t;
 
 typedef struct vfs {
   void *data;
