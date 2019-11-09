@@ -119,14 +119,6 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   /* copy the FAT map to memory */
   fat->map = allocator_alloc(allocator, fat->map_size);
   storage_read(storage, fat->map, fat->map_offset, fat->map_size);
-  {
-    int col = serial_set_colour(0);
-    for (int i = 0; i < 10; i++) {
-      serial_printf("%02x ", *(uint8_t *)(fat->map + i));
-    }
-    serial_printf("\n");
-    serial_set_colour(col);
-  }
   switch (fat->version) {
   case FAT_VERSION_FAT12:
     fat->next = fat_map_12_next;
