@@ -88,6 +88,7 @@ int bios_ops_read(void *data, void *buf,
     if (next > sector1) next = sector1;
     int ret = bios_read(info->drive, &info->geom, sector, next - sector, buf);
     if (ret == -1) return -1;
+    buf += (next - sector) << SECTOR_ALIGNMENT;
     sector = next;
   }
 

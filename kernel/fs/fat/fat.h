@@ -91,6 +91,7 @@ typedef struct fat {
   struct storage *storage;
   struct allocator *allocator;
   int version;
+  unsigned (*next)(struct fat *fat, unsigned cluster);
 } fat_t;
 
 typedef struct fat_dir_iterator {

@@ -7,8 +7,6 @@
 #include <assert.h>
 #include <string.h>
 
-#define DEBUG_LOCAL 1
-
 unsigned long fat_total_sectors(fat_superblock_t *sb)
 {
   if (sb->total_sectors_16)
@@ -70,6 +68,24 @@ size_t fat_cluster_offset(fat_t *fat, unsigned cluster)
   return fat->data_offset + (cluster - 2) * fat->cluster_size;
 }
 
+unsigned fat_map_12_next(fat_t *fat, unsigned cluster)
+{
+  uint16_t *entry = fat->map + cluster + cluster / 2;
+  return (*entry >> (4 * (cluster & 1))) & 0xfff;
+}
+
+unsigned fat_map_16_next(fat_t *fat, unsigned cluster)
+{
+  const uint16_t *map = fat->map;
+  return map[cluster];
+}
+
+unsigned fat_map_32_next(fat_t *fat, unsigned cluster)
+{
+  const uint32_t *map = fat->map;
+  return map[cluster] & 0xffffff;
+}
+
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 {
   /* read superblock */
@@ -90,7 +106,7 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   fat->num_clusters = (fat_total_sectors(sb) * sb->bytes_per_sector - fat->data_offset) /
     fat->cluster_size;
   fat->version = fat_version(fat, sb);
-#if DEBUG_LOCAL
+#if FAT_DEBUG
   serial_printf("[fat] version: %d, num_clusters: %u, cluster_size: %u\n",
                 fat->version, fat->num_clusters, fat->cluster_size);
   serial_printf("[fat] map_offset: %#x, map_size: %u, data_offset: %#x\n",
@@ -103,6 +119,25 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   /* copy the FAT map to memory */
   fat->map = allocator_alloc(allocator, fat->map_size);
   storage_read(storage, fat->map, fat->map_offset, fat->map_size);
+  {
+    int col = serial_set_colour(0);
+    for (int i = 0; i < 10; i++) {
+      serial_printf("%02x ", *(uint8_t *)(fat->map + i));
+    }
+    serial_printf("\n");
+    serial_set_colour(col);
+  }
+  switch (fat->version) {
+  case FAT_VERSION_FAT12:
+    fat->next = fat_map_12_next;
+    break;
+  case FAT_VERSION_FAT16:
+    fat->next = fat_map_16_next;
+    break;
+  case FAT_VERSION_FAT32:
+    fat->next = fat_map_32_next;
+    break;
+  }
 
   /* allocate a cluster-size buffer */
   fat->buffer = allocator_alloc(allocator, fat->cluster_size);
@@ -112,8 +147,7 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 
 unsigned fat_map_next(fat_t *fat, unsigned cluster)
 {
-  assert("unimplemented");
-  return cluster; /* TODO */
+  return fat->next(fat, cluster);
 }
 
 int fat_end_of_chain(fat_t *fat, unsigned cluster)
@@ -141,7 +175,7 @@ int fat_read_cluster(fat_t *fat, void *buffer, unsigned cluster)
   unsigned index = cluster - 2;
 
   size_t offset = fat->data_offset + index * fat->cluster_size;
-#ifdef DEBUG_LOCAL
+#ifdef FAT_DEBUG
   serial_printf("[fat] reading cluster %u from offset %#x\n",
                 cluster, offset);
 #endif
@@ -233,7 +267,7 @@ static int fat_entry_filename_eq(fat_dir_entry_t *entry,
 {
   assert(len <= 11);
 
-#if DEBUG_LOCAL
+#if FAT_DEBUG
   {
     serial_printf("found entry: \n");
     for (int i = 0; i < 11; i++) {

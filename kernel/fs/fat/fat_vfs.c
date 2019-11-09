@@ -41,18 +41,25 @@ void fat_vfs_del(vfs_t *vfs)
 
 static void fat_vfs_file_adjust(fat_vfs_file_t *file)
 {
-  while (file->offset > file->fs->cluster_size) {
+  while (file->offset >= file->fs->cluster_size) {
+    if (fat_end_of_chain(file->fs, file->cluster)) break;
     file->cluster = fat_map_next(file->fs, file->cluster);
     file->cluster_index++;
-    file->offset -= min(file->fs->cluster_size,
-                        file->offset - file->fs->cluster_size);
+    file->offset -= file->fs->cluster_size;
     file->dirty = 1;
+#if FAT_DEBUG
+    serial_printf("[fat] adjust, offset: %u, cluster: %u, index: %u\n",
+                  file->offset, file->cluster, file->cluster_index);
+#endif
   }
 }
 
 static int fat_vfs_read_small(fat_vfs_file_t *file, void *buf, size_t size)
 {
-
+#if FAT_DEBUG
+  serial_printf("[fat] reading %u bytes at cluster %u offset %u\n",
+                size, file->cluster, file->offset);
+#endif
   if (fat_end_of_chain(file->fs, file->cluster))
     return 0;
 
@@ -96,16 +103,22 @@ int fat_vfs_read(void *data, void *buf, size_t size)
 int fat_vfs_move(void *data, size_t offset)
 {
   fat_vfs_file_t *file = data;
+#if FAT_DEBUG
+  serial_printf("[fat] moving from cluster %u offset %u to abs offset %u\n",
+                file->cluster, file->offset, offset);
+#endif
 
-  size_t current = offset + file->cluster_index *
-    file->fs->cluster_size;
+  size_t base = file->cluster_index * file->fs->cluster_size;
 
-  if (offset < current) {
+  if (offset < base) {
     file->cluster = file->cluster0;
     file->cluster_index = 0;
+    file->offset = offset;
+  }
+  else {
+    file->offset = offset - base;
   }
 
-  file->offset = current;
   fat_vfs_file_adjust(file);
   return 0;
 }
@@ -119,8 +132,6 @@ size_t fat_vfs_position(void *data)
 vfs_file_t *fat_vfs_open(void *data, const char *path)
 {
   fat_t *fs = data;
-
-  serial_printf("opening %s\n", path);
 
   unsigned cluster;
   if (fat_path_cluster(fs, path, &cluster) == -1)
