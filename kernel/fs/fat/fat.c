@@ -253,6 +253,26 @@ static unsigned fat_entry_cluster(fat_t *fs,
   }
 }
 
+static char tolower(char c)
+{
+  if (c >= 'A' && c <= 'Z')
+    return 'a' + (c - 'A');
+  else
+    return c;
+}
+
+static char fat_entry_filename_char(fat_dir_entry_t *entry, int index)
+{
+  assert(index >= 0 && index < 11);
+  char c = entry->filename[index];
+  if ((index < 8 && entry->case_flags && VFAT_LOWER_BASE)
+      || (index >= 8 && entry->case_flags && VFAT_LOWER_EXT)) {
+    return tolower(c);
+  }
+
+  return c;
+}
+
 static int fat_entry_filename_eq(fat_dir_entry_t *entry,
                                  const char *filename,
                                  size_t len)
@@ -263,7 +283,7 @@ static int fat_entry_filename_eq(fat_dir_entry_t *entry,
   {
     serial_printf("found entry: \n");
     for (int i = 0; i < 11; i++) {
-      serial_printf("%c", entry->filename[i]);
+      serial_printf("%c", fat_entry_filename_char(entry, i));
     }
     serial_printf("\n");
   }
@@ -276,8 +296,10 @@ static int fat_entry_filename_eq(fat_dir_entry_t *entry,
   if (entry->filename[0] == 0x05)
     entry->filename[0] = 0xe5;
 
-  if (memcmp(entry->filename, filename, len))
-    return 0;
+  for (int i = 0; i < (int) len; i++) {
+    if (fat_entry_filename_char(entry, i) != filename[i])
+      return 0;
+  }
 
   for (int i = len; i < 11; i++) {
     if (entry->filename[i] != ' ') return 0;
@@ -326,11 +348,6 @@ int fat_path_cluster(fat_t *fs, const char *path, unsigned *result)
   }
 
   while (token) {
-    for (unsigned i = 0; i < strlen(token); i++) {
-      char c = token[i];
-      if (c >= 'a' && c <= 'z')
-        token[i] = 'A' + (c - 'a');
-    }
     fat_dir_entry_t *entry = fat_find_entry(fs, cluster, token);
     if (entry) {
       cluster = fat_entry_cluster(fs, entry);

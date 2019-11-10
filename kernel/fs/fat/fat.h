@@ -59,7 +59,7 @@ typedef struct fat_superblock {
 typedef struct fat_dir_entry {
   char filename[11];
   uint8_t attributes;
-  uint8_t reserved;
+  uint8_t case_flags;
   uint8_t creation_time[3];
   uint8_t creation_date[2];
   uint8_t access_date[2];
@@ -69,6 +69,11 @@ typedef struct fat_dir_entry {
   uint16_t cluster_lo;
   uint32_t size;
 } __attribute__((packed)) fat_dir_entry_t;
+
+enum {
+  VFAT_LOWER_BASE = 1 << 3,
+  VFAT_LOWER_EXT = 1 << 4,
+};
 
 enum {
   FAT_ENTRY_RO = 1 << 0,
