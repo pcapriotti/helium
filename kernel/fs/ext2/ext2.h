@@ -80,6 +80,7 @@ typedef struct ext2 {
   struct allocator *allocator;
   void *scratch; /* scratch sector buffer */
   unsigned char *buf; /* must be at least as big as the block size */
+  ext2_group_descriptor_t *gdesc; /* group descriptor table */
   size_t block_size;
   size_t inode_size;
   uint32_t inodes_per_group;

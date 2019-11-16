@@ -73,6 +73,15 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   fs->superblock_offset = sb.superblock_offset;
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
+  /* cache block group descriptor table */
+  int num_groups = (sb.num_blocks + sb.blocks_per_group - 1) /
+    sb.blocks_per_group;
+  size_t gdesc_offset = (fs->superblock_offset + 1) * fs->block_size;
+  size_t gdesc_size = num_groups * sizeof(ext2_group_descriptor_t);
+  fs->gdesc = allocator_alloc(fs->allocator, gdesc_size);
+  storage_read_unaligned(storage, fs->gdesc, fs->scratch,
+                         gdesc_offset, gdesc_size);
+
 #if EXT2_DEBUG
   TRACE("block size: %#lx inode size: %#lx superblock offset: %#x\n",
           fs->block_size, fs->inode_size, fs->superblock_offset);
@@ -105,14 +114,7 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
   unsigned int group = index / fs->inodes_per_group;
-
-  /* retrieve bgroup descriptor */
-  unsigned int descriptors_per_block = fs->block_size /
-    sizeof(ext2_group_descriptor_t);
-  unsigned int descriptor_block = group / descriptors_per_block;
-  ext2_group_descriptor_t *gdesc_table
-    = ext2_read_block(fs, fs->superblock_offset + 1 + descriptor_block);
-  ext2_group_descriptor_t *gdesc = &gdesc_table[group % descriptors_per_block];
+  ext2_group_descriptor_t *gdesc = &fs->gdesc[group];
 
   unsigned int index_in_group = index % fs->inodes_per_group;
   unsigned int inodes_per_block = fs->block_size / fs->inode_size;
