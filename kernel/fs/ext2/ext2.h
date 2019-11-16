@@ -117,6 +117,7 @@ size_t ext2_fs_block_size(ext2_t *fs);
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int i);
 ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path);
 ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name);
+int ext2_get_free_inode(ext2_t *fs, unsigned group);
 
 /* inode block iterator API */
 typedef struct {

@@ -110,6 +110,35 @@ int ext2_num_bgroups(ext2_superblock_t *sb) {
   return n1;
 }
 
+static int find_in_bitmap(uint32_t *bitmap, size_t size)
+{
+  for (unsigned i = 0; i < size; i++) {
+    uint32_t x = ~bitmap[i];
+    if (x) return __builtin_ctz(x) + (i << 5);
+  }
+  return -1;
+}
+
+int ext2_get_free_inode(ext2_t *fs, unsigned group)
+{
+  const int inodes_per_bitmap_block = fs->block_size << 3;
+  const int num_bitmap_blocks =
+    (fs->inodes_per_group + inodes_per_bitmap_block - 1) /
+    inodes_per_bitmap_block;
+
+  size_t inode_bitmap_offset = fs->gdesc[group].inode_bitmap_offset;
+  for (int i = 0; i < num_bitmap_blocks; i++) {
+    TRACE("reading block %lu\n", inode_bitmap_offset + i);
+    ext2_read_block(fs, inode_bitmap_offset + i);
+    uint32_t *bitmap = (uint32_t *)fs->buf;
+    size_t bitmap_size = fs->block_size / sizeof(uint32_t);
+    int index = find_in_bitmap(bitmap, bitmap_size);
+    if (index != -1) return index;
+  }
+
+  return -1;
+}
+
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;

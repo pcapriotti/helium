@@ -69,17 +69,23 @@ int main(int argc, char **argv)
   }
 
   /* read example file */
-  ext2_inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
-  if (inode) {
-    ext2_inode_t tmp = *inode;
-    ext2_inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
-    while (!ext2_inode_iterator_end(it)) {
-      char *buf = ext2_inode_iterator_read(it);
-      write(1, buf, ext2_inode_iterator_block_size(it));
-      ext2_inode_iterator_next(it);
+  if (0) {
+    ext2_inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
+    if (inode) {
+      ext2_inode_t tmp = *inode;
+      ext2_inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
+      while (!ext2_inode_iterator_end(it)) {
+        char *buf = ext2_inode_iterator_read(it);
+        write(1, buf, ext2_inode_iterator_block_size(it));
+        ext2_inode_iterator_next(it);
+      }
+      free(it);
     }
-    free(it);
   }
+
+  /* create new file */
+  int index = ext2_get_free_inode(fs, 0);
+  printf("index = %d\n", index);
 
   ext2_free_fs(fs);
 }
