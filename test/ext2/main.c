@@ -23,12 +23,48 @@ int test_read_unaligned(void *data, void *buf, void *scratch,
   return test_read(data, buf, offset, bytes);
 }
 
+int test_write(void *data, void *buf,
+               uint64_t offset, uint32_t bytes)
+{
+  printf("writing %u bytes at offset %#lx\n", bytes, offset);
+  for (int i = 0; i < (int) bytes; i++) {
+    printf(" %02x", ((unsigned char*) buf)[i]);
+  }
+  printf("\n");
+
+  FILE *image = (FILE*)data;
+  fseek(image, offset, SEEK_SET);
+  fwrite(buf, bytes, 1, image);
+
+
+  /* check what we wrote */
+  {
+    unsigned char *test = malloc(10);
+    fseek(image, offset, SEEK_SET);
+    fread(test, 10, 1, image);
+    printf("written: ");
+    for (int i = 0; i < 10; i++) {
+      printf(" %02x", test[i]);
+    }
+    printf("\n");
+    free(test);
+  }
+
+  return 0;
+}
+
+int test_write_unaligned(void *data, void *buf, void *scratch,
+                         uint64_t offset, uint32_t bytes)
+{
+  return test_write(data, buf, offset, bytes);
+}
+
 storage_ops_t test_storage_ops = {
   .read_unaligned = test_read_unaligned,
   .read = test_read,
-  .write_unaligned = 0,
-  .write = 0,
-  .alignment = 0,
+  .write_unaligned = test_write_unaligned,
+  .write = test_write,
+  .alignment = 5,
 };
 
 storage_t test_storage = {
@@ -57,7 +93,7 @@ int main(int argc, char **argv)
     error(2, 0, "Usage: %s IMAGE", argv[0]);
     exit(1);
   }
-  FILE *image = fopen(argv[1], "rb");
+  FILE *image = fopen(argv[1], "rb+");
   if (!image) {
     error(1, errno, "Could not open %s", argv[1]);
   }
@@ -84,8 +120,9 @@ int main(int argc, char **argv)
   }
 
   /* create new file */
-  int index = ext2_get_free_inode(fs, 0);
+  int index = ext2_new_inode(fs, 0, INODE_TYPE_FILE);
   printf("index = %d\n", index);
 
   ext2_free_fs(fs);
+  fclose(image);
 }

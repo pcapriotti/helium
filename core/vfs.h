@@ -12,6 +12,8 @@ struct vfs;
 typedef struct vfs_ops {
   struct vfs_file *(*open)(void *data, const char *path);
   int (*close)(void *data, struct vfs_file *file);
+  struct vfs_file *(*create)(void *data, const char *path);
+
   struct vfs *(*new)(struct storage *storage,
                      struct allocator *allocator);
   void (*del)(struct vfs *vfs);

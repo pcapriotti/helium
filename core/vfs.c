@@ -27,6 +27,11 @@ vfs_file_t *vfs_open(vfs_t *fs, const char *path)
   return fs->ops->open(fs->data, path);
 }
 
+vfs_file_t *vfs_create(vfs_t *fs, const char *path)
+{
+  return fs->ops->create(fs->data, path);
+}
+
 int vfs_close(vfs_t *fs, vfs_file_t *file)
 {
   return fs->ops->close(fs->data, file);

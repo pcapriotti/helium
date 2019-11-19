@@ -1,7 +1,10 @@
+#include "bitset.h"
 #include "fs/ext2/ext2.h"
 #include "core/allocator.h"
 #include "core/storage.h"
+#include "core/util.h"
 
+#include <assert.h>
 #include <stddef.h>
 
 #define FREE allocator_free
@@ -27,6 +30,28 @@ void ext2_read_block_into(ext2_t *fs, unsigned int offset, void *buffer)
                buffer,
                fs->block_size * offset,
                fs->block_size);
+}
+
+/*
+  Write data at the given offset, plus padding to fit underlying block
+  size. The area pointed by x of length size must be within the
+  buffer.
+ */
+void ext2_write(ext2_t *fs, unsigned offset, void *buffer,
+                void *x, size_t size)
+{
+  size_t loc_offset = x - buffer;
+  TRACE("loc_offset: %lu\n", loc_offset);
+  assert(loc_offset < fs->block_size);
+
+  const int alignment = fs->storage->ops->alignment;
+  unsigned start = ROUND(loc_offset, alignment);
+  unsigned end = ROUND_UP(loc_offset + size, alignment);
+
+  storage_write(fs->storage,
+                buffer + start,
+                fs->block_size * offset + start,
+                end - start);
 }
 
 void* ext2_read_block(ext2_t *fs, unsigned int offset)
@@ -70,6 +95,7 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   fs->block_size = ext2_block_size(&sb);
   fs->inode_size = ext2_inode_size(&sb);
   fs->inodes_per_group = sb.inodes_per_group;
+  fs->blocks_per_group = sb.blocks_per_group;
   fs->superblock_offset = sb.superblock_offset;
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
@@ -119,6 +145,10 @@ static int find_in_bitmap(uint32_t *bitmap, size_t size)
   return -1;
 }
 
+static void ext2_write_gdesc(ext2_t *fs, unsigned group)
+{
+}
+
 int ext2_get_free_inode(ext2_t *fs, unsigned group)
 {
   const int inodes_per_bitmap_block = fs->block_size << 3;
@@ -126,17 +156,124 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
     (fs->inodes_per_group + inodes_per_bitmap_block - 1) /
     inodes_per_bitmap_block;
 
-  size_t inode_bitmap_offset = fs->gdesc[group].inode_bitmap_offset;
+  ext2_group_descriptor_t *desc = &fs->gdesc[group];
+  if (desc->num_unalloc_inodes == 0) return -1;
+
+  size_t inode_bitmap_offset = desc->inode_bitmap_offset;
   for (int i = 0; i < num_bitmap_blocks; i++) {
-    TRACE("reading block %lu\n", inode_bitmap_offset + i);
     ext2_read_block(fs, inode_bitmap_offset + i);
     uint32_t *bitmap = (uint32_t *)fs->buf;
     size_t bitmap_size = fs->block_size / sizeof(uint32_t);
     int index = find_in_bitmap(bitmap, bitmap_size);
-    if (index != -1) return index;
+    if (index != -1) {
+      SET_BIT(bitmap, index);
+      ext2_write(fs, inode_bitmap_offset + i,
+                 fs->buf,
+                 &BIT_WORD(bitmap, index),
+                 sizeof(uint32_t));
+      desc->num_unalloc_inodes--;
+      ext2_write_gdesc(fs, group);
+      return index;
+    }
   }
 
   return -1;
+}
+
+unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
+{
+  TRACE("inode size: %lu\n", sizeof(ext2_inode_t));
+  const int inodes_per_table_block = fs->block_size / sizeof(ext2_inode_t);
+  TRACE("inode num: %d\n", inodes_per_table_block);
+
+  /* get a fresh local inode index */
+  int index = ext2_get_free_inode(fs, group);
+  if (index == -1) return 0;
+  TRACE("inode loc index: %d\n", index);
+
+  /* locate inode in the table */
+  size_t inode_table_offset = fs->gdesc[group].inode_bitmap_offset;
+  inode_table_offset += index / inodes_per_table_block;
+  ext2_read_block(fs, inode_table_offset);
+  ext2_inode_t *table = (ext2_inode_t *) fs->buf;
+  ext2_inode_t *inode = &table[index % inodes_per_table_block];
+  TRACE("inode block index: %lu\n", (inode - table));
+  TRACE("loc offset: %lu\n", (unsigned char *)inode - fs->buf);
+
+  /* fill inode structure */
+  memset(inode, 0, sizeof(ext2_inode_t));
+  inode->type = type;
+
+  /* save inode in the table */
+  ext2_write(fs, inode_table_offset, fs->buf,
+             inode, sizeof(ext2_inode_t));
+
+  return group * fs->inodes_per_group + index + 1;
+}
+
+unsigned ext2_new_block(ext2_t *fs, unsigned group)
+{
+  const int blocks_per_bitmap_block = fs->block_size << 3;
+  const int num_bitmap_blocks = ROUND_UP(fs->blocks_per_group,
+                                         blocks_per_bitmap_block);
+
+  ext2_group_descriptor_t *desc = &fs->gdesc[group];
+  if (desc->num_unalloc_blocks == 0) return -1;
+
+  size_t block_bitmap_offset = desc->block_bitmap_offset;
+  for (int i = 0; i < num_bitmap_blocks; i++) {
+    ext2_read_block(fs, block_bitmap_offset + i);
+    uint32_t *bitmap = (uint32_t *)fs->buf;
+    size_t bitmap_size = fs->block_size / sizeof(uint32_t);
+    int index = find_in_bitmap(bitmap, bitmap_size);
+    if (index != -1) {
+      SET_BIT(bitmap, index);
+      ext2_write(fs, block_bitmap_offset + i,
+                 fs->buf,
+                 &BIT_WORD(bitmap, index),
+                 sizeof(uint32_t));
+      desc->num_unalloc_blocks--;
+      ext2_write_gdesc(fs, group);
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
+                                     unsigned group,
+                                     ext2_inode_t *dir,
+                                     const char *name)
+{
+  ext2_dir_iterator_t it;
+  if (ext2_dir_iterator_init(&it, fs, dir) == -1)
+    return 0;
+
+  size_t name_len = strlen(name);
+  if (name_len > 255) return 0;
+
+  ext2_dir_entry_t *entry;
+
+  while ((entry = ext2_dir_iterator_next(&it))) {
+    /* deleted entry, reuse */
+    if (!entry->inode && entry->size >= name_len + sizeof(ext2_dir_entry_t)) {
+      return entry;
+    }
+
+    /* check whether there is enough free space in the padding */
+    void *entry1 = (void *)entry + entry->size;
+    void *entry_end = (void *)entry->name + entry->name_length_lo;
+    entry_end = (void *) ALIGNED_UP((size_t) entry_end, 2);
+    if (entry_end + sizeof(ext2_dir_entry_t) + name_len <= entry1) {
+      return entry_end;
+    }
+  }
+
+  /* no space for an entry, allocate a new block */
+  unsigned index = ext2_new_block(fs, group);
+  assert(!"not implemented");
+  return 0;
 }
 
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
@@ -188,6 +325,13 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
   return inode;
 }
 
+void ext2_add_entry(ext2_t *fs,
+                    ext2_inode_t *parent,
+                    const char *name,
+                    unsigned inode_num)
+{
+}
+
 ext2_inode_t *ext2_find_entry(ext2_t *fs,
                               ext2_inode_t *inode,
                               const char *name)
@@ -202,7 +346,8 @@ ext2_inode_t *ext2_find_entry(ext2_t *fs,
   ext2_dir_entry_t *entry = 0;
 
   while ((entry = ext2_dir_iterator_next(&it))) {
-    if (entry->name_length_lo == name_length &&
+    if (entry->inode &&
+        entry->name_length_lo == name_length &&
         !memcmp(entry->name, name, entry->name_length_lo)) {
       ret = ext2_get_inode(fs, entry->inode);
     }
@@ -358,46 +503,37 @@ void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
 
 ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
 {
-  while (1) {
-    if (!it->block || it->block_offset >= it->fs->block_size) {
-      if (!it->block) it->block = allocator_alloc
-                        (it->fs->allocator, it->fs->block_size);
-      if (ext2_inode_iterator_end(&it->inode_it)) return 0;
-      uint32_t block_num = ext2_inode_iterator_datablock(&it->inode_it);
-      ext2_read_block_into(it->fs, block_num, it->block);
-    }
-
-    if (it->block_offset + sizeof(ext2_dir_entry_t) >= it->fs->block_size) {
-      /* directory entries cannot span multiple blocks */
-      return 0;
-    }
-
-    ext2_dir_entry_t *entry = it->block + it->block_offset;
-    if (entry->size < sizeof(ext2_dir_entry_t)) {
-      /* entry is too small */
-      return 0;
-    }
-
-    if (it->block_offset + entry->size > it->fs->block_size) {
-      /* directory entries cannot span multiple blocks */
-      return 0;
-    }
-
-    if (entry->name_length_lo + sizeof(ext2_dir_entry_t) > entry->size) {
-      /* entry name is too long */
-      return 0;
-    }
-
-    if (!entry->inode) {
-      /* blank entry */
-      continue;
-    }
-
-    it->block_offset += entry->size;
-    it->index++;
-
-    return entry;
+  if (!it->block || it->block_offset >= it->fs->block_size) {
+    if (!it->block) it->block = allocator_alloc
+                      (it->fs->allocator, it->fs->block_size);
+    if (ext2_inode_iterator_end(&it->inode_it)) return 0;
+    uint32_t block_num = ext2_inode_iterator_datablock(&it->inode_it);
+    ext2_read_block_into(it->fs, block_num, it->block);
   }
 
-  return 0;
+  if (it->block_offset + sizeof(ext2_dir_entry_t) >= it->fs->block_size) {
+    /* directory entries cannot span multiple blocks */
+    return 0;
+  }
+
+  ext2_dir_entry_t *entry = it->block + it->block_offset;
+  if (entry->size < sizeof(ext2_dir_entry_t)) {
+    /* entry is too small */
+    return 0;
+  }
+
+  if (it->block_offset + entry->size > it->fs->block_size) {
+    /* directory entries cannot span multiple blocks */
+    return 0;
+  }
+
+  if (entry->name_length_lo + sizeof(ext2_dir_entry_t) > entry->size) {
+    /* entry name is too long */
+    return 0;
+  }
+
+  it->block_offset += entry->size;
+  it->index++;
+
+  return entry;
 }
