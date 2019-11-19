@@ -27,4 +27,5 @@ $QEMU -serial $SERIAL \
       $opt_ahci \
       -device "ide-drive,drive=disk$opt_bus" \
       $opt_net \
-      $opt_mb
+      $opt_mb \
+      "$@"

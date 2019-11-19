@@ -1,4 +1,5 @@
 #include "atomic.h"
+#include "cmos.h"
 #include "console/console.h"
 #include "console/fbcon.h"
 #include "console/textcon.h"
@@ -10,6 +11,7 @@
 #include "core/storage.h"
 #include "core/v8086.h"
 #include "core/x86.h"
+#include "datetime.h"
 #include "drivers/ata/ata.h"
 #include "drivers/drivers.h"
 #include "drivers/keyboard/keyboard.h"
@@ -65,6 +67,15 @@ void root_task(void)
   tftp_start_server(69);
 }
 
+void get_datetime(void)
+{
+  datetime_t dt;
+  cmos_get_datetime(&dt);
+  serial_printf("datetime: ");
+  datetime_debug(&dt);
+  serial_printf("\n");
+}
+
 void kernel_start(void *multiboot, uint32_t magic)
 {
   /* ignore multiboot info unless we come from a multiboot loader */
@@ -76,6 +87,8 @@ void kernel_start(void *multiboot, uint32_t magic)
   gdt_init();
   idt_init();
   pic_init();
+
+  get_datetime();
 
   /* set text mode */
   regs16_t regs = {0};

@@ -5,6 +5,7 @@ CFLAGS += -Wall -Wextra -Werror -O2
 CFLAGS += -fdiagnostics-color=always
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable
+CFLAGS += -DCURRENT_YEAR=2019
 
 # get rid of .eh_frame sections
 CFLAGS += -fno-asynchronous-unwind-tables
