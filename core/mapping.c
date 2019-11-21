@@ -1,4 +1,5 @@
 #include "mapping.h"
+#include "core/debug.h"
 #include "core/util.h"
 
 #include <assert.h>
@@ -7,6 +8,9 @@
 static int storage_mapping_fetch(storage_mapping_t *map,
                                  storage_offset_t offset)
 {
+#if DEBUG_LOCAL
+  serial_printf("[storage_mapping] fetching offset: %llu\n", offset);
+#endif
   size_t start = ALIGNED(offset, storage_alignment(map->storage));
   return storage_read(map->storage,
                       map->buf,
@@ -50,6 +54,10 @@ void *storage_mapping_read(storage_mapping_t *map,
                            storage_offset_t offset,
                            size_t size)
 {
+#if DEBUG_LOCAL
+  serial_printf("[storage_mapping] read offset: %llu size: %u\n",
+                offset, size);
+#endif
   assert(size <= map->buf_size);
 
   if (!storage_mapping_in_offset(map, offset, size)) {

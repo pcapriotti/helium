@@ -6,6 +6,7 @@
 
 struct storage;
 struct allocator;
+struct storage_mapping;
 
 enum {
   FAT_VERSION_INVALID,
@@ -86,7 +87,7 @@ enum {
 
 typedef struct fat {
   void *buffer;
-  void *map;
+  struct storage_mapping *map;
   unsigned cluster_size;
   size_t map_offset;
   size_t map_size;

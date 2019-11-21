@@ -1,11 +1,15 @@
 #include "core/allocator.h"
 #include "core/debug.h"
+#include "core/mapping.h"
 #include "core/storage.h"
+#include "core/util.h"
 #include "fs/fat/fat.h"
 #include "memory.h"
 
 #include <assert.h>
 #include <string.h>
+
+#define FAT_MAP_BUFFER_SECTORS 128
 
 unsigned long fat_total_sectors(fat_superblock_t *sb)
 {
@@ -70,20 +74,22 @@ size_t fat_cluster_offset(fat_t *fat, unsigned cluster)
 
 unsigned fat_map_12_next(fat_t *fat, unsigned cluster)
 {
-  uint16_t *entry = fat->map + cluster + cluster / 2;
+  uint16_t *entry = storage_mapping_read
+    (fat->map, cluster + cluster / 2, sizeof(uint16_t));
   return (*entry >> (4 * (cluster & 1))) & 0xfff;
 }
 
 unsigned fat_map_16_next(fat_t *fat, unsigned cluster)
 {
-  const uint16_t *map = fat->map;
-  return map[cluster];
+  return *storage_mapping_read_item
+    (fat->map, cluster, uint16_t);
 }
 
 unsigned fat_map_32_next(fat_t *fat, unsigned cluster)
 {
-  const uint32_t *map = fat->map;
-  return map[cluster] & 0xffffff;
+  uint32_t entry = *storage_mapping_read_item
+    (fat->map, cluster, uint32_t);
+  return entry & 0xffffff;
 }
 
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
@@ -116,9 +122,20 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 #endif
   allocator_free(allocator, fat->buffer);
 
-  /* copy the FAT map to memory */
-  fat->map = allocator_alloc(allocator, fat->map_size);
-  storage_read(storage, fat->map, fat->map_offset, fat->map_size);
+  /* allocate storage memory mapping for FAT map */
+  size_t fat_map_buffer_size = FAT_MAP_BUFFER_SECTORS <<
+    storage_alignment(storage);
+  if (fat_map_buffer_size > fat->map_size) {
+    fat_map_buffer_size = ALIGNED_UP(fat->map_size,
+                                     storage_alignment(storage));
+  }
+  fat->map = allocator_alloc(allocator, sizeof(storage_mapping_t));
+  storage_mapping_init(fat->map,
+                       storage,
+                       fat->map_offset,
+                       allocator_alloc(allocator, fat_map_buffer_size),
+                       fat_map_buffer_size);
+
   switch (fat->version) {
   case FAT_VERSION_FAT12:
     fat->next = fat_map_12_next;
