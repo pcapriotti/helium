@@ -12,7 +12,7 @@ static int storage_mapping_fetch(storage_mapping_t *map,
 #if DEBUG_LOCAL
   serial_printf("[storage_mapping] fetching offset: %llu\n", offset);
 #endif
-  size_t start = ALIGN_BITS(offset, storage_alignment(map->storage));
+  size_t start = ALIGN64(offset, storage_sector_size(map->storage));
   return storage_read(map->storage,
                       map->buf,
                       map->offset + start,
@@ -34,8 +34,8 @@ void storage_mapping_init(storage_mapping_t *map,
                           void *buf,
                           size_t buf_size)
 {
-  assert(ALIGNED_BITS(offset, storage_alignment(storage)));
-  assert(ALIGNED_BITS(buf_size, storage_alignment(storage)));
+  assert(ALIGNED64(offset, storage_sector_size(storage)));
+  assert(ALIGNED(buf_size, storage_sector_size(storage)));
 
   map->storage = storage;
   map->offset = offset;
@@ -82,8 +82,8 @@ int storage_mapping_put(storage_mapping_t *map,
   assert(buf + size < map->buf + map->buf_size);
 
   size_t offset = buf - map->buf;
-  size_t start = ALIGN_BITS(offset, storage_alignment(map->storage));
-  size_t end = ALIGN_UP_BITS(offset + size, storage_alignment(map->storage));
+  size_t start = ALIGN64(offset, storage_sector_size(map->storage));
+  size_t end = ALIGN64_UP(offset + size, storage_sector_size(map->storage));
 
   assert(end - start <= map->buf_size);
 

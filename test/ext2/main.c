@@ -64,7 +64,7 @@ storage_ops_t test_storage_ops = {
   .read = test_read,
   .write_unaligned = test_write_unaligned,
   .write = test_write,
-  .alignment = 5,
+  .sector_size = 32,
 };
 
 storage_t test_storage = {

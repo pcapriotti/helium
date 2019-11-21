@@ -42,9 +42,9 @@ void ext2_write(ext2_t *fs, unsigned offset, void *buffer,
   TRACE("loc_offset: %lu\n", loc_offset);
   assert(loc_offset < fs->block_size);
 
-  const int alignment = storage_alignment(fs->storage);
-  unsigned start = loc_offset >> alignment;
-  unsigned end = DIV_UP(loc_offset + size, 1 << alignment);
+  const int sector_size = storage_sector_size(fs->storage);
+  unsigned start = loc_offset / sector_size;
+  unsigned end = DIV_UP(loc_offset + size, sector_size);
 
   storage_write(fs->storage,
                 buffer + start,
@@ -76,7 +76,7 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   TRACE("Locating superblock\n");
 #endif
 
-  void *scratch = allocator_alloc(allocator, 1 << storage->ops->alignment);
+  void *scratch = allocator_alloc(allocator, storage_sector_size(storage));
 
   if (!ext2_locate_superblock(storage, scratch, &sb)) {
 #if EXT2_DEBUG

@@ -95,8 +95,8 @@ unsigned fat_map_32_next(fat_t *fat, unsigned cluster)
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 {
   /* read superblock */
-  void *buffer = allocator_alloc(allocator, 1 << storage->ops->alignment);
-  storage_read(storage, buffer, 0, 1 << storage->ops->alignment);
+  void *buffer = allocator_alloc(allocator, storage_sector_size(storage));
+  storage_read(storage, buffer, 0, storage_sector_size(storage));
   fat_superblock_t *sb = buffer;
 
   /* determine width */
@@ -123,11 +123,11 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   allocator_free(allocator, buffer);
 
   /* allocate storage memory mapping for FAT map */
-  size_t fat_map_buffer_size = FAT_MAP_BUFFER_SECTORS <<
-    storage_alignment(storage);
+  size_t fat_map_buffer_size = FAT_MAP_BUFFER_SECTORS *
+    storage_sector_size(storage);
   if (fat_map_buffer_size > fat->map_size) {
-    fat_map_buffer_size = ALIGN_UP_BITS(fat->map_size,
-                                     storage_alignment(storage));
+    fat_map_buffer_size = ALIGN_UP(fat->map_size,
+                                   storage_sector_size(storage));
   }
   fat->map = storage_mapping_new(allocator, storage,
                                  fat->map_offset,

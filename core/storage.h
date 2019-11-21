@@ -2,6 +2,7 @@
 #define STORAGE_STORAGE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef uint64_t storage_offset_t;
 
@@ -9,7 +10,7 @@ typedef uint64_t storage_offset_t;
 
    All offsets and sizes are in bytes, even for aligned
    operations. Aligned operations expect their arguments to be
-   multiples of the sector size (i.e. `1 << alignment`).
+   multiples of the sector size.
 
    Unaligned operations take a scratch buffer, at least the size of a
    sector. This is needed to perform the unaligned access. Unaligned
@@ -33,8 +34,7 @@ typedef struct storage_ops {
                          storage_offset_t offset,
                          uint32_t bytes);
 
-  /* alignment for all storage operations */
-  int alignment;
+  size_t sector_size;
 } storage_ops_t;
 
 /* storage abstraction */
@@ -63,8 +63,8 @@ int storage_write_unaligned_helper(storage_ops_t *storage, void *data,
                                    void *buf, void *scratch,
                                    storage_offset_t offset, uint32_t bytes);
 
-static inline int storage_alignment(storage_t *storage) {
-  return storage->ops->alignment;
+static inline size_t storage_sector_size(storage_t *storage) {
+  return storage->ops->sector_size;
 }
 
 #endif /* STORAGE_STORAGE_H */

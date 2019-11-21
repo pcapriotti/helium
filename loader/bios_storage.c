@@ -101,7 +101,7 @@ storage_ops_t bios_storage_ops = {
   /* write not supported */
   .write_unaligned = 0,
   .write = 0,
-  .alignment = SECTOR_ALIGNMENT,
+  .sector_size = 1 << SECTOR_ALIGNMENT,
 };
 
 storage_t bios_storage = {

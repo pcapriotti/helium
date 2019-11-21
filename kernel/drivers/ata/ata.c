@@ -541,7 +541,7 @@ storage_ops_t ata_ops = {
   .read_unaligned = ata_ops_read_unaligned,
   .write = ata_ops_write,
   .write_unaligned = ata_ops_write_unaligned,
-  .alignment = SECTOR_ALIGNMENT,
+  .sector_size = 1 << SECTOR_ALIGNMENT,
 };
 
 void ata_storage_init(storage_t *storage, drive_t *drive, unsigned part_offset)
