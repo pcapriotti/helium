@@ -148,8 +148,8 @@ static void receive(void)
       }
 
       /* advance rx pointer and align */
-      data->rx += packet->length + 4;
-      data->rx = (uint8_t *) ALIGNED(data->rx + 3, 2);
+      assert(IS_ALIGNED((size_t) data->rx, 2));
+      data->rx += ALIGNED_UP(packet->length + 4, 2);
       while (data->rx > data->rxbuf + RXBUF_SIZE) {
         data->rx -= RXBUF_SIZE;
       }

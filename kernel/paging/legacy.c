@@ -30,7 +30,7 @@ static inline pg_legacy_entry_t mk_entry(page_t *page, uint16_t flags)
 static void paging_idmap_large(pg_legacy_entry_t *table, void *address)
 {
   table[DIR_INDEX(address)] =
-    mk_entry(LARGE_PAGE(address),
+    mk_entry(LARGE_PAGE((size_t) address),
              PT_ENTRY_PRESENT |
              PT_ENTRY_RW |
              PT_ENTRY_SIZE);
@@ -102,7 +102,7 @@ static void *paging_legacy_map_temp(void *data, uint64_t p)
     return 0;
   }
 
-  *entry = mk_entry(PAGE(p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
+  *entry = mk_entry(PAGE((size_t) p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
 
   pg->temp = tmp + 1;
   if ((void *) pg->temp >= KERNEL_VM_TEMP_END)
@@ -148,7 +148,7 @@ static void *paging_legacy_map_perm(void *data, uint64_t p)
 
   pg_legacy_entry_t *table = (pg_legacy_entry_t *)tpage;
   table[TABLE_INDEX(pg->perm)] =
-    mk_entry(PAGE(p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
+    mk_entry(PAGE((size_t) p), PT_ENTRY_PRESENT | PT_ENTRY_RW);
 
   return pg->perm++;
 }

@@ -129,7 +129,7 @@ static void *map_perm(void *data, uint64_t p)
   pg_pae_entry_t *entry = &pg->table2[L2_INDEX(pg->perm)];
   page_t *tpage = 0;
   if (*entry & PT_ENTRY_PRESENT) {
-    tpage = PAGE(*entry);
+    tpage = PAGE((size_t)(*entry));
   }
   else {
     tpage = falloc(sizeof(page_t));

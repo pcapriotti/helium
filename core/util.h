@@ -1,7 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#define UINT32(x) ((uint32_t) (x))
+#define UINT32(x) (x)
 
 #define ALIGN_MASK(bits) (~0UL << (bits))
 #define ALIGNED(x, bits) (UINT32(x) & ALIGN_MASK(bits))
