@@ -127,7 +127,7 @@ void *heap_malloc(heap_t *heap, size_t bytes)
       serial_printf("  no more blocks, requesting a new one\n");
 #endif
       /* request more memory */
-      int num_pages = ROUND(bytes, PAGE_BITS) + 1;
+      int num_pages = DIV_UP(bytes, 1 << PAGE_BITS);
       if (num_pages < heap->page_growth) num_pages = heap->page_growth;
       unsigned long size = num_pages << PAGE_BITS;
       uint64_t frame = frames_alloc(heap->frames, size);

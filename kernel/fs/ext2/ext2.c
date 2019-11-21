@@ -22,8 +22,6 @@
 
 #define EXT2_DEBUG 1
 
-#define ROUND_UP(a, b) (((a) + (b) - 1) / (b))
-
 void ext2_read_block_into(ext2_t *fs, unsigned int offset, void *buffer)
 {
   storage_read(fs->storage,
@@ -44,9 +42,9 @@ void ext2_write(ext2_t *fs, unsigned offset, void *buffer,
   TRACE("loc_offset: %lu\n", loc_offset);
   assert(loc_offset < fs->block_size);
 
-  const int alignment = fs->storage->ops->alignment;
-  unsigned start = ROUND(loc_offset, alignment);
-  unsigned end = ROUND_UP(loc_offset + size, alignment);
+  const int alignment = storage_alignment(fs->storage);
+  unsigned start = loc_offset >> alignment;
+  unsigned end = DIV_UP(loc_offset + size, 1 << alignment);
 
   storage_write(fs->storage,
                 buffer + start,
@@ -125,11 +123,11 @@ int ext2_num_bgroups(ext2_superblock_t *sb) {
   if (sb->blocks_per_group == 0) {
     return -1;
   }
-  int n1 = ROUND_UP(sb->num_blocks, sb->blocks_per_group);
+  int n1 = DIV_UP(sb->num_blocks, sb->blocks_per_group);
   if (sb->inodes_per_group == 0) {
     return -2;
   }
-  int n2 = ROUND_UP(sb->num_inodes, sb->inodes_per_group);
+  int n2 = DIV_UP(sb->num_inodes, sb->inodes_per_group);
   if (n1 != n2) {
     return -3;
   }
@@ -214,8 +212,8 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
 unsigned ext2_new_block(ext2_t *fs, unsigned group)
 {
   const int blocks_per_bitmap_block = fs->block_size << 3;
-  const int num_bitmap_blocks = ROUND_UP(fs->blocks_per_group,
-                                         blocks_per_bitmap_block);
+  const int num_bitmap_blocks = DIV_UP(fs->blocks_per_group,
+                                       blocks_per_bitmap_block);
 
   ext2_group_descriptor_t *desc = &fs->gdesc[group];
   if (desc->num_unalloc_blocks == 0) return -1;

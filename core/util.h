@@ -10,8 +10,7 @@
 
 #define ALIGNED64(x, bits) (((uint64_t) (x)) & (~0ULL << (bits)))
 
-#define ROUND(a, i) (((uint32_t)(a) + (1 << (i)) - 1) >> (i))
-#define ROUND64(a, i) (((uint64_t)(a) + (1 << (i)) - 1) >> (i))
+#define DIV_UP(a, b) (((a) + (b) - 1) / (b))
 
 static inline int max(int x, int y) {
   return (x > y) ? x : y;

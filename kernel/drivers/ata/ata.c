@@ -206,7 +206,7 @@ int ata_write_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 void *ata_read_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 {
   uint64_t lba = offset >> SECTOR_ALIGNMENT;
-  uint64_t lba_end = ROUND64(offset + bytes, SECTOR_ALIGNMENT);
+  uint64_t lba_end = DIV_UP(offset + bytes, 1 << SECTOR_ALIGNMENT);
   uint32_t count = lba_end - lba;
 
   if (count > 0xffff) count = 0xffff;
