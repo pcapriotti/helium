@@ -22,7 +22,16 @@ void storage_mapping_init(storage_mapping_t *map,
                           void *buf,
                           size_t buf_size);
 
-void *storage_mapping_get(storage_mapping_t *map,
-                          size_t offset, size_t size);
+void *storage_mapping_read(storage_mapping_t *map,
+                           storage_offset_t offset,
+                           size_t size);
+
+int storage_mapping_write(storage_mapping_t *map,
+                          void *buf,
+                          storage_offset_t offset,
+                          size_t size);
+
+#define storage_mapping_read_item(map, index, ty) \
+  ((ty *) storage_mapping_read(map, (index) * sizeof(ty), sizeof(ty)))
 
 #endif /* MAPPING_H */
