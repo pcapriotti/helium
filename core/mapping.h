@@ -6,6 +6,8 @@
 
 #include "core/storage.h"
 
+struct allocator;
+
 typedef struct storage_mapping {
   storage_t *storage;
   storage_offset_t offset;
@@ -30,6 +32,14 @@ int storage_mapping_write(storage_mapping_t *map,
                           void *buf,
                           storage_offset_t offset,
                           size_t size);
+
+storage_mapping_t *storage_mapping_new(struct allocator *allocator,
+                                       storage_t *storage,
+                                       storage_offset_t offset,
+                                       size_t buf_size);
+
+void storage_mapping_del(storage_mapping_t *map,
+                         struct allocator *allocator);
 
 #define storage_mapping_read_item(map, index, ty) \
   ((ty *) storage_mapping_read(map, (index) * sizeof(ty), sizeof(ty)))

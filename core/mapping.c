@@ -1,4 +1,5 @@
 #include "mapping.h"
+#include "core/allocator.h"
 #include "core/debug.h"
 #include "core/util.h"
 
@@ -104,4 +105,23 @@ int storage_mapping_write(storage_mapping_t *map,
   void *buf2 = storage_mapping_read(map, offset, size);
   memcpy(buf2, buf, size);
   return storage_mapping_put(map, buf2, size);
+}
+
+storage_mapping_t *storage_mapping_new(allocator_t *allocator,
+                                       storage_t *storage,
+                                       storage_offset_t offset,
+                                       size_t buf_size)
+{
+  storage_mapping_t *map = allocator_alloc(allocator,
+                                           sizeof(storage_mapping_t));
+  void *buf = allocator_alloc(allocator, buf_size);
+  storage_mapping_init(map, storage, offset, buf, buf_size);
+  return map;
+}
+
+void storage_mapping_del(storage_mapping_t *map,
+                         allocator_t *allocator)
+{
+  allocator_free(allocator, map->buf);
+  allocator_free(allocator, map);
 }

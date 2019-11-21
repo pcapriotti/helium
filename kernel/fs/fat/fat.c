@@ -129,12 +129,9 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
     fat_map_buffer_size = ALIGNED_UP(fat->map_size,
                                      storage_alignment(storage));
   }
-  fat->map = allocator_alloc(allocator, sizeof(storage_mapping_t));
-  storage_mapping_init(fat->map,
-                       storage,
-                       fat->map_offset,
-                       allocator_alloc(allocator, fat_map_buffer_size),
-                       fat_map_buffer_size);
+  fat->map = storage_mapping_new(allocator, storage,
+                                 fat->map_offset,
+                                 fat_map_buffer_size);
 
   switch (fat->version) {
   case FAT_VERSION_FAT12:
