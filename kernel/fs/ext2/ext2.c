@@ -98,8 +98,7 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
   /* cache block group descriptor table */
-  int num_groups = (sb.num_blocks + sb.blocks_per_group - 1) /
-    sb.blocks_per_group;
+  int num_groups = DIV_UP(sb.num_blocks, sb.blocks_per_group);
   size_t gdesc_offset = (fs->superblock_offset + 1) * fs->block_size;
   size_t gdesc_size = num_groups * sizeof(ext2_group_descriptor_t);
   fs->gdesc = allocator_alloc(fs->allocator, gdesc_size);
@@ -150,9 +149,8 @@ static void ext2_write_gdesc(ext2_t *fs, unsigned group)
 int ext2_get_free_inode(ext2_t *fs, unsigned group)
 {
   const int inodes_per_bitmap_block = fs->block_size << 3;
-  const int num_bitmap_blocks =
-    (fs->inodes_per_group + inodes_per_bitmap_block - 1) /
-    inodes_per_bitmap_block;
+  const int num_bitmap_blocks = DIV_UP
+    (fs->inodes_per_group, inodes_per_bitmap_block);
 
   ext2_group_descriptor_t *desc = &fs->gdesc[group];
   if (desc->num_unalloc_inodes == 0) return -1;
