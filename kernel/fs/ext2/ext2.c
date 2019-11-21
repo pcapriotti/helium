@@ -241,16 +241,16 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
   return -1;
 }
 
-ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
-                                     unsigned group,
-                                     ext2_inode_t *dir,
-                                     const char *name)
+static ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
+                                            unsigned group,
+                                            ext2_inode_t *dir,
+                                            const char *name,
+                                            size_t name_len)
 {
   ext2_dir_iterator_t it;
   if (ext2_dir_iterator_init(&it, fs, dir) == -1)
     return 0;
 
-  size_t name_len = strlen(name);
   if (name_len > 255) return 0;
 
   ext2_dir_entry_t *entry;
@@ -272,6 +272,25 @@ ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
 
   /* no space for an entry, allocate a new block */
   unsigned index = ext2_new_block(fs, group);
+  assert(!"not implemented");
+  return 0;
+}
+
+ext2_inode_t *ext2_new_inode_in_dir(ext2_t *fs,
+                                    ext2_inode_t *dir,
+                                    const char *name,
+                                    int type)
+{
+  size_t name_len = strlen(name);
+  const int group = 0; /* TODO */
+
+  ext2_dir_entry_t *entry = ext2_new_dir_entry(fs, group, dir, name, name_len);
+  if (!entry) return 0;
+
+  entry->name_length_lo = name_len;
+  memcpy(entry->name, name, name_len);
+  entry->type = type;
+
   assert(!"not implemented");
   return 0;
 }
