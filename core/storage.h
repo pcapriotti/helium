@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+typedef uint64_t storage_offset_t;
+
 /* Storage operations, implemented by e.g. disk drivers.
 
    All offsets and sizes are in bytes, even for aligned
@@ -17,18 +19,18 @@
 */
 typedef struct storage_ops {
   int (*read)(void *data, void *buf,
-              uint64_t offset,
+              storage_offset_t offset,
               uint32_t bytes);
   int (*read_unaligned)(void *data, void *buf,
                         void *scratch,
-                        uint64_t offset,
+                        storage_offset_t offset,
                         uint32_t bytes);
   int (*write)(void *data, void *buf,
-               uint64_t offset,
+               storage_offset_t offset,
                uint32_t bytes);
   int (*write_unaligned)(void *data, void *buf,
                          void *scratch,
-                         uint64_t offset,
+                         storage_offset_t offset,
                          uint32_t bytes);
 
   /* alignment for all storage operations */
@@ -43,22 +45,26 @@ typedef struct storage {
 } storage_t;
 
 int storage_read(storage_t *storage, void *buf,
-                 uint64_t offset, uint32_t bytes);
+                 storage_offset_t offset, uint32_t bytes);
 
 int storage_read_unaligned(storage_t *storage, void *buf, void *scratch,
-                           uint64_t offset, uint32_t bytes);
+                           storage_offset_t offset, uint32_t bytes);
 
 int storage_write(storage_t *storage, void *buf,
-                  uint64_t offset, uint32_t bytes);
+                  storage_offset_t offset, uint32_t bytes);
 
 int storage_write_unaligned(storage_t *storage, void *buf, void *scratch,
-                            uint64_t offset, uint32_t bytes);
+                            storage_offset_t offset, uint32_t bytes);
 
 int storage_read_unaligned_helper(storage_ops_t *ops, void *data,
                                   void *buf, void *scratch,
-                                  uint64_t offset, uint32_t bytes);
+                                  storage_offset_t offset, uint32_t bytes);
 int storage_write_unaligned_helper(storage_ops_t *storage, void *data,
                                    void *buf, void *scratch,
-                                   uint64_t offset, uint32_t bytes);
+                                   storage_offset_t offset, uint32_t bytes);
+
+static inline int storage_alignment(storage_t *storage) {
+  return storage->ops->alignment;
+}
 
 #endif /* STORAGE_STORAGE_H */
