@@ -20,7 +20,7 @@
 #define TABLE_INDEX(x) ((((uint32_t) x) >> PAGE_BITS) & ((1 << (PAGE_BITS - 2)) - 1))
 
 #define LARGE_PAGE_BITS (PAGE_BITS + PAGE_BITS - 2)
-#define LARGE_PAGE(x) ((page_t *) ALIGNED(x, LARGE_PAGE_BITS))
+#define LARGE_PAGE(x) ((page_t *) ALIGN_BITS(x, LARGE_PAGE_BITS))
 
 static inline pg_legacy_entry_t mk_entry(page_t *page, uint16_t flags)
 {

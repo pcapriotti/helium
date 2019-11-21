@@ -126,7 +126,7 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   size_t fat_map_buffer_size = FAT_MAP_BUFFER_SECTORS <<
     storage_alignment(storage);
   if (fat_map_buffer_size > fat->map_size) {
-    fat_map_buffer_size = ALIGNED_UP(fat->map_size,
+    fat_map_buffer_size = ALIGN_UP_BITS(fat->map_size,
                                      storage_alignment(storage));
   }
   fat->map = storage_mapping_new(allocator, storage,

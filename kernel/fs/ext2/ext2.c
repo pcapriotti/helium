@@ -260,7 +260,7 @@ static ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
     /* check whether there is enough free space in the padding */
     void *entry1 = (void *)entry + entry->size;
     void *entry_end = (void *)entry->name + entry->name_length_lo;
-    entry_end = (void *) ALIGNED_UP((size_t) entry_end, 2);
+    entry_end = (void *) ALIGN_UP_BITS((size_t) entry_end, 2);
     if (entry_end + sizeof(ext2_dir_entry_t) + name_len <= entry1) {
       return entry_end;
     }

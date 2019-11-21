@@ -72,8 +72,8 @@ int bios_read(int drive, drive_geometry_t *geom, unsigned sector, unsigned count
 int bios_ops_read(void *data, void *buf,
                   uint64_t offset, uint32_t bytes)
 {
-  assert(IS_ALIGNED(offset, SECTOR_ALIGNMENT));
-  assert(IS_ALIGNED(bytes, SECTOR_ALIGNMENT));
+  assert(ALIGNED_BITS(offset, SECTOR_ALIGNMENT));
+  assert(ALIGNED_BITS(bytes, SECTOR_ALIGNMENT));
 
   bios_storage_info_t *info = data;
   unsigned sector0 = info->part_offset + (offset >> SECTOR_ALIGNMENT);

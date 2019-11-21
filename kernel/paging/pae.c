@@ -41,7 +41,7 @@ int paging_pae_init(paging_pae_t *pg)
 
   /* identity map kernel memory */
   for (void *p = KERNEL_VM_ID_START; p < KERNEL_VM_ID_END; p += (1 << LARGE_PAGE_BITS)) {
-    pg->table2[L2_INDEX(p)] = mk_entry(ALIGNED64((size_t) p, LARGE_PAGE_BITS),
+    pg->table2[L2_INDEX(p)] = mk_entry(ALIGN_BITS((size_t) p, LARGE_PAGE_BITS),
                                        DEF_FLAGS | PT_ENTRY_SIZE);
   }
 
@@ -98,7 +98,7 @@ static void *map_temp(void *data, uint64_t p)
     return 0;
   }
 
-  *entry = mk_entry(ALIGNED64(p, PAGE_BITS), DEF_FLAGS);
+  *entry = mk_entry(ALIGN(p, 1 << PAGE_BITS), DEF_FLAGS);
 
   pg->temp = tmp + 1;
   if ((void *) pg->temp >= KERNEL_VM_TEMP_END)
@@ -138,7 +138,7 @@ static void *map_perm(void *data, uint64_t p)
   }
 
   pg_pae_entry_t *table = (pg_pae_entry_t *)tpage;
-  table[L1_INDEX(pg->perm)] = mk_entry(ALIGNED64(p, PAGE_BITS), DEF_FLAGS);
+  table[L1_INDEX(pg->perm)] = mk_entry(ALIGN(p, 1 << PAGE_BITS), DEF_FLAGS);
 
   return pg->perm++;
 }

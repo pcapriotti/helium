@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-#define PAGE(x) ((page_t *) ALIGNED(x, PAGE_BITS))
+#define PAGE(x) ((page_t *) ALIGN_BITS(x, PAGE_BITS))
 
 #define PAGING_DEBUG 0
 

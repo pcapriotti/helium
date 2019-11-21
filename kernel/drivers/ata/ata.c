@@ -162,8 +162,8 @@ static int ata_prepare_read_write(drive_t *drive, uint64_t lba, uint32_t count)
 
 int ata_write_bytes(drive_t *drive, void *buf, uint64_t offset, uint32_t bytes)
 {
-  assert(IS_ALIGNED(offset, SECTOR_ALIGNMENT));
-  assert(IS_ALIGNED(bytes, SECTOR_ALIGNMENT));
+  assert(ALIGNED_BITS(offset, SECTOR_ALIGNMENT));
+  assert(ALIGNED_BITS(bytes, SECTOR_ALIGNMENT));
   uint64_t lba = offset >> SECTOR_ALIGNMENT;
   uint32_t count = bytes >> SECTOR_ALIGNMENT;
 
