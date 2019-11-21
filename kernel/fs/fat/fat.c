@@ -95,9 +95,9 @@ unsigned fat_map_32_next(fat_t *fat, unsigned cluster)
 void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
 {
   /* read superblock */
-  fat->buffer = allocator_alloc(allocator, 1 << storage->ops->alignment);
-  storage_read(storage, fat->buffer, 0, 1 << storage->ops->alignment);
-  fat_superblock_t *sb = fat->buffer;
+  void *buffer = allocator_alloc(allocator, 1 << storage->ops->alignment);
+  storage_read(storage, buffer, 0, 1 << storage->ops->alignment);
+  fat_superblock_t *sb = buffer;
 
   /* determine width */
 
@@ -120,7 +120,7 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
   serial_printf("[fat] dir_offset: %#x, dir_entries: %u\n",
                 fat->dir_offset, sb->num_root_dir_entries);
 #endif
-  allocator_free(allocator, fat->buffer);
+  allocator_free(allocator, buffer);
 
   /* allocate storage memory mapping for FAT map */
   size_t fat_map_buffer_size = FAT_MAP_BUFFER_SECTORS <<
@@ -145,8 +145,6 @@ void fat_init(fat_t *fat, storage_t *storage, allocator_t *allocator)
     break;
   }
 
-  /* allocate a cluster-size buffer */
-  fat->buffer = allocator_alloc(allocator, fat->cluster_size);
   fat->allocator = allocator;
   fat->storage = storage;
 }
@@ -172,7 +170,7 @@ int fat_end_of_chain(fat_t *fat, unsigned cluster)
 
 void fat_cleanup(fat_t *fat)
 {
-  allocator_free(fat->allocator, fat->buffer);
+  storage_mapping_del(fat->map, fat->allocator);
 }
 
 int fat_read_cluster(fat_t *fat, void *buffer, unsigned cluster)

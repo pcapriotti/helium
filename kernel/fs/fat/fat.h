@@ -86,7 +86,6 @@ enum {
 };
 
 typedef struct fat {
-  void *buffer;
   struct storage_mapping *map;
   unsigned cluster_size;
   size_t map_offset;
