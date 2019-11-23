@@ -69,9 +69,9 @@ static ext2_superblock_t *ext2_superblock(ext2_t *fs)
   return storage_mapping_read_item(fs->sb_map, 0, ext2_superblock_t);
 }
 
-static ext2_group_descriptor_t *ext2_gdesc(ext2_t *fs, unsigned group)
+static ext2_gdesc_t *ext2_gdesc(ext2_t *fs, unsigned group)
 {
-  return storage_mapping_read_item(fs->gdesc_map, group, ext2_group_descriptor_t);
+  return storage_mapping_read_item(fs->gdesc_map, group, ext2_gdesc_t);
 }
 
 ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
@@ -104,7 +104,7 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   int num_groups = DIV_UP(sb->num_blocks, sb->blocks_per_group);
   size_t gdesc_offset = (ext2_superblock(fs)->superblock_offset + 1)
     * fs->block_size;
-  size_t gdesc_size = num_groups * sizeof(ext2_group_descriptor_t);
+  size_t gdesc_size = num_groups * sizeof(ext2_gdesc_t);
   fs->gdesc_map = storage_mapping_new
     (allocator, storage, gdesc_offset,
      ALIGN_UP(gdesc_size, storage_sector_size(storage)));
@@ -154,7 +154,7 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
     (ext2_superblock(fs)->inodes_per_group,
      inodes_per_bitmap_block);
 
-  ext2_group_descriptor_t *desc = ext2_gdesc(fs, group);
+  ext2_gdesc_t *desc = ext2_gdesc(fs, group);
   if (desc->num_unalloc_inodes == 0) return -1;
 
   size_t inode_bitmap_offset = desc->inode_bitmap_offset;
@@ -171,7 +171,7 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
                  sizeof(uint32_t));
       desc->num_unalloc_inodes--;
       storage_mapping_put(fs->gdesc_map, desc,
-                          sizeof(ext2_group_descriptor_t));
+                          sizeof(ext2_gdesc_t));
       return index;
     }
   }
@@ -217,7 +217,7 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
     (ext2_superblock(fs)->blocks_per_group,
      blocks_per_bitmap_block);
 
-  ext2_group_descriptor_t *desc = ext2_gdesc(fs, group);
+  ext2_gdesc_t *desc = ext2_gdesc(fs, group);
   if (desc->num_unalloc_blocks == 0) return -1;
 
   size_t block_bitmap_offset = desc->block_bitmap_offset;
@@ -234,7 +234,7 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
                  sizeof(uint32_t));
       desc->num_unalloc_blocks--;
       storage_mapping_put(fs->gdesc_map, desc,
-                          sizeof(ext2_group_descriptor_t));
+                          sizeof(ext2_gdesc_t));
       return index;
     }
   }
@@ -300,7 +300,7 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
   unsigned int group = index / ext2_superblock(fs)->inodes_per_group;
-  ext2_group_descriptor_t *gdesc = ext2_gdesc(fs, group);
+  ext2_gdesc_t *gdesc = ext2_gdesc(fs, group);
 
   unsigned int index_in_group = index %
     ext2_superblock(fs)->inodes_per_group;

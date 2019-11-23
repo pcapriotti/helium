@@ -46,7 +46,7 @@ typedef struct {
   uint16_t num_unalloc_inodes;
   uint16_t num_directories;
   uint8_t unused[14];
-} __attribute__((packed)) ext2_group_descriptor_t;
+} __attribute__((packed)) ext2_gdesc_t;
 
 typedef struct ext2_inode {
   uint16_t type;
