@@ -4,6 +4,6 @@ CC=gcc
 
 CFLAGS += -I../..
 
-: foreach ../../kernel/fs/ext2/*.c ../../core/allocator.c ../../core/storage.c |> ^ CC %f^ $(CC) $(CFLAGS) -I../../kernel -c %f -o %o |> ext2/%B.o
+: foreach ../../kernel/fs/ext2/*.c ../../core/allocator.c ../../core/storage.c ../../core/mapping.c |> ^ CC %f^ $(CC) $(CFLAGS) -I../../kernel -c %f -o %o |> ext2/%B.o
 : foreach *.c |> !cc |>
 : *.o ext2/*.o |> ^ LINK %f^ $(CC) $(LDFLAGS) %f -o %o |> test

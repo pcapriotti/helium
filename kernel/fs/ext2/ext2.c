@@ -1,6 +1,7 @@
 #include "bitset.h"
 #include "fs/ext2/ext2.h"
 #include "core/allocator.h"
+#include "core/mapping.h"
 #include "core/storage.h"
 #include "core/util.h"
 
@@ -63,43 +64,42 @@ size_t ext2_fs_block_size(ext2_t *fs)
   return fs->block_size;
 }
 
-int ext2_locate_superblock(storage_t *storage, void *scratch, ext2_superblock_t *sb)
+static ext2_superblock_t *ext2_superblock(ext2_t *fs)
 {
-  storage_read_unaligned(storage, sb, scratch, 1024, sizeof(ext2_superblock_t));
-  return (sb->signature == 0xef53);
+  return storage_mapping_read_item(fs->sb_map, 0, ext2_superblock_t);
 }
 
 ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 {
-  ext2_superblock_t sb;
 #if EXT2_DEBUG
-  TRACE("Locating superblock\n");
+  TRACE("[ext2] locating superblock\n");
 #endif
 
-  void *scratch = allocator_alloc(allocator, storage_sector_size(storage));
-
-  if (!ext2_locate_superblock(storage, scratch, &sb)) {
+  storage_mapping_t *sb_map = storage_mapping_new
+    (allocator, storage, 0, 1024);
+  ext2_superblock_t *sb = storage_mapping_read_item
+    (sb_map, 0, ext2_superblock_t);
+  if (sb->signature != 0xef53) {
 #if EXT2_DEBUG
     TRACE("Could not find superblock\n");
 #endif
-    FREE(allocator, scratch);
+    storage_mapping_del(sb_map, allocator);
     return 0;
   }
 
   ext2_t *fs = allocator_alloc(allocator, sizeof(ext2_t));
   fs->storage = storage;
   fs->allocator = allocator;
-  fs->scratch = scratch;
-  fs->block_size = ext2_block_size(&sb);
-  fs->inode_size = ext2_inode_size(&sb);
-  fs->inodes_per_group = sb.inodes_per_group;
-  fs->blocks_per_group = sb.blocks_per_group;
-  fs->superblock_offset = sb.superblock_offset;
+  fs->scratch = allocator_alloc(allocator, storage_sector_size(storage));
+  fs->sb_map = sb_map;
+  fs->block_size = ext2_block_size(sb);
+  fs->inode_size = ext2_inode_size(sb);
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
   /* cache block group descriptor table */
-  int num_groups = DIV_UP(sb.num_blocks, sb.blocks_per_group);
-  size_t gdesc_offset = (fs->superblock_offset + 1) * fs->block_size;
+  int num_groups = DIV_UP(sb->num_blocks, sb->blocks_per_group);
+  size_t gdesc_offset = (ext2_superblock(fs)->superblock_offset + 1)
+    * fs->block_size;
   size_t gdesc_size = num_groups * sizeof(ext2_group_descriptor_t);
   fs->gdesc = allocator_alloc(fs->allocator, gdesc_size);
   storage_read_unaligned(storage, fs->gdesc, fs->scratch,
@@ -107,7 +107,8 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 
 #if EXT2_DEBUG
   TRACE("block size: %#lx inode size: %#lx superblock offset: %#x\n",
-          fs->block_size, fs->inode_size, fs->superblock_offset);
+        fs->block_size, fs->inode_size,
+        ext2_superblock(fs)->superblock_offset);
 #endif
 
   return fs;
@@ -150,7 +151,8 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
 {
   const int inodes_per_bitmap_block = fs->block_size << 3;
   const int num_bitmap_blocks = DIV_UP
-    (fs->inodes_per_group, inodes_per_bitmap_block);
+    (ext2_superblock(fs)->inodes_per_group,
+     inodes_per_bitmap_block);
 
   ext2_group_descriptor_t *desc = &fs->gdesc[group];
   if (desc->num_unalloc_inodes == 0) return -1;
@@ -204,14 +206,15 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
   ext2_write(fs, inode_table_offset, fs->buf,
              inode, fs->inode_size);
 
-  return group * fs->inodes_per_group + index + 1;
+  return group * ext2_superblock(fs)->inodes_per_group + index + 1;
 }
 
 unsigned ext2_new_block(ext2_t *fs, unsigned group)
 {
   const int blocks_per_bitmap_block = fs->block_size << 3;
-  const int num_bitmap_blocks = DIV_UP(fs->blocks_per_group,
-                                       blocks_per_bitmap_block);
+  const int num_bitmap_blocks = DIV_UP
+    (ext2_superblock(fs)->blocks_per_group,
+     blocks_per_bitmap_block);
 
   ext2_group_descriptor_t *desc = &fs->gdesc[group];
   if (desc->num_unalloc_blocks == 0) return -1;
@@ -294,10 +297,11 @@ ext2_inode_t *ext2_new_inode_in_dir(ext2_t *fs,
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
-  unsigned int group = index / fs->inodes_per_group;
+  unsigned int group = index / ext2_superblock(fs)->inodes_per_group;
   ext2_group_descriptor_t *gdesc = &fs->gdesc[group];
 
-  unsigned int index_in_group = index % fs->inodes_per_group;
+  unsigned int index_in_group = index %
+    ext2_superblock(fs)->inodes_per_group;
   unsigned int inodes_per_block = fs->block_size / fs->inode_size;
   unsigned int block = index_in_group / inodes_per_block;
 

@@ -6,6 +6,7 @@
 
 struct storage;
 struct allocator;
+struct storage_mapping;
 
 typedef struct {
   uint32_t num_inodes;
@@ -82,14 +83,12 @@ typedef struct {
 typedef struct ext2 {
   struct storage *storage;
   struct allocator *allocator;
+  struct storage_mapping *sb_map;
   void *scratch; /* scratch sector buffer */
   unsigned char *buf; /* must be at least as big as the block size */
   ext2_group_descriptor_t *gdesc; /* group descriptor table */
   size_t block_size;
   size_t inode_size;
-  uint32_t inodes_per_group;
-  uint32_t blocks_per_group;
-  uint32_t superblock_offset;
 } ext2_t;
 
 enum
