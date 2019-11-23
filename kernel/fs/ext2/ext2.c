@@ -178,8 +178,8 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
 
 unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
 {
-  TRACE("inode size: %lu\n", sizeof(ext2_inode_t));
-  const int inodes_per_table_block = fs->block_size / sizeof(ext2_inode_t);
+  TRACE("inode size: %lu\n", fs->inode_size);
+  const int inodes_per_table_block = fs->block_size / fs->inode_size;
   TRACE("inode num: %d\n", inodes_per_table_block);
 
   /* get a fresh local inode index */
@@ -197,12 +197,12 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
   TRACE("loc offset: %lu\n", (unsigned char *)inode - fs->buf);
 
   /* fill inode structure */
-  memset(inode, 0, sizeof(ext2_inode_t));
+  memset(inode, 0, fs->inode_size);
   inode->type = type;
 
   /* save inode in the table */
   ext2_write(fs, inode_table_offset, fs->buf,
-             inode, sizeof(ext2_inode_t));
+             inode, fs->inode_size);
 
   return group * fs->inodes_per_group + index + 1;
 }
