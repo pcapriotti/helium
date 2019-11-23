@@ -84,9 +84,8 @@ typedef struct ext2 {
   struct storage *storage;
   struct allocator *allocator;
   struct storage_mapping *sb_map;
-  void *scratch; /* scratch sector buffer */
+  struct storage_mapping *gdesc_map;
   unsigned char *buf; /* must be at least as big as the block size */
-  ext2_group_descriptor_t *gdesc; /* group descriptor table */
   size_t block_size;
   size_t inode_size;
 } ext2_t;

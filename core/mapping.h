@@ -28,6 +28,9 @@ void *storage_mapping_read(storage_mapping_t *map,
                            storage_offset_t offset,
                            size_t size);
 
+int storage_mapping_put(storage_mapping_t *map,
+                        void *buf, size_t size);
+
 int storage_mapping_write(storage_mapping_t *map,
                           void *buf,
                           storage_offset_t offset,

@@ -69,6 +69,11 @@ static ext2_superblock_t *ext2_superblock(ext2_t *fs)
   return storage_mapping_read_item(fs->sb_map, 0, ext2_superblock_t);
 }
 
+static ext2_group_descriptor_t *ext2_gdesc(ext2_t *fs, unsigned group)
+{
+  return storage_mapping_read_item(fs->gdesc_map, group, ext2_group_descriptor_t);
+}
+
 ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 {
 #if EXT2_DEBUG
@@ -90,7 +95,6 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   ext2_t *fs = allocator_alloc(allocator, sizeof(ext2_t));
   fs->storage = storage;
   fs->allocator = allocator;
-  fs->scratch = allocator_alloc(allocator, storage_sector_size(storage));
   fs->sb_map = sb_map;
   fs->block_size = ext2_block_size(sb);
   fs->inode_size = ext2_inode_size(sb);
@@ -101,9 +105,9 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   size_t gdesc_offset = (ext2_superblock(fs)->superblock_offset + 1)
     * fs->block_size;
   size_t gdesc_size = num_groups * sizeof(ext2_group_descriptor_t);
-  fs->gdesc = allocator_alloc(fs->allocator, gdesc_size);
-  storage_read_unaligned(storage, fs->gdesc, fs->scratch,
-                         gdesc_offset, gdesc_size);
+  fs->gdesc_map = storage_mapping_new
+    (allocator, storage, gdesc_offset,
+     ALIGN_UP(gdesc_size, storage_sector_size(storage)));
 
 #if EXT2_DEBUG
   TRACE("block size: %#lx inode size: %#lx superblock offset: %#x\n",
@@ -143,10 +147,6 @@ static int find_in_bitmap(uint32_t *bitmap, size_t size)
   return -1;
 }
 
-static void ext2_write_gdesc(ext2_t *fs, unsigned group)
-{
-}
-
 int ext2_get_free_inode(ext2_t *fs, unsigned group)
 {
   const int inodes_per_bitmap_block = fs->block_size << 3;
@@ -154,7 +154,7 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
     (ext2_superblock(fs)->inodes_per_group,
      inodes_per_bitmap_block);
 
-  ext2_group_descriptor_t *desc = &fs->gdesc[group];
+  ext2_group_descriptor_t *desc = ext2_gdesc(fs, group);
   if (desc->num_unalloc_inodes == 0) return -1;
 
   size_t inode_bitmap_offset = desc->inode_bitmap_offset;
@@ -170,7 +170,8 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
                  &BIT_WORD(bitmap, index),
                  sizeof(uint32_t));
       desc->num_unalloc_inodes--;
-      ext2_write_gdesc(fs, group);
+      storage_mapping_put(fs->gdesc_map, desc,
+                          sizeof(ext2_group_descriptor_t));
       return index;
     }
   }
@@ -190,7 +191,7 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
   TRACE("inode loc index: %d\n", index);
 
   /* locate inode in the table */
-  size_t inode_table_offset = fs->gdesc[group].inode_bitmap_offset;
+  size_t inode_table_offset = ext2_gdesc(fs, group)->inode_bitmap_offset;
   inode_table_offset += index / inodes_per_table_block;
   ext2_read_block(fs, inode_table_offset);
   ext2_inode_t *table = (ext2_inode_t *) fs->buf;
@@ -216,7 +217,7 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
     (ext2_superblock(fs)->blocks_per_group,
      blocks_per_bitmap_block);
 
-  ext2_group_descriptor_t *desc = &fs->gdesc[group];
+  ext2_group_descriptor_t *desc = ext2_gdesc(fs, group);
   if (desc->num_unalloc_blocks == 0) return -1;
 
   size_t block_bitmap_offset = desc->block_bitmap_offset;
@@ -232,7 +233,8 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
                  &BIT_WORD(bitmap, index),
                  sizeof(uint32_t));
       desc->num_unalloc_blocks--;
-      ext2_write_gdesc(fs, group);
+      storage_mapping_put(fs->gdesc_map, desc,
+                          sizeof(ext2_group_descriptor_t));
       return index;
     }
   }
@@ -298,7 +300,7 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
   unsigned int group = index / ext2_superblock(fs)->inodes_per_group;
-  ext2_group_descriptor_t *gdesc = &fs->gdesc[group];
+  ext2_group_descriptor_t *gdesc = ext2_gdesc(fs, group);
 
   unsigned int index_in_group = index %
     ext2_superblock(fs)->inodes_per_group;
