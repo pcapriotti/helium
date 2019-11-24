@@ -313,6 +313,38 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
   return table + fs->inode_size * index_in_block;
 }
 
+typedef struct path_iterator {
+  char *path;
+  char *saveptr;
+  char *token;
+} path_iterator_t;
+
+void path_iterator_init(path_iterator_t *it,
+                        allocator_t *allocator,
+                        const char *path)
+{
+  it->path = allocator_alloc(allocator, strlen(path) + 1);
+  strcpy(it->path, path);
+
+  it->saveptr = 0;
+  it->token = strtok_r(it->path, "/", &it->saveptr);
+}
+
+char *path_iterator_next(path_iterator_t *it)
+{
+  if (!it->token) return 0;
+
+  char *token = it->token;
+  it->token = strtok_r(0, "/", &it->saveptr);
+  return token;
+}
+
+void path_iterator_cleanup(path_iterator_t *it,
+                           allocator_t *allocator)
+{
+  allocator_free(allocator, it->path);
+}
+
 ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
 {
   /* get root first */
@@ -322,28 +354,16 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
     return 0;
   }
 
-  int path_len = strlen(path);
-  char *pbuf = allocator_alloc(fs->allocator, path_len + 1);
-  strcpy(pbuf, path);
+  path_iterator_t path_it;
+  path_iterator_init(&path_it, fs->allocator, path);
 
-  char *saveptr = 0;
-  char *token = strtok_r(pbuf, "/", &saveptr);
-  if (token == 0) { /* root */
-    allocator_free(fs->allocator, pbuf);
-    return inode;
-  }
-  while (token != 0) {
+  char *token;
+  while (inode && (token = path_iterator_next(&path_it))) {
     ext2_inode_t parent = *inode;
     inode = ext2_find_entry(fs, &parent, token);
-
-    if (inode == 0) {
-      token = 0;
-    } else {
-      token = strtok_r(0, "/", &saveptr);
-    }
+    token = path_iterator_next(&path_it);
   }
-
-  allocator_free(fs->allocator, pbuf);
+  path_iterator_cleanup(&path_it, fs->allocator);
   return inode;
 }
 
