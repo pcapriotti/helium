@@ -17,6 +17,11 @@ size_t vfs_position(vfs_file_t *file)
   return file->ops->position(file->data);
 }
 
+int vfs_resize(vfs_file_t *file, size_t size)
+{
+  return file->ops->resize(file->data, size);
+}
+
 int vfs_move_rel(vfs_file_t *file, size_t offset)
 {
   return vfs_move(file, offset + vfs_position(file));

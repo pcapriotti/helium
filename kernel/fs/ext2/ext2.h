@@ -132,6 +132,7 @@ typedef struct {
 
 void ext2_inode_iterator_init(ext2_inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode);
 ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode);
+int ext2_inode_iterator_resize(ext2_inode_iterator_t *it, size_t size);
 void ext2_inode_iterator_del(ext2_inode_iterator_t *it);
 uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it);
 void *ext2_inode_iterator_read(ext2_inode_iterator_t *it);

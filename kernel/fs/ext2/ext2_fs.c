@@ -63,6 +63,12 @@ static size_t position(void *data)
   return edata->offset;
 }
 
+static int resize(void *data, size_t size)
+{
+  ext2_vfs_data_t *edata = data;
+  return ext2_inode_iterator_resize(edata->it, size);
+}
+
 static vfs_file_t *create(void *data, const char *path)
 {
   ext2_t *fs = data;
@@ -149,5 +155,6 @@ vfs_ops_t ext2_vfs_ops = {
   .read = read,
   .move = move,
   .position = position,
+  .resize = resize,
 };
 

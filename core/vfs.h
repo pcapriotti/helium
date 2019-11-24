@@ -20,6 +20,7 @@ typedef struct vfs_ops {
   int (*read)(void *data, void *buf, size_t size);
   int (*move)(void *data, size_t offset);
   size_t (*position)(void *data);
+  int (*resize)(void *data, size_t size);
 } vfs_ops_t;
 
 typedef struct vfs_file {

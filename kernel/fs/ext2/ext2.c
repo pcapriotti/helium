@@ -434,6 +434,11 @@ uint16_t ext2_inode_size(ext2_superblock_t *sb)
   }
 }
 
+int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, size_t size)
+{
+  return -1;
+}
+
 void ext2_inode_iterator_init(ext2_inode_iterator_t *it,
                               ext2_t *fs, ext2_inode_t *inode)
 {
@@ -556,6 +561,11 @@ int ext2_dir_iterator_init(ext2_dir_iterator_t *it,
   ext2_inode_iterator_init(&it->inode_it, fs, inode);
 
   return 0;
+}
+
+int ext2_inode_iterator_resize(ext2_inode_iterator_t *it, size_t size)
+{
+  return ext2_inode_resize(it->fs, &it->inode, size);
 }
 
 void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
