@@ -506,7 +506,6 @@ int ext2_dir_iterator_init(ext2_dir_iterator_t *it,
   }
 
   it->fs = fs;
-  it->inode = inode;
   it->index = 0;
   it->block = 0;
   it->block_offset = 0;

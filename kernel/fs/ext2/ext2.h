@@ -145,7 +145,6 @@ int ext2_inode_iterator_end(ext2_inode_iterator_t *it);
 /* directory entry iterator API */
 typedef struct ext2_dir_iterator_t {
   ext2_t *fs;
-  ext2_inode_t *inode;
   uint32_t index;
   ext2_inode_iterator_t inode_it;
   void *block;
