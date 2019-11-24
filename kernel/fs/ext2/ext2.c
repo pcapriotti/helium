@@ -184,7 +184,12 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
   return index;
 }
 
-unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
+typedef struct ext2_indexed_inode {
+  ext2_inode_t *inode;
+  unsigned index;
+} ext2_indexed_inode_t;
+
+ext2_indexed_inode_t ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
 {
   TRACE("inode size: %lu\n", fs->inode_size);
   const int inodes_per_table_block = fs->block_size / fs->inode_size;
@@ -192,7 +197,7 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
 
   /* get a fresh local inode index */
   int index = ext2_get_free_inode(fs, group);
-  if (index == -1) return 0;
+  if (index == -1) return (ext2_indexed_inode_t) { 0, 0 };
   TRACE("inode loc index: %d\n", index);
 
   /* locate inode in the table */
@@ -212,7 +217,8 @@ unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
   ext2_write(fs, inode_table_offset, fs->buf,
              inode, fs->inode_size);
 
-  return group * ext2_superblock(fs)->inodes_per_group + index + 1;
+  unsigned idx = group * ext2_superblock(fs)->inodes_per_group + index + 1;
+  return (ext2_indexed_inode_t) { inode, idx };
 }
 
 unsigned ext2_new_block(ext2_t *fs, unsigned group)
@@ -278,25 +284,6 @@ static ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
   return 0;
 }
 
-ext2_inode_t *ext2_new_inode_in_dir(ext2_t *fs,
-                                    ext2_inode_t *dir,
-                                    const char *name,
-                                    int type)
-{
-  size_t name_len = strlen(name);
-  const int group = 0; /* TODO */
-
-  ext2_dir_entry_t *entry = ext2_new_dir_entry(fs, group, dir, name, name_len);
-  if (!entry) return 0;
-
-  entry->name_length_lo = name_len;
-  memcpy(entry->name, name, name_len);
-  entry->type = type;
-
-  assert(!"not implemented");
-  return 0;
-}
-
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 {
   index--;
@@ -345,14 +332,16 @@ void path_iterator_cleanup(path_iterator_t *it,
   allocator_free(allocator, it->path);
 }
 
+static inline ext2_inode_t *ext2_root(ext2_t *fs)
+{
+  return ext2_get_inode(fs, 2);
+}
+
 ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
 {
   /* get root first */
-  ext2_inode_t *inode = ext2_get_inode(fs, 2);
-
-  if (!inode) {
-    return 0;
-  }
+  ext2_inode_t *inode = ext2_root(fs);
+  if (!inode) return 0;
 
   path_iterator_t path_it;
   path_iterator_init(&path_it, fs->allocator, path);
@@ -369,7 +358,41 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
 
 ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
 {
-  return 0;
+  ext2_inode_t *parent = ext2_root(fs);
+  if (!parent) return 0;
+
+  path_iterator_t path_it;
+  path_iterator_init(&path_it, fs->allocator, path);
+
+  char *token0 = path_iterator_next(&path_it);
+  if (!token0) return 0;
+
+  char *token;
+  while (parent && (token = path_iterator_next(&path_it))) {
+    ext2_inode_t p = *parent;
+    parent = ext2_find_entry(fs, &p, token0);
+    token0 = token;
+    token = path_iterator_next(&path_it);
+  }
+  path_iterator_cleanup(&path_it, fs->allocator);
+  if (!parent) return 0;
+
+  const int group = 0;
+  ext2_indexed_inode_t ret = ext2_new_inode(fs, group, INODE_TYPE_FILE);
+  if (!ret.inode) return 0;
+
+  const size_t len = strlen(token);
+  ext2_dir_entry_t *entry = ext2_new_dir_entry
+    (fs, group, parent, token, len);
+  if (!entry) return 0;
+
+  entry->inode = ret.index;
+  entry->size = 0;
+  entry->name_length_lo = len;
+  entry->type = 2; /* TODO: use correct type */
+  memcpy(entry->name, token, len);
+
+  return ret.inode;
 }
 
 ext2_inode_t *ext2_find_entry(ext2_t *fs,

@@ -120,8 +120,6 @@ int main(int argc, char **argv)
   }
 
   /* create new file */
-  int index = ext2_new_inode(fs, 0, INODE_TYPE_FILE);
-  printf("index = %d\n", index);
 
   ext2_free_fs(fs);
   fclose(image);

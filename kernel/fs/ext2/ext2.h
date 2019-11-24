@@ -113,7 +113,6 @@ struct allocator;
 ext2_t *ext2_new_fs(struct storage *storage, struct allocator *allocator);
 void ext2_free_fs(ext2_t *fs);
 size_t ext2_fs_block_size(ext2_t *fs);
-unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type);
 
 /* inode API */
 /* note that the returned pointers are invalidated by further API calls */
