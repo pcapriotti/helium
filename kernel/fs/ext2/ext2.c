@@ -8,8 +8,6 @@
 #include <assert.h>
 #include <stddef.h>
 
-#define FREE allocator_free
-
 #if _HELIUM
 # include "core/debug.h"
 # define TRACE serial_printf
@@ -119,8 +117,8 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 }
 
 void ext2_free_fs(ext2_t *fs) {
-  FREE(fs->allocator, fs->buf);
-  FREE(fs->allocator, fs);
+  allocator_free(fs->allocator, fs->buf);
+  allocator_free(fs->allocator, fs);
 }
 
 int ext2_num_bgroups(ext2_superblock_t *sb) {
@@ -328,7 +326,7 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
   char *saveptr = 0;
   char *token = strtok_r(pbuf, "/", &saveptr);
   if (token == 0) { /* root */
-    FREE(fs->allocator, pbuf);
+    allocator_free(fs->allocator, pbuf);
     return inode;
   }
   while (token != 0) {
@@ -342,7 +340,7 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
     }
   }
 
-  FREE(fs->allocator, pbuf);
+  allocator_free(fs->allocator, pbuf);
   return inode;
 }
 
@@ -412,7 +410,7 @@ ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs,
 
 void ext2_inode_iterator_del(ext2_inode_iterator_t *it)
 {
-  FREE(it->fs->allocator, it);
+  allocator_free(it->fs->allocator, it);
 }
 
 uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it) {
@@ -519,7 +517,7 @@ int ext2_dir_iterator_init(ext2_dir_iterator_t *it,
 
 void ext2_dir_iterator_cleanup(ext2_dir_iterator_t *it)
 {
-  FREE(it->fs->allocator, it->block);
+  allocator_free(it->fs->allocator, it->block);
 }
 
 ext2_dir_entry_t *ext2_dir_iterator_next(ext2_dir_iterator_t *it)
