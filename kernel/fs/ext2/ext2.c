@@ -172,6 +172,13 @@ static int find_in_mapped_bitmap(storage_mapping_t *map, size_t size)
   return -1;
 }
 
+static void mapped_bitmap_unset(storage_mapping_t *map, int index)
+{
+  uint32_t *word = storage_mapping_read_item(map, index >> 5, uint32_t);
+  *word &= ~(1UL << (index & 0x1f));
+  storage_mapping_put(map, word, sizeof(uint32_t));
+}
+
 int ext2_get_free_inode(ext2_t *fs, unsigned group)
 {
   ext2_gdesc_t *desc = ext2_gdesc(fs, group);
@@ -230,13 +237,25 @@ ext2_indexed_inode_t ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
   return (ext2_indexed_inode_t) { inode, idx };
 }
 
+void ext2_del_block(ext2_t *fs, unsigned block)
+{
+  unsigned blocks_per_group = ext2_superblock(fs)->blocks_per_group;
+  unsigned group = block / blocks_per_group;
+  ext2_gdesc_t *desc = ext2_gdesc(fs, group);
+  desc->num_unalloc_blocks++;
+
+  size_t block_bitmap_offset = desc->block_bitmap_offset;
+  storage_mapping_t bitmap;
+  storage_mapping_init(&bitmap, fs->storage,
+                       desc->block_bitmap_offset,
+                       fs->buf,
+                       fs->block_size);
+  mapped_bitmap_unset(&bitmap, block % blocks_per_group);
+  storage_mapping_put(fs->gdesc_map, desc, sizeof(ext2_gdesc_t));
+}
+
 unsigned ext2_new_block(ext2_t *fs, unsigned group)
 {
-  const int blocks_per_bitmap_block = fs->block_size << 3;
-  const int num_bitmap_blocks = DIV_UP
-    (ext2_superblock(fs)->blocks_per_group,
-     blocks_per_bitmap_block);
-
   ext2_gdesc_t *desc = ext2_gdesc(fs, group);
   if (desc->num_unalloc_blocks == 0) return -1;
 
@@ -251,8 +270,7 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
   int index = find_in_mapped_bitmap(&bitmap, bitmap_size);
   if (index != -1) {
     desc->num_unalloc_blocks--;
-    storage_mapping_put(fs->gdesc_map, desc,
-                        sizeof(ext2_gdesc_t));
+    storage_mapping_put(fs->gdesc_map, desc, sizeof(ext2_gdesc_t));
   }
 
   return index;
@@ -313,6 +331,70 @@ uint64_t ext2_inode_size(ext2_inode_t *inode)
 {
   return (uint64_t) inode->size_lo |
     ((uint64_t) inode->size_hi << 32);
+}
+
+void ext2_inode_set_size(ext2_inode_t *inode, uint64_t size)
+{
+  inode->size_lo = size & 0xffffffff;
+  inode->size_hi = size >> 32;
+}
+
+uint32_t *ext2_inode_block_pointer(ext2_t *fs,
+                                   ext2_inode_t *inode,
+                                   uint32_t index)
+{
+  uint32_t index1, index2, index3;
+
+  /* level 0 */
+  if (index < 12) {
+    return inode->pointer0 + index;
+  }
+  uint32_t pointers_per_block = fs->block_size / sizeof(uint32_t);
+
+  /* level 1 */
+  index -= 12;
+  if (index < pointers_per_block) {
+    uint32_t *pointer1 = ext2_read_block(fs, inode->pointer1);
+    return &pointer1[index];
+  }
+
+  /* level 2 */
+  index -= pointers_per_block;
+  index2 = index / pointers_per_block;
+  index1 = index % pointers_per_block;
+  if (index2 < pointers_per_block) {
+    uint32_t *pointer2 = ext2_read_block(fs, inode->pointer2);
+    uint32_t *pointer1 = ext2_read_block(fs, pointer2[index2]);
+    return &pointer1[index1];
+  }
+
+  /* level 3 */
+  index -= pointers_per_block * pointers_per_block;
+  index1 = index % pointers_per_block;
+  index /= pointers_per_block;
+  index2 = index % pointers_per_block;
+  index3 = index / pointers_per_block;
+  if (index3 < pointers_per_block) {
+    uint32_t *pointer3 = ext2_read_block(fs, inode->pointer3);
+    uint32_t *pointer2 = ext2_read_block(fs, pointer3[index3]);
+    uint32_t *pointer1 = ext2_read_block(fs, pointer2[index2]);
+    return &pointer1[index1];
+  }
+
+  return 0;
+}
+
+void ext2_inode_set_block(ext2_t *fs, ext2_inode_t *inode,
+                          unsigned index, unsigned block)
+{
+  *ext2_inode_block_pointer(fs, inode, index) = block;
+}
+
+void ext2_inode_del_block(ext2_t *fs, ext2_inode_t *inode,
+                          unsigned index)
+{
+  uint32_t block = *ext2_inode_block_pointer(fs, inode, index);
+  ext2_del_block(fs, block);
 }
 
 typedef struct path_iterator {
@@ -442,7 +524,34 @@ uint32_t ext2_block_size(ext2_superblock_t *sb)
 
 int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, uint64_t size)
 {
-  return -1;
+  uint64_t old_size = ext2_inode_size(inode);
+  ext2_inode_set_size(inode, size);
+
+  uint32_t num_blocks = inode->num_sectors /
+    (fs->block_size / storage_sector_size(fs->storage));
+  inode->num_sectors = DIV64_UP(size, storage_sector_size(fs->storage));
+
+  /* TODO pass correct group */
+  const unsigned group = 0;
+
+  if (size > old_size) {
+    /* reserve new blocks */
+    while (size > old_size) {
+      unsigned block = ext2_new_block(fs, group);
+      ext2_inode_set_block(fs, inode, num_blocks++, block);
+      old_size += fs->block_size;
+    }
+  }
+  else {
+    /* reclaim blocks */
+    while (old_size > size) {
+      unsigned block = --num_blocks;
+      ext2_inode_del_block(fs, inode, block);
+      old_size -= fs->block_size;
+    }
+  }
+
+  return 0;
 }
 
 void ext2_inode_iterator_init(ext2_inode_iterator_t *it,
@@ -469,45 +578,7 @@ void ext2_inode_iterator_del(ext2_inode_iterator_t *it)
 }
 
 uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it) {
-  uint32_t index, index1, index2, index3;
-
-  /* level 0 */
-  if (it->index < 12) {
-    return it->inode.pointer0[it->index];
-  }
-  uint32_t pointers_per_block = it->fs->block_size / 4;
-
-  /* level 1 */
-  index = it->index - 12;
-  if (index < pointers_per_block) {
-    uint32_t *pointer1 = ext2_read_block(it->fs, it->inode.pointer1);
-    return pointer1[index];
-  }
-
-  /* level 2 */
-  index -= pointers_per_block;
-  index2 = index / pointers_per_block;
-  index1 = index % pointers_per_block;
-  if (index2 < pointers_per_block) {
-    uint32_t *pointer2 = ext2_read_block(it->fs, it->inode.pointer2);
-    uint32_t *pointer1 = ext2_read_block(it->fs, pointer2[index2]);
-    return pointer1[index1];
-  }
-
-  /* level 3 */
-  index -= pointers_per_block * pointers_per_block;
-  index1 = index % pointers_per_block;
-  index /= pointers_per_block;
-  index2 = index % pointers_per_block;
-  index3 = index / pointers_per_block;
-  if (index3 < pointers_per_block) {
-    uint32_t *pointer3 = ext2_read_block(it->fs, it->inode.pointer3);
-    uint32_t *pointer2 = ext2_read_block(it->fs, pointer3[index3]);
-    uint32_t *pointer1 = ext2_read_block(it->fs, pointer2[index2]);
-    return pointer1[index1];
-  }
-
-  return 0;
+  return *ext2_inode_block_pointer(it->fs, &it->inode, it->index);
 }
 
 void *ext2_inode_iterator_read(ext2_inode_iterator_t *it)
