@@ -20,7 +20,7 @@ typedef struct vfs_ops {
   int (*read)(void *data, void *buf, size_t size);
   int (*move)(void *data, size_t offset);
   size_t (*position)(void *data);
-  int (*resize)(void *data, size_t size);
+  int (*resize)(void *data, uint64_t size);
 } vfs_ops_t;
 
 typedef struct vfs_file {
@@ -41,6 +41,7 @@ vfs_file_t *vfs_create(vfs_t *fs, const char *path);
 int vfs_read(vfs_file_t *file, void *buf, size_t size);
 int vfs_move(vfs_file_t *file, size_t offset);
 size_t vfs_position(vfs_file_t *file);
+int vfs_resize(vfs_file_t *file, uint64_t size);
 int vfs_move_rel(vfs_file_t *file, size_t offset);
 
 #endif /* VFS_H */

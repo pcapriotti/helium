@@ -440,7 +440,7 @@ uint32_t ext2_block_size(ext2_superblock_t *sb)
   return 1024 << sb->log_block_size;
 }
 
-int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, size_t size)
+int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, uint64_t size)
 {
   return -1;
 }
@@ -569,7 +569,7 @@ int ext2_dir_iterator_init(ext2_dir_iterator_t *it,
   return 0;
 }
 
-int ext2_inode_iterator_resize(ext2_inode_iterator_t *it, size_t size)
+int ext2_inode_iterator_resize(ext2_inode_iterator_t *it, uint64_t size)
 {
   return ext2_inode_resize(it->fs, &it->inode, size);
 }

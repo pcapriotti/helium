@@ -17,7 +17,7 @@ size_t vfs_position(vfs_file_t *file)
   return file->ops->position(file->data);
 }
 
-int vfs_resize(vfs_file_t *file, size_t size)
+int vfs_resize(vfs_file_t *file, uint64_t size)
 {
   return file->ops->resize(file->data, size);
 }
