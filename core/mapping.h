@@ -24,6 +24,10 @@ void storage_mapping_init(storage_mapping_t *map,
                           void *buf,
                           size_t buf_size);
 
+void storage_mapping_reset(storage_mapping_t *map,
+                           storage_offset_t offset,
+                           size_t buf_offset);
+
 void *storage_mapping_read(storage_mapping_t *map,
                            storage_offset_t offset,
                            size_t size);

@@ -46,6 +46,14 @@ void storage_mapping_init(storage_mapping_t *map,
   storage_mapping_fetch(map, 0);
 }
 
+void storage_mapping_reset(storage_mapping_t *map,
+                           storage_offset_t offset,
+                           size_t buf_offset)
+{
+  map->offset = offset;
+  storage_mapping_fetch(map, buf_offset);
+}
+
 /*
   Retrieve a portion of the underlying storage. The offset is
   relative to the beginning of the mapping. The returned buffer is

@@ -38,7 +38,6 @@ void ext2_write(ext2_t *fs, unsigned offset, void *buffer,
                 void *x, size_t size)
 {
   size_t loc_offset = x - buffer;
-  TRACE("loc_offset: %lu\n", loc_offset);
   assert(loc_offset < fs->block_size);
 
   const int sector_size = storage_sector_size(fs->storage);
@@ -145,36 +144,44 @@ static int find_in_bitmap(uint32_t *bitmap, size_t size)
   return -1;
 }
 
-int ext2_get_free_inode(ext2_t *fs, unsigned group)
+static int find_in_mapped_bitmap(storage_mapping_t *map, size_t size)
 {
-  const int inodes_per_bitmap_block = fs->block_size << 3;
-  const int num_bitmap_blocks = DIV_UP
-    (ext2_superblock(fs)->inodes_per_group,
-     inodes_per_bitmap_block);
-
-  ext2_gdesc_t *desc = ext2_gdesc(fs, group);
-  if (desc->num_unalloc_inodes == 0) return -1;
-
-  size_t inode_bitmap_offset = desc->inode_bitmap_offset;
-  for (int i = 0; i < num_bitmap_blocks; i++) {
-    ext2_read_block(fs, inode_bitmap_offset + i);
-    uint32_t *bitmap = (uint32_t *)fs->buf;
-    size_t bitmap_size = fs->block_size / sizeof(uint32_t);
-    int index = find_in_bitmap(bitmap, bitmap_size);
+  const int num_chunks = DIV_UP(size, map->buf_size);
+  for (int i = 0; i < num_chunks; i++) {
+    uint32_t *bitmap = storage_mapping_read
+      (map, i * map->buf_size, map->buf_size);
+    size_t len = map->buf_size / sizeof(uint32_t);
+    int index = find_in_bitmap(bitmap, len);
     if (index != -1) {
       SET_BIT(bitmap, index);
-      ext2_write(fs, inode_bitmap_offset + i,
-                 fs->buf,
-                 &BIT_WORD(bitmap, index),
-                 sizeof(uint32_t));
-      desc->num_unalloc_inodes--;
-      storage_mapping_put(fs->gdesc_map, desc,
-                          sizeof(ext2_gdesc_t));
+      storage_mapping_put
+        (map, &BIT_WORD(bitmap, index), sizeof(uint32_t));
       return index;
     }
   }
 
   return -1;
+}
+
+int ext2_get_free_inode(ext2_t *fs, unsigned group)
+{
+  ext2_gdesc_t *desc = ext2_gdesc(fs, group);
+  if (desc->num_unalloc_inodes == 0) return -1;
+
+  storage_mapping_t bitmap;
+  storage_mapping_init(&bitmap, fs->storage,
+                       desc->inode_bitmap_offset,
+                       fs->buf,
+                       fs->block_size);
+  const size_t bitmap_size = ext2_superblock(fs)->inodes_per_group >> 3;
+  int index = find_in_mapped_bitmap(&bitmap, bitmap_size);
+  if (index != -1) {
+    desc->num_unalloc_inodes--;
+    storage_mapping_put(fs->gdesc_map, desc,
+                        sizeof(ext2_gdesc_t));
+  }
+
+  return index;
 }
 
 unsigned ext2_new_inode(ext2_t *fs, unsigned group, uint16_t type)
@@ -219,25 +226,21 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
   if (desc->num_unalloc_blocks == 0) return -1;
 
   size_t block_bitmap_offset = desc->block_bitmap_offset;
-  for (int i = 0; i < num_bitmap_blocks; i++) {
-    ext2_read_block(fs, block_bitmap_offset + i);
-    uint32_t *bitmap = (uint32_t *)fs->buf;
-    size_t bitmap_size = fs->block_size / sizeof(uint32_t);
-    int index = find_in_bitmap(bitmap, bitmap_size);
-    if (index != -1) {
-      SET_BIT(bitmap, index);
-      ext2_write(fs, block_bitmap_offset + i,
-                 fs->buf,
-                 &BIT_WORD(bitmap, index),
-                 sizeof(uint32_t));
-      desc->num_unalloc_blocks--;
-      storage_mapping_put(fs->gdesc_map, desc,
-                          sizeof(ext2_gdesc_t));
-      return index;
-    }
+  storage_mapping_t bitmap;
+  storage_mapping_init(&bitmap, fs->storage,
+                       desc->block_bitmap_offset,
+                       fs->buf,
+                       fs->block_size);
+
+  const size_t bitmap_size = ext2_superblock(fs)->blocks_per_group >> 3;
+  int index = find_in_mapped_bitmap(&bitmap, bitmap_size);
+  if (index != -1) {
+    desc->num_unalloc_blocks--;
+    storage_mapping_put(fs->gdesc_map, desc,
+                        sizeof(ext2_gdesc_t));
   }
 
-  return -1;
+  return index;
 }
 
 static ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
