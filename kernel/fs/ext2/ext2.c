@@ -71,6 +71,15 @@ static ext2_gdesc_t *ext2_gdesc(ext2_t *fs, unsigned group)
   return storage_mapping_read_item(fs->gdesc_map, group, ext2_gdesc_t);
 }
 
+static uint16_t ext2_superblock_inode_size(ext2_superblock_t *sb)
+{
+  if (sb->version_major >= 1) {
+    return sb->inode_size;
+  } else {
+    return 128;
+  }
+}
+
 ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 {
 #if EXT2_DEBUG
@@ -94,7 +103,7 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   fs->allocator = allocator;
   fs->sb_map = sb_map;
   fs->block_size = ext2_block_size(sb);
-  fs->inode_size = ext2_inode_size(sb);
+  fs->inode_size = ext2_superblock_inode_size(sb);
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
 
   /* cache block group descriptor table */
@@ -300,6 +309,12 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
   return table + fs->inode_size * index_in_block;
 }
 
+uint64_t ext2_inode_size(ext2_inode_t *inode)
+{
+  return (uint64_t) inode->size_lo |
+    ((uint64_t) inode->size_hi << 32);
+}
+
 typedef struct path_iterator {
   char *path;
   char *saveptr;
@@ -425,15 +440,6 @@ uint32_t ext2_block_size(ext2_superblock_t *sb)
   return 1024 << sb->log_block_size;
 }
 
-uint16_t ext2_inode_size(ext2_superblock_t *sb)
-{
-  if (sb->version_major >= 1) {
-    return sb->inode_size;
-  } else {
-    return 128;
-  }
-}
-
 int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, size_t size)
 {
   return -1;
@@ -534,8 +540,8 @@ void ext2_inode_iterator_next(ext2_inode_iterator_t *it)
 }
 
 uint32_t ext2_inode_iterator_block_size(ext2_inode_iterator_t *it) {
-  uint32_t offset = it->index * it->fs->block_size;
-  uint32_t ret = it->inode.size_lo - offset;
+  uint64_t offset = (uint64_t) it->index * (uint64_t) it->fs->block_size;
+  uint64_t ret = ext2_inode_size(&it->inode) - offset;
   if (ret > it->fs->block_size) {
     return it->fs->block_size;
   } else {

@@ -67,7 +67,7 @@ typedef struct ext2_inode {
   uint32_t pointer3;
   uint32_t generation;
   uint32_t file_acl;
-  uint32_t dir_acl;
+  uint32_t size_hi;
   uint32_t faddr;
   unsigned char os_value2[12];
 } __attribute__((packed)) ext2_inode_t;
@@ -103,7 +103,6 @@ enum
 
 void* ext2_read_block(ext2_t *fs, unsigned int offset);
 uint32_t ext2_block_size(ext2_superblock_t *sb);
-uint16_t ext2_inode_size(ext2_superblock_t *sb);
 
 /* ext2_t structure */
 
