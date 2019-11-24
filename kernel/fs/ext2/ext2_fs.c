@@ -63,6 +63,17 @@ static size_t position(void *data)
   return edata->offset;
 }
 
+static vfs_file_t *create(void *data, const char *path)
+{
+  ext2_t *fs = data;
+  if (!fs) return 0;
+
+  ext2_inode_t *inode = ext2_create(fs, path);
+  if (!inode) return 0;
+
+  return ext2_vfs_file_new(fs, inode);
+}
+
 static void ext2_vfs_file_del(void *_data)
 {
   ext2_vfs_data_t *data = _data;
@@ -134,6 +145,7 @@ vfs_ops_t ext2_vfs_ops = {
   .close = ext2_vfs_close,
   .new = ext2_vfs_new,
   .del = ext2_vfs_del,
+  .create = create,
   .read = read,
   .move = move,
   .position = position,

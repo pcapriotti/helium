@@ -347,11 +347,9 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
   return inode;
 }
 
-void ext2_add_entry(ext2_t *fs,
-                    ext2_inode_t *parent,
-                    const char *name,
-                    unsigned inode_num)
+ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
 {
+  return 0;
 }
 
 ext2_inode_t *ext2_find_entry(ext2_t *fs,

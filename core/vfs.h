@@ -36,6 +36,7 @@ vfs_file_t *vfs_open(vfs_t *fs, const char *path);
 int vfs_close(vfs_t *fs, vfs_file_t *file);
 void vfs_del(vfs_t *vfs);
 
+vfs_file_t *vfs_create(vfs_t *fs, const char *path);
 int vfs_read(vfs_file_t *file, void *buf, size_t size);
 int vfs_move(vfs_file_t *file, size_t offset);
 size_t vfs_position(vfs_file_t *file);
