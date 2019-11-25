@@ -87,12 +87,12 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
 #endif
 
   storage_mapping_t *sb_map = storage_mapping_new
-    (allocator, storage, 0, 1024);
+    (allocator, storage, 1024, (sizeof(ext2_superblock_t)));
   ext2_superblock_t *sb = storage_mapping_read_item
     (sb_map, 0, ext2_superblock_t);
   if (sb->signature != 0xef53) {
 #if EXT2_DEBUG
-    TRACE("Could not find superblock\n");
+    TRACE("[ext2] could not find superblock\n");
 #endif
     storage_mapping_del(sb_map, allocator);
     return 0;
