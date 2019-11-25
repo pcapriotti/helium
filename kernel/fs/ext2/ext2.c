@@ -186,9 +186,10 @@ int ext2_get_free_inode(ext2_t *fs, unsigned group)
 
   storage_mapping_t bitmap;
   storage_mapping_init(&bitmap, fs->storage,
-                       desc->inode_bitmap_offset,
+                       desc->inode_bitmap_offset * fs->block_size,
                        fs->buf,
                        fs->block_size);
+
   const size_t bitmap_size = ext2_superblock(fs)->inodes_per_group >> 3;
   int index = find_in_mapped_bitmap(&bitmap, bitmap_size);
   if (index != -1) {
@@ -247,7 +248,7 @@ void ext2_del_block(ext2_t *fs, unsigned block)
   size_t block_bitmap_offset = desc->block_bitmap_offset;
   storage_mapping_t bitmap;
   storage_mapping_init(&bitmap, fs->storage,
-                       desc->block_bitmap_offset,
+                       desc->block_bitmap_offset * fs->block_size,
                        fs->buf,
                        fs->block_size);
   mapped_bitmap_unset(&bitmap, block % blocks_per_group);
@@ -262,7 +263,7 @@ unsigned ext2_new_block(ext2_t *fs, unsigned group)
   size_t block_bitmap_offset = desc->block_bitmap_offset;
   storage_mapping_t bitmap;
   storage_mapping_init(&bitmap, fs->storage,
-                       desc->block_bitmap_offset,
+                       desc->block_bitmap_offset * fs->block_size,
                        fs->buf,
                        fs->block_size);
 
