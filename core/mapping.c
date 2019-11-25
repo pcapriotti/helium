@@ -4,20 +4,30 @@
 #include "core/util.h"
 
 #include <assert.h>
+#include <inttypes.h>
 #include <string.h>
+
+#define DEBUG_LOCAL 0
+
+#ifndef _HELIUM
+#if DEBUG_LOCAL
+#include <stdio.h>
+#define serial_printf printf
+#endif
+#endif
 
 static int storage_mapping_fetch(storage_mapping_t *map,
                                  storage_offset_t offset)
 {
 #if DEBUG_LOCAL
-  serial_printf("[storage_mapping] fetching offset: %llu\n", offset);
+  serial_printf("[storage_mapping] fetching offset: %" PRIu64 "\n", offset);
 #endif
   size_t start = ALIGN64(offset, storage_sector_size(map->storage));
+  map->buf_offset = start;
   return storage_read(map->storage,
                       map->buf,
                       map->offset + start,
                       map->buf_size);
-  map->buf_offset = start;
 }
 
 static int storage_mapping_in_offset(storage_mapping_t *map,
@@ -25,7 +35,7 @@ static int storage_mapping_in_offset(storage_mapping_t *map,
                                      size_t size)
 {
   return offset >= (size_t) map->buf_offset &&
-         offset + size < map->buf_offset + map->buf_size;
+         offset + size <= map->buf_offset + map->buf_size;
 }
 
 void storage_mapping_init(storage_mapping_t *map,
@@ -64,8 +74,11 @@ void *storage_mapping_read(storage_mapping_t *map,
                            size_t size)
 {
 #if DEBUG_LOCAL
-  serial_printf("[storage_mapping] read offset: %llu size: %u\n",
+  serial_printf("[storage_mapping] read offset: %" PRIu64 " size: %lu\n",
                 offset, size);
+  serial_printf("[storage mapping] map: %p, buf_offset: %" PRIu64
+                " buf_size: %lu\n",
+                map, map->buf_offset, map->buf_size);
 #endif
   assert(size <= map->buf_size);
 
@@ -76,7 +89,9 @@ void *storage_mapping_read(storage_mapping_t *map,
 
   assert(storage_mapping_in_offset(map, offset, size));
 
-  return map->buf + offset - map->buf_offset;
+  void *ret = map->buf + offset - map->buf_offset;
+
+  return ret;
 }
 
 /*
@@ -86,8 +101,12 @@ void *storage_mapping_read(storage_mapping_t *map,
 int storage_mapping_put(storage_mapping_t *map,
                         void *buf, size_t size)
 {
+#if DEBUG_LOCAL
+  serial_printf("[storage mapping] put size: %lu, buf_size: %lu\n",
+                size, map->buf_size);
+#endif
   assert(buf >= map->buf);
-  assert(buf + size < map->buf + map->buf_size);
+  assert(buf + size <= map->buf + map->buf_size);
 
   size_t offset = buf - map->buf;
   size_t start = ALIGN64(offset, storage_sector_size(map->storage));
@@ -122,6 +141,7 @@ storage_mapping_t *storage_mapping_new(allocator_t *allocator,
 {
   storage_mapping_t *map = allocator_alloc(allocator,
                                            sizeof(storage_mapping_t));
+  buf_size = ALIGN_UP(buf_size, storage_sector_size(storage));
   void *buf = allocator_alloc(allocator, buf_size);
   storage_mapping_init(map, storage, offset, buf, buf_size);
   return map;
