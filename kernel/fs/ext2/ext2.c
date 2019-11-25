@@ -474,21 +474,22 @@ ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
   }
   path_iterator_cleanup(&path_it, fs->allocator);
   if (!parent) return 0;
+  if (!token0) return 0;
 
   const int group = 0;
   ext2_indexed_inode_t ret = ext2_new_inode(fs, group, INODE_TYPE_FILE);
   if (!ret.inode) return 0;
 
-  const size_t len = strlen(token);
+  const size_t len = strlen(token0);
   ext2_dir_entry_t *entry = ext2_new_dir_entry
-    (fs, group, parent, token, len);
+    (fs, group, parent, token0, len);
   if (!entry) return 0;
 
   entry->inode = ret.index;
   entry->size = 0;
   entry->name_length_lo = len;
   entry->type = 2; /* TODO: use correct type */
-  memcpy(entry->name, token, len);
+  memcpy(entry->name, token0, len);
 
   return ret.inode;
 }
