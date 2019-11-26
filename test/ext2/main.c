@@ -7,11 +7,13 @@
 #include "core/allocator.h"
 #include "core/storage.h"
 #include "kernel/fs/ext2/ext2.h"
+#include "kernel/fs/ext2/iterator.h"
 
 int test_read(void *data, void *buf,
               uint64_t offset, uint32_t bytes)
 {
   FILE *image = (FILE*)data;
+  printf("reading %u bytes at offset %lu\n", bytes, offset);
   fseek(image, offset, SEEK_SET);
   fread(buf, bytes, 1, image);
   return 0;
@@ -120,6 +122,7 @@ int main(int argc, char **argv)
   }
 
   /* create new file */
+  ext2_inode_t *inode = ext2_create(fs, "/test");
 
   ext2_free_fs(fs);
   fclose(image);

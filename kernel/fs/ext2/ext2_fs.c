@@ -1,10 +1,10 @@
-#include "ext2_fs.h"
-#include "ext2.h"
-
 #include "core/allocator.h"
 #include "core/debug.h"
 #include "core/storage.h"
 #include "core/vfs.h"
+#include "fs/ext2/ext2_fs.h"
+#include "fs/ext2/ext2.h"
+#include "fs/ext2/iterator.h"
 
 #include <stddef.h>
 #include <string.h>

@@ -119,30 +119,15 @@ size_t ext2_fs_block_size(ext2_t *fs);
 /* inode API */
 /* note that the returned pointers are invalidated by further API calls */
 
+uint64_t ext2_inode_size(ext2_inode_t *inode);
 ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int i);
 ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path);
 ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name);
 int ext2_get_free_inode(ext2_t *fs, unsigned group);
 ext2_inode_t *ext2_create(ext2_t *fs, const char *path);
-
-/* inode block iterator API */
-typedef struct {
-  ext2_t *fs;
-  ext2_inode_t inode;
-  uint32_t index;
-} ext2_inode_iterator_t;
-
-void ext2_inode_iterator_init(ext2_inode_iterator_t *it, ext2_t *fs, ext2_inode_t *inode);
-ext2_inode_iterator_t *ext2_inode_iterator_new(ext2_t *fs, ext2_inode_t *inode);
-int ext2_inode_iterator_resize(ext2_inode_iterator_t *it, uint64_t size);
-void ext2_inode_iterator_del(ext2_inode_iterator_t *it);
-uint32_t ext2_inode_iterator_datablock(ext2_inode_iterator_t *it);
-void *ext2_inode_iterator_read(ext2_inode_iterator_t *it);
-void ext2_inode_iterator_read_into(ext2_inode_iterator_t *it, void *buffer);
-void ext2_inode_iterator_next(ext2_inode_iterator_t *it);
-void ext2_inode_iterator_set_index(ext2_inode_iterator_t *it, int index);
-int ext2_inode_iterator_index(ext2_inode_iterator_t *it);
-uint32_t ext2_inode_iterator_block_size(ext2_inode_iterator_t *it);
-int ext2_inode_iterator_end(ext2_inode_iterator_t *it);
+uint32_t *ext2_inode_block_pointer(ext2_t *fs,
+                                   ext2_inode_t *inode,
+                                   uint32_t index);
+int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, uint64_t size);
 
 #endif /* __EXT2_H__ */

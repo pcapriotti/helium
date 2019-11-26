@@ -1,6 +1,8 @@
 #ifndef FS_EXT2_DIR_H
 #define FS_EXT2_DIR_H
 
+#include "fs/ext2/iterator.h"
+
 typedef struct ext2_dir_iterator_t {
   ext2_t *fs;
   uint32_t index;
