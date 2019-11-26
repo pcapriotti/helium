@@ -106,6 +106,8 @@ ext2_t *ext2_new_fs(storage_t *storage, allocator_t *allocator)
   fs->block_size = ext2_block_size(sb);
   fs->inode_size = ext2_superblock_inode_size(sb);
   fs->buf = allocator_alloc(fs->allocator, fs->block_size);
+  fs->tmp_map = allocator_alloc(fs->allocator, sizeof(storage_mapping_t));
+  storage_mapping_init(fs->tmp_map, fs->storage, 0, fs->buf, fs->block_size);
 
   /* cache block group descriptor table */
   int num_groups = DIV_UP(sb->num_blocks, sb->blocks_per_group);
@@ -318,7 +320,9 @@ static ext2_dir_entry_t *ext2_new_dir_entry(ext2_t *fs,
   return 0;
 }
 
-ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
+ext2_inode_t *ext2_get_inode(ext2_t* fs,
+                             storage_mapping_t *map,
+                             unsigned int index)
 {
   index--;
   unsigned int group = index / ext2_superblock(fs)->inodes_per_group;
@@ -326,12 +330,8 @@ ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int index)
 
   unsigned int index_in_group = index %
     ext2_superblock(fs)->inodes_per_group;
-  unsigned int inodes_per_block = fs->block_size / fs->inode_size;
-  unsigned int block = index_in_group / inodes_per_block;
-
-  void *table = ext2_read_block(fs, gdesc->inode_table_offset + block);
-  unsigned int index_in_block = index_in_group % inodes_per_block;
-  return table + fs->inode_size * index_in_block;
+  storage_mapping_reset(map, gdesc->inode_table_offset * fs->block_size);
+  return storage_mapping_read_item(map, index_in_group, ext2_inode_t);
 }
 
 uint64_t ext2_inode_size(ext2_inode_t *inode)
@@ -436,15 +436,17 @@ void path_iterator_cleanup(path_iterator_t *it,
   allocator_free(allocator, it->path);
 }
 
-static inline ext2_inode_t *ext2_root(ext2_t *fs)
+static inline ext2_inode_t *ext2_root(ext2_t *fs, storage_mapping_t *map)
 {
-  return ext2_get_inode(fs, 2);
+  return ext2_get_inode(fs, map, 2);
 }
 
-ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
+ext2_inode_t *ext2_get_path_inode(ext2_t *fs,
+                                  storage_mapping_t *map,
+                                  const char *path)
 {
   /* get root first */
-  ext2_inode_t *inode = ext2_root(fs);
+  ext2_inode_t *inode = ext2_root(fs, map);
   if (!inode) return 0;
 
   path_iterator_t path_it;
@@ -453,16 +455,18 @@ ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path)
   char *token;
   while (inode && (token = path_iterator_next(&path_it))) {
     ext2_inode_t parent = *inode;
-    inode = ext2_find_entry(fs, &parent, token);
+    inode = ext2_find_entry(fs, map, &parent, token);
     token = path_iterator_next(&path_it);
   }
   path_iterator_cleanup(&path_it, fs->allocator);
   return inode;
 }
 
-ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
+ext2_inode_t *ext2_create(ext2_t *fs,
+                          storage_mapping_t *map,
+                          const char *path)
 {
-  ext2_inode_t *parent = ext2_root(fs);
+  ext2_inode_t *parent = ext2_root(fs, map);
   if (!parent) return 0;
 
   path_iterator_t path_it;
@@ -474,7 +478,7 @@ ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
   char *token;
   while (parent && (token = path_iterator_next(&path_it))) {
     ext2_inode_t p = *parent;
-    parent = ext2_find_entry(fs, &p, token0);
+    parent = ext2_find_entry(fs, map, &p, token0);
     token0 = token;
     token = path_iterator_next(&path_it);
   }
@@ -501,6 +505,7 @@ ext2_inode_t *ext2_create(ext2_t *fs, const char *path)
 }
 
 ext2_inode_t *ext2_find_entry(ext2_t *fs,
+                              storage_mapping_t *map,
                               ext2_inode_t *inode,
                               const char *name)
 {
@@ -517,7 +522,7 @@ ext2_inode_t *ext2_find_entry(ext2_t *fs,
     if (entry->inode &&
         entry->name_length_lo == name_length &&
         !memcmp(entry->name, name, entry->name_length_lo)) {
-      ret = ext2_get_inode(fs, entry->inode);
+      ret = ext2_get_inode(fs, map, entry->inode);
     }
   }
   ext2_dir_iterator_cleanup(&it);
@@ -528,6 +533,11 @@ ext2_inode_t *ext2_find_entry(ext2_t *fs,
 uint32_t ext2_block_size(ext2_superblock_t *sb)
 {
   return 1024 << sb->log_block_size;
+}
+
+storage_mapping_t *ext2_tmp_mapping(ext2_t *fs)
+{
+  return fs->tmp_map;
 }
 
 int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, uint64_t size)
@@ -561,3 +571,4 @@ int ext2_inode_resize(ext2_t *fs, ext2_inode_t *inode, uint64_t size)
 
   return 0;
 }
+

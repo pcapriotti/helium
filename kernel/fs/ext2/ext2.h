@@ -85,6 +85,7 @@ typedef struct ext2 {
   struct allocator *allocator;
   struct storage_mapping *sb_map;
   struct storage_mapping *gdesc_map;
+  struct storage_mapping *tmp_map;
   unsigned char *buf; /* must be at least as big as the block size */
   size_t block_size;
   size_t inode_size;
@@ -109,22 +110,29 @@ void ext2_write(ext2_t *fs, unsigned offset, void *buffer,
 
 /* ext2_t structure */
 
-struct storage;
-struct allocator;
-
 ext2_t *ext2_new_fs(struct storage *storage, struct allocator *allocator);
 void ext2_free_fs(ext2_t *fs);
 size_t ext2_fs_block_size(ext2_t *fs);
+struct storage_mapping *ext2_tmp_mapping(ext2_t *fs);
 
 /* inode API */
 /* note that the returned pointers are invalidated by further API calls */
 
 uint64_t ext2_inode_size(ext2_inode_t *inode);
-ext2_inode_t *ext2_get_inode(ext2_t* fs, unsigned int i);
-ext2_inode_t *ext2_get_path_inode(ext2_t *fs, const char *path);
-ext2_inode_t *ext2_find_entry(ext2_t *fs, ext2_inode_t *inode, const char *name);
+ext2_inode_t *ext2_get_inode(ext2_t* fs,
+                             struct storage_mapping *map,
+                             unsigned int i);
+ext2_inode_t *ext2_get_path_inode(ext2_t *fs,
+                                  struct storage_mapping *map,
+                                  const char *path);
+ext2_inode_t *ext2_find_entry(ext2_t *fs,
+                              struct storage_mapping *map,
+                              ext2_inode_t *inode,
+                              const char *name);
 int ext2_get_free_inode(ext2_t *fs, unsigned group);
-ext2_inode_t *ext2_create(ext2_t *fs, const char *path);
+ext2_inode_t *ext2_create(ext2_t *fs,
+                          struct storage_mapping *map,
+                          const char *path);
 uint32_t *ext2_inode_block_pointer(ext2_t *fs,
                                    ext2_inode_t *inode,
                                    uint32_t index);

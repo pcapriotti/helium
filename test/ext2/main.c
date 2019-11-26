@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "core/allocator.h"
+#include "core/mapping.h"
 #include "core/storage.h"
 #include "kernel/fs/ext2/ext2.h"
 #include "kernel/fs/ext2/iterator.h"
@@ -105,10 +106,13 @@ int main(int argc, char **argv)
   if (!fs) {
     error(1, 0, "Invalid superblock");
   }
+  storage_mapping_t *map = storage_mapping_new
+    (fs->allocator, fs->storage, 0, fs->block_size);
 
   /* read example file */
   if (0) {
-    ext2_inode_t *inode = ext2_get_path_inode(fs, "drivers/keyboard/keyboard.c");
+    ext2_inode_t *inode = ext2_get_path_inode
+      (fs, map, "drivers/keyboard/keyboard.c");
     if (inode) {
       ext2_inode_t tmp = *inode;
       ext2_inode_iterator_t *it = ext2_inode_iterator_new(fs, &tmp);
@@ -122,8 +126,9 @@ int main(int argc, char **argv)
   }
 
   /* create new file */
-  ext2_inode_t *inode = ext2_create(fs, "/test");
+  ext2_inode_t *inode = ext2_create(fs, map, "/test");
 
+  storage_mapping_del(map, fs->allocator);
   ext2_free_fs(fs);
   fclose(image);
 }

@@ -57,11 +57,10 @@ void storage_mapping_init(storage_mapping_t *map,
 }
 
 void storage_mapping_reset(storage_mapping_t *map,
-                           storage_offset_t offset,
-                           size_t buf_offset)
+                           storage_offset_t offset)
 {
   map->offset = offset;
-  storage_mapping_fetch(map, buf_offset);
+  storage_mapping_fetch(map, 0);
 }
 
 /*

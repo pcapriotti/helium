@@ -1,5 +1,6 @@
 #include "core/allocator.h"
 #include "core/debug.h"
+#include "core/mapping.h"
 #include "core/storage.h"
 #include "core/vfs.h"
 #include "fs/ext2/ext2_fs.h"
@@ -74,7 +75,7 @@ static vfs_file_t *create(void *data, const char *path)
   ext2_t *fs = data;
   if (!fs) return 0;
 
-  ext2_inode_t *inode = ext2_create(fs, path);
+  ext2_inode_t *inode = ext2_create(fs, ext2_tmp_mapping(fs), path);
   if (!inode) return 0;
 
   return ext2_vfs_file_new(fs, inode);
@@ -109,7 +110,8 @@ vfs_file_t *ext2_vfs_open(void *data, const char *path)
   ext2_t *fs = data;
   if (!fs) return 0;
 
-  ext2_inode_t *inode = ext2_get_path_inode(fs, path);
+  storage_mapping_t *map = ext2_tmp_mapping(fs);
+  ext2_inode_t *inode = ext2_get_path_inode(fs, map, path);
   if (!inode) return 0;
 
   return ext2_vfs_file_new(fs, inode);
